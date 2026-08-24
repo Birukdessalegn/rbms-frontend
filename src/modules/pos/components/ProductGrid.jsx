@@ -59,17 +59,27 @@ const products = [
   },
 ];
 
+function ProductGrid({ onAddProduct, activeCategory = "all", orderItems = [] }) {
+  const filteredProducts = products.filter((product) => {
+    if (activeCategory === "all") return true;
+    return product.category.toLowerCase() === activeCategory.toLowerCase();
+  });
 
-function ProductGrid({ onAddProduct }) {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-      {products.map((product) => (
-        <ProductCard
-          key={product.id}
-          product={product}
-          onAdd={onAddProduct}
-        />
-      ))}
+      {filteredProducts.map((product) => {
+        const orderItem = orderItems.find((item) => item.id === product.id);
+        const quantityInOrder = orderItem ? orderItem.quantity : 0;
+
+        return (
+          <ProductCard
+            key={product.id}
+            product={product}
+            onAdd={onAddProduct}
+            quantityInOrder={quantityInOrder}
+          />
+        );
+      })}
     </div>
   );
 }

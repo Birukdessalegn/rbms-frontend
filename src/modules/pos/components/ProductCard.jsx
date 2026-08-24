@@ -1,76 +1,40 @@
-import ProductCard from "./ProductCard";
+function ProductCard({ product, onAdd, quantityInOrder = 0 }) {
+  const isSelected = quantityInOrder > 0;
 
-const products = [
-  {
-    id: 1,
-    name: "Classic Burger",
-    category: "Food",
-    price: 350,
-    image: "🍔",
-  },
-  {
-    id: 2,
-    name: "Cheese Pizza",
-    category: "Food",
-    price: 500,
-    image: "🍕",
-  },
-  {
-    id: 3,
-    name: "Chicken Pasta",
-    category: "Food",
-    price: 450,
-    image: "🍝",
-  },
-  {
-    id: 4,
-    name: "Grilled Steak",
-    category: "Food",
-    price: 850,
-    image: "🥩",
-  },
-  {
-    id: 5,
-    name: "French Fries",
-    category: "Food",
-    price: 180,
-    image: "🍟",
-  },
-  {
-    id: 6,
-    name: "Fresh Juice",
-    category: "Drinks",
-    price: 150,
-    image: "🧃",
-  },
-  {
-    id: 7,
-    name: "Mojito",
-    category: "Bar",
-    price: 500,
-    image: "🍹",
-  },
-  {
-    id: 8,
-    name: "Beer",
-    category: "Bar",
-    price: 250,
-    image: "🍺",
-  },
-];
-
-function ProductGrid({ onAddProduct }) {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-      {products.map((product) => (
-        <ProductCard
-          key={product.id}
-          product={product}
-          onAdd={onAddProduct}
-        />
-      ))}
-    </div>
+    <button
+      onClick={() => onAdd && onAdd(product)}
+      className={`group relative rounded-xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
+        isSelected
+          ? "border-blue-500 bg-blue-50/30 ring-2 ring-blue-500/20"
+          : "border-gray-200 bg-white hover:border-blue-400"
+      }`}
+    >
+      {quantityInOrder > 0 && (
+        <span className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-sm">
+          {quantityInOrder}
+        </span>
+      )}
+
+      <div className="flex h-28 items-center justify-center rounded-lg bg-gray-100 text-4xl">
+        {product.image}
+      </div>
+
+      <div className="mt-3">
+        <h3 className="font-semibold text-gray-900">
+          {product.name}
+        </h3>
+
+        <p className="mt-1 text-sm text-gray-500">
+          {product.category}
+        </p>
+
+        <p className="mt-2 font-bold text-blue-600">
+          {product.price.toLocaleString()} ETB
+        </p>
+      </div>
+    </button>
   );
 }
 
-export default ProductGrid;
+export default ProductCard;

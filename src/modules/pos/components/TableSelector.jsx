@@ -11,8 +11,18 @@ const tables = [
   { id: 8, name: "Table 8", seats: 6, status: "available" },
 ];
 
-function TableSelector() {
-  const [selectedTable, setSelectedTable] = useState(null);
+function TableSelector({ selectedTable: selectedTableProp, onSelectTable }) {
+  const [internalSelectedTable, setInternalSelectedTable] = useState(null);
+  const selectedTable = selectedTableProp !== undefined ? selectedTableProp : internalSelectedTable;
+
+  const handleSelect = (tableId) => {
+    if (selectedTableProp === undefined) {
+      setInternalSelectedTable(tableId);
+    }
+    if (onSelectTable) {
+      onSelectTable(tableId);
+    }
+  };
 
   const getStatusStyles = (status) => {
     if (status === "available") {
@@ -41,7 +51,7 @@ function TableSelector() {
             <button
               key={table.id}
               disabled={!isAvailable}
-              onClick={() => setSelectedTable(table.id)}
+              onClick={() => handleSelect(table.id)}
               className={`
                 rounded-xl border p-4 text-center transition
                 ${getStatusStyles(table.status)}

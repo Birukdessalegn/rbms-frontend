@@ -1,4 +1,3 @@
-import { useState } from "react";
 
 const categories = [
   { id: "all", name: "All" },
@@ -9,9 +8,7 @@ const categories = [
   { id: "specials", name: "Specials" },
 ];
 
-function CategoryTabs() {
-  const [activeCategory, setActiveCategory] = useState("all");
-
+function CategoryTabs({ activeCategory = "all", onSelectCategory }) {
   return (
     <div>
       <div className="flex gap-2 overflow-x-auto pb-2">
@@ -21,7 +18,7 @@ function CategoryTabs() {
           return (
             <button
               key={category.id}
-              onClick={() => setActiveCategory(category.id)}
+              onClick={() => onSelectCategory && onSelectCategory(category.id)}
               className={`whitespace-nowrap rounded-lg px-5 py-2.5 text-sm font-medium transition ${
                 isActive
                   ? "bg-blue-600 text-white"

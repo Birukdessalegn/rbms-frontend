@@ -1,9 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import DashboardLayout from "../layouts/DashboardLayout";
 import DashboardPage from "../modules/dashboard/pages/DashboardPage";
-
-
+import KitchenPage from "../modules/kitchen/pages/KitchenPage";
 import POSPage from "../modules/pos/pages/POSPage";
+
+
 function AppRoutes() {
     return (
         <BrowserRouter>
@@ -21,7 +22,7 @@ function AppRoutes() {
 
                     <Route path="/inventory" element={<h1>Inventory</h1>} />
 
-                    <Route path="/kitchen" element={<h1>Kitchen</h1>} />
+                    <Route path="/kitchen" element={<KitchenPage />} />
 
                     <Route path="/bar" element={<h1>Bar</h1>} />
 

@@ -593,8 +593,7 @@ function DashboardLayout() {
                   <div className="pt-1 border-t border-slate-100">
                     <button
                       onClick={logout}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition"
-                    >
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition">
                       <LogOut className="h-4 w-4 text-rose-500" />
                       <span>Log Out</span>
                     </button>

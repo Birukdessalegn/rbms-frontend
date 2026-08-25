@@ -182,3 +182,34 @@
     border-right-color: var(--border);
   }
 }
+
+
+@media print {
+  body {
+    background: white !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #printable-report,
+  #printable-report * {
+    visibility: visible;
+  }
+
+  #printable-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 20px !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+}

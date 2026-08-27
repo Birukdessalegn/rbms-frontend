@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { hasPermission } from "../config/permissions";
+import { useRestaurant } from "../context/RestaurantContext";
 
 import {
   LayoutDashboard,
+  Armchair,
   ShoppingCart,
   Package,
   Boxes,
@@ -28,13 +30,21 @@ import {
   Settings,
   User,
   ShieldCheck,
-  Plus,
   CheckCircle2,
+  ClipboardList,
+  Clock,
+  ArrowLeftRight,
+  AlertTriangle,
 } from "lucide-react";
+
+/* =========================================================
+   MAIN NAVIGATION
+========================================================= */
 
 const navigationGroups = [
   {
     title: "Overview",
+
     items: [
       {
         name: "Dashboard",
@@ -47,38 +57,89 @@ const navigationGroups = [
 
   {
     title: "Operations",
+
     items: [
       {
         name: "POS",
-        path: "/pos",
         icon: ShoppingCart,
-        badge: "Live",
         permission: "pos.view",
+
+        children: [
+          {
+            name: "POS Dashboard",
+            path: "/pos",
+            icon: ShoppingCart,
+          },
+          {
+            name: "Tables",
+            path: "/pos/tables",
+            icon: UtensilsCrossed,
+          },
+          {
+            name: "Reports",
+            path: "/pos/reports",
+            icon: BarChart3,
+          },
+        ],
       },
+
       {
         name: "Kitchen",
-        path: "/kitchen",
         icon: Flame,
-        badge: "4",
         permission: "kitchen.view",
+
+        children: [
+          {
+            name: "Kitchen Dashboard",
+            path: "/kitchen",
+            icon: Flame,
+          },
+          {
+            name: "Reports",
+            path: "/kitchen/reports",
+            icon: BarChart3,
+          },
+        ],
       },
+
       {
         name: "Bar",
-        path: "/bar",
         icon: Wine,
         permission: "bar.view",
+
+        children: [
+          {
+            name: "Bar Dashboard",
+            path: "/bar",
+            icon: Wine,
+          },
+          {
+            name: "Reports",
+            path: "/bar/reports",
+            icon: BarChart3,
+          },
+        ],
       },
+
       {
         name: "Reservations",
         path: "/reservations",
         icon: CalendarDays,
         permission: "reservations.view",
       },
+
+      {
+        name: "Tables",
+        path: "/tables",
+        icon: Armchair,
+        permission: "tables.view",
+      },
     ],
   },
 
   {
     title: "Management",
+
     items: [
       {
         name: "Products",
@@ -86,18 +147,48 @@ const navigationGroups = [
         icon: Package,
         permission: "products.view",
       },
+
       {
         name: "Inventory",
-        path: "/inventory",
         icon: Boxes,
         permission: "inventory.view",
+
+        children: [
+          {
+            name: "Inventory Dashboard",
+            path: "/inventory",
+            icon: Boxes,
+          },
+          {
+            name: "Stock",
+            path: "/inventory/stock",
+            icon: Package,
+          },
+          {
+            name: "Low Stock",
+            path: "/inventory/low-stock",
+            icon: AlertTriangle,
+          },
+          {
+            name: "Transactions",
+            path: "/inventory/transactions",
+            icon: ArrowLeftRight,
+          },
+          {
+            name: "Reports",
+            path: "/inventory/reports",
+            icon: BarChart3,
+          },
+        ],
       },
+
       {
         name: "Customers",
         path: "/customers",
         icon: Users,
         permission: "customers.view",
       },
+
       {
         name: "Purchasing",
         path: "/purchasing",
@@ -109,19 +200,34 @@ const navigationGroups = [
 
   {
     title: "Administration",
+
     items: [
       {
         name: "Employees",
-        path: "/employees",
         icon: UserCheck,
         permission: "employees.view",
+
+        children: [
+          {
+            name: "Employee Dashboard",
+            path: "/employees",
+            icon: UserCheck,
+          },
+          {
+            name: "Attendance",
+            path: "/employees/attendance",
+            icon: Clock,
+          },
+        ],
       },
+
       {
         name: "Expenses",
         path: "/expenses",
         icon: Receipt,
         permission: "expenses.view",
       },
+
       {
         name: "Reports",
         path: "/reports",
@@ -132,64 +238,142 @@ const navigationGroups = [
   },
 ];
 
-const mockNotifications = [
-  {
-    id: 1,
-    title: "New Order #1042",
-    time: "2 mins ago",
-    unread: true,
-    category: "POS",
-  },
-  {
-    id: 2,
-    title: "Kitchen delay alert on Table 4",
-    time: "10 mins ago",
-    unread: true,
-    category: "Kitchen",
-  },
-  {
-    id: 3,
-    title: "Low stock: Espresso Beans",
-    time: "1 hour ago",
-    unread: false,
-    category: "Inventory",
-  },
-];
+/* =========================================================
+   COMPONENT
+========================================================= */
 
 function DashboardLayout() {
-  const { user, logout } = useAuth();
+  const {
+    notifications = [],
+    markNotificationAsRead,
+    clearNotifications,
+  } = useRestaurant();
 
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const { user, logout } = useAuth();
 
   const location = useLocation();
 
+  /* =========================================================
+     USER INFORMATION
+  ========================================================= */
+
+  /*
+    Backend returns:
+
+    {
+      username: "testuser",
+      email: "test@rbms.com",
+      role: "waiter"
+    }
+
+    Frontend uses uppercase roles:
+
+    WAITER
+    ADMIN
+    MANAGER
+    etc.
+  */
+
+  const normalizedRole = user?.role?.toUpperCase() || "USER";
+
+  const displayName =
+    user?.name ||
+    user?.username ||
+    "User";
+
+  const userInitials = displayName
+    .split(" ")
+    .map((name) => name[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  /* =========================================================
+     STATE
+  ========================================================= */
+
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  const [showNotifications, setShowNotifications] =
+    useState(false);
+
+  const [showUserMenu, setShowUserMenu] =
+    useState(false);
+
+  const [searchQuery, setSearchQuery] =
+    useState("");
+
+  const [openMenus, setOpenMenus] =
+    useState({});
+
   const notificationsRef = useRef(null);
+
   const userMenuRef = useRef(null);
 
-  // -----------------------------------------
-  // FILTER NAVIGATION BASED ON USER ROLE
-  // -----------------------------------------
-
-  const visibleNavigationGroups = navigationGroups
-    .map((group) => ({
-      ...group,
-
-      items: group.items.filter((item) =>
-        hasPermission(user?.role, item.permission)
-      ),
-    }))
-    .filter((group) => group.items.length > 0);
-
-  // -----------------------------------------
-  // CLOSE DROPDOWNS WHEN CLICKING OUTSIDE
-  // -----------------------------------------
+  /* =========================================================
+     AUTOMATICALLY OPEN MENU BASED ON CURRENT URL
+  ========================================================= */
 
   useEffect(() => {
-    function handleClickOutside(event) {
+    const path = location.pathname;
+
+    const menusToOpen = {};
+
+    navigationGroups.forEach((group) => {
+      group.items.forEach((item) => {
+        if (!item.children) return;
+
+        const isInside = item.children.some(
+          (child) =>
+            path === child.path ||
+            path.startsWith(child.path + "/")
+        );
+
+        if (isInside) {
+          menusToOpen[item.name] = true;
+        }
+      });
+    });
+
+    if (Object.keys(menusToOpen).length === 0) {
+      return;
+    }
+
+    setOpenMenus((previous) => {
+      const hasChanges = Object.entries(menusToOpen).some(
+        ([key, value]) => previous[key] !== value
+      );
+
+      if (!hasChanges) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        ...menusToOpen,
+      };
+    });
+  }, [location.pathname]);
+
+  /* =========================================================
+     TOGGLE SIDEBAR MENU
+  ========================================================= */
+
+  const toggleMenu = (name) => {
+    setOpenMenus((previous) => ({
+      ...previous,
+      [name]: !previous[name],
+    }));
+  };
+
+  /* =========================================================
+     CLOSE DROPDOWNS WHEN CLICKING OUTSIDE
+  ========================================================= */
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
       if (
         notificationsRef.current &&
         !notificationsRef.current.contains(event.target)
@@ -203,90 +387,198 @@ function DashboardLayout() {
       ) {
         setShowUserMenu(false);
       }
-    }
+    };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
     };
   }, []);
 
-  // -----------------------------------------
-  // CLOSE MOBILE SIDEBAR WHEN ROUTE CHANGES
-  // -----------------------------------------
+  /* =========================================================
+     CLOSE MOBILE SIDEBAR WHEN ROUTE CHANGES
+  ========================================================= */
 
   useEffect(() => {
     setIsMobileOpen(false);
   }, [location.pathname]);
 
-  // -----------------------------------------
-  // ACTIVE PAGE / BREADCRUMB
-  // -----------------------------------------
+  /* =========================================================
+     CURRENT PAGE
+  ========================================================= */
 
   const currentPath = location.pathname;
 
   let activeItemName = "Dashboard";
+
   let activeGroupTitle = "Overview";
 
   for (const group of navigationGroups) {
-    const item = group.items.find((i) => i.path === currentPath);
+    for (const item of group.items) {
+      if (item.path === currentPath) {
+        activeItemName = item.name;
 
-    if (item) {
-      activeItemName = item.name;
-      activeGroupTitle = group.title;
-      break;
+        activeGroupTitle = group.title;
+      }
+
+      if (item.children) {
+        const child = item.children.find(
+          (childItem) =>
+            childItem.path === currentPath
+        );
+
+        if (child) {
+          activeItemName = child.name;
+
+          activeGroupTitle = item.name;
+        }
+      }
     }
   }
 
-  // -----------------------------------------
-  // USER INITIALS
-  // -----------------------------------------
+  /* =========================================================
+     VISIBLE NAVIGATION
+  ========================================================= */
 
-  const userInitials =
-    user?.name
-      ?.split(" ")
-      .map((name) => name[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "U";
+  const visibleNavigationGroups =
+    navigationGroups
+      .map((group) => {
+        const visibleItems = group.items.filter(
+          (item) => {
+            /*
+              ADMIN should see everything.
+
+              This is also useful while we transition
+              from the old demo authentication system.
+            */
+
+            if (normalizedRole === "ADMIN") {
+              return true;
+            }
+
+            /*
+              Dashboard is only for ADMIN and MANAGER.
+            */
+
+            if (item.path === "/dashboard") {
+              return (
+                normalizedRole === "ADMIN" ||
+                normalizedRole === "MANAGER"
+              );
+            }
+
+            /*
+              Normal permission checking.
+            */
+
+            if (!item.permission) {
+              return false;
+            }
+
+            return hasPermission(
+              normalizedRole,
+              item.permission
+            );
+          }
+        );
+
+        return {
+          ...group,
+          items: visibleItems,
+        };
+      })
+      .filter(
+        (group) => group.items.length > 0
+      );
+
+  /* =========================================================
+     UNREAD NOTIFICATIONS
+  ========================================================= */
+
+  const unreadCount = notifications.filter(
+    (notification) => !notification.read
+  ).length;
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
 
   return (
     <div className="flex min-h-screen w-full bg-slate-50 font-sans text-slate-800 antialiased">
-      {/* -----------------------------------------
+
+      {/* =====================================================
           MOBILE OVERLAY
-      ----------------------------------------- */}
+      ===================================================== */}
 
       {isMobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs transition-opacity lg:hidden"
-          onClick={() => setIsMobileOpen(false)}
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs lg:hidden"
+          onClick={() =>
+            setIsMobileOpen(false)
+          }
         />
       )}
 
-      {/* -----------------------------------------
+      {/* =====================================================
           SIDEBAR
-      ----------------------------------------- */}
+      ===================================================== */}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-slate-900 text-slate-300 transition-all duration-300 ease-in-out border-r border-slate-800 ${
-          isCollapsed ? "lg:w-20" : "lg:w-64"
-        } ${
-          isMobileOpen
-            ? "translate-x-0 w-64 shadow-2xl"
-            : "-translate-x-full lg:translate-x-0"
-        }`}
+        className={`
+          fixed
+          top-0
+          bottom-0
+          left-0
+          z-50
+          flex
+          flex-col
+          bg-slate-900
+          text-slate-300
+          transition-all
+          duration-300
+          border-r
+          border-slate-800
+
+          ${
+            isCollapsed
+              ? "lg:w-20"
+              : "lg:w-64"
+          }
+
+          ${
+            isMobileOpen
+              ? "translate-x-0 w-64 shadow-2xl"
+              : "-translate-x-full lg:translate-x-0"
+          }
+        `}
       >
-        {/* Brand */}
+
+        {/* ===================================================
+            BRAND
+        =================================================== */}
+
         <div className="flex h-16 shrink-0 items-center justify-between px-4 border-b border-slate-800/80">
+
           <div className="flex items-center gap-3 overflow-hidden">
+
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-lg shadow-blue-500/30">
+
               <UtensilsCrossed className="h-5 w-5" />
+
             </div>
 
             {!isCollapsed && (
-              <div className="flex flex-col transition-opacity duration-200">
+              <div>
+
                 <div className="flex items-center gap-1.5">
+
                   <span className="font-bold text-lg text-white tracking-wide">
                     RBMS
                   </span>
@@ -294,134 +586,353 @@ function DashboardLayout() {
                   <span className="rounded-md bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-blue-400 border border-blue-500/30 uppercase">
                     PRO
                   </span>
+
                 </div>
 
-                <span className="text-[11px] font-medium text-slate-400 truncate">
+                <span className="text-[11px] font-medium text-slate-400">
                   Restaurant & Bar
                 </span>
+
               </div>
             )}
+
           </div>
 
-          {/* Mobile close */}
           <button
-            onClick={() => setIsMobileOpen(false)}
+            onClick={() =>
+              setIsMobileOpen(false)
+            }
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white lg:hidden"
-            aria-label="Close menu"
           >
             <X className="h-5 w-5" />
           </button>
+
         </div>
 
-        {/* -----------------------------------------
+        {/* ===================================================
             NAVIGATION
-        ----------------------------------------- */}
+        =================================================== */}
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6 custom-scrollbar">
-          {visibleNavigationGroups.map((group) => (
-            <div key={group.title} className="space-y-1">
-              {!isCollapsed && (
-                <h3 className="px-3 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
-                  {group.title}
-                </h3>
-              )}
 
-              {group.items.map((item) => {
-                const Icon = item.icon;
+          {visibleNavigationGroups.map(
+            (group) => (
 
-                return (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    title={isCollapsed ? item.name : undefined}
-                    className={({ isActive }) =>
-                      `group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
-                        isActive
-                          ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
-                          : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
-                      } ${isCollapsed ? "justify-center px-0" : ""}`
+              <div
+                key={group.title}
+                className="space-y-1"
+              >
+
+                {!isCollapsed && (
+                  <h3 className="px-3 text-[11px] font-semibold tracking-wider text-slate-400 uppercase mb-2">
+                    {group.title}
+                  </h3>
+                )}
+
+                {group.items.map(
+                  (item) => {
+
+                    const Icon = item.icon;
+
+                    /* =========================================
+                       ITEM WITH CHILDREN
+                    ========================================= */
+
+                    if (item.children) {
+
+                      const isOpen =
+                        openMenus[item.name];
+
+                      const isChildActive =
+                        item.children.some(
+                          (child) =>
+                            location.pathname ===
+                              child.path ||
+                            location.pathname.startsWith(
+                              child.path + "/"
+                            )
+                        );
+
+                      return (
+                        <div
+                          key={item.name}
+                        >
+
+                          {/* Parent */}
+
+                          <button
+                            onClick={() =>
+                              toggleMenu(
+                                item.name
+                              )
+                            }
+                            title={
+                              isCollapsed
+                                ? item.name
+                                : undefined
+                            }
+                            className={`
+                              w-full
+                              group
+                              flex
+                              items-center
+                              gap-3
+                              rounded-xl
+                              px-3
+                              py-2.5
+                              text-sm
+                              font-medium
+                              transition-all
+
+                              ${
+                                isChildActive
+                                  ? "bg-blue-600/20 text-blue-300"
+                                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                              }
+
+                              ${
+                                isCollapsed
+                                  ? "justify-center px-0"
+                                  : ""
+                              }
+                            `}
+                          >
+
+                            <Icon className="h-5 w-5 shrink-0" />
+
+                            {!isCollapsed && (
+                              <>
+                                <span className="flex-1 text-left">
+                                  {item.name}
+                                </span>
+
+                                <ChevronDown
+                                  className={`
+                                    h-4
+                                    w-4
+                                    transition-transform
+
+                                    ${
+                                      isOpen
+                                        ? "rotate-180"
+                                        : ""
+                                    }
+                                  `}
+                                />
+                              </>
+                            )}
+
+                          </button>
+
+                          {/* Children */}
+
+                          {!isCollapsed &&
+                            isOpen && (
+                              <div className="ml-5 mt-1 space-y-1 border-l border-slate-700 pl-3">
+
+                                {item.children.map(
+                                  (child) => {
+
+                                    const ChildIcon =
+                                      child.icon;
+
+                                    return (
+                                      <NavLink
+                                        key={
+                                          child.path
+                                        }
+                                        to={
+                                          child.path
+                                        }
+                                        end
+                                        className={({
+                                          isActive,
+                                        }) =>
+                                          `
+                                          flex
+                                          items-center
+                                          gap-3
+                                          rounded-lg
+                                          px-3
+                                          py-2
+                                          text-xs
+                                          font-medium
+                                          transition
+
+                                          ${
+                                            isActive
+                                              ? "bg-blue-600 text-white"
+                                              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                                          }
+                                          `
+                                        }
+                                      >
+
+                                        <ChildIcon className="h-4 w-4" />
+
+                                        <span>
+                                          {
+                                            child.name
+                                          }
+                                        </span>
+
+                                      </NavLink>
+                                    );
+                                  }
+                                )}
+
+                              </div>
+                            )}
+
+                        </div>
+                      );
                     }
-                  >
-                    <Icon className="h-5 w-5 shrink-0 transition-transform group-hover:scale-105" />
 
-                    {!isCollapsed && (
-                      <span className="flex-1 truncate">
-                        {item.name}
-                      </span>
-                    )}
+                    /* =========================================
+                       NORMAL ITEM
+                    ========================================= */
 
-                    {!isCollapsed && item.badge && (
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                          item.badge === "Live"
-                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse"
-                            : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                        }`}
+                    return (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        end
+                        title={
+                          isCollapsed
+                            ? item.name
+                            : undefined
+                        }
+                        className={({
+                          isActive,
+                        }) =>
+                          `
+                          group
+                          flex
+                          items-center
+                          gap-3
+                          rounded-xl
+                          px-3
+                          py-2.5
+                          text-sm
+                          font-medium
+                          transition-all
+
+                          ${
+                            isActive
+                              ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                              : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                          }
+
+                          ${
+                            isCollapsed
+                              ? "justify-center px-0"
+                              : ""
+                          }
+                          `
+                        }
                       >
-                        {item.badge}
-                      </span>
-                    )}
-                  </NavLink>
-                );
-              })}
-            </div>
-          ))}
+
+                        <Icon className="h-5 w-5 shrink-0" />
+
+                        {!isCollapsed && (
+                          <span className="flex-1 truncate">
+                            {item.name}
+                          </span>
+                        )}
+
+                      </NavLink>
+                    );
+                  }
+                )}
+
+              </div>
+            )
+          )}
+
         </nav>
 
-        {/* -----------------------------------------
+        {/* ===================================================
             SIDEBAR FOOTER
-        ----------------------------------------- */}
+        =================================================== */}
 
         <div className="hidden lg:flex shrink-0 items-center justify-between p-3 border-t border-slate-800">
+
           {!isCollapsed && (
             <div className="flex items-center gap-2.5 px-2">
+
               <div className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
 
               <span className="text-xs font-medium text-slate-400">
                 Store #1 Online
               </span>
+
             </div>
           )}
 
           <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            onClick={() =>
+              setIsCollapsed(
+                !isCollapsed
+              )
+            }
             className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors mx-auto"
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
+
             {isCollapsed ? (
               <ChevronRight className="h-5 w-5" />
             ) : (
               <ChevronLeft className="h-5 w-5" />
             )}
+
           </button>
+
         </div>
+
       </aside>
 
-      {/* -----------------------------------------
-          MAIN WRAPPER
-      ----------------------------------------- */}
+      {/* =====================================================
+          MAIN CONTENT
+      ===================================================== */}
 
       <div
-        className={`flex min-h-screen min-w-0 flex-1 flex-col transition-all duration-300 ease-in-out ${
-          isCollapsed ? "lg:ml-20" : "lg:ml-64"
-        }`}
+        className={`
+          flex
+          min-h-screen
+          min-w-0
+          flex-1
+          flex-col
+          transition-all
+          duration-300
+
+          ${
+            isCollapsed
+              ? "lg:ml-20"
+              : "lg:ml-64"
+          }
+        `}
       >
-        {/* -----------------------------------------
+
+        {/* ===================================================
             HEADER
-        ----------------------------------------- */}
+        =================================================== */}
 
         <header className="sticky top-0 z-30 flex h-16 w-full shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/80 px-4 md:px-6 backdrop-blur-md">
-          {/* Left */}
+
+          {/* LEFT */}
+
           <div className="flex items-center gap-3">
+
             <button
-              onClick={() => setIsMobileOpen(true)}
+              onClick={() =>
+                setIsMobileOpen(true)
+              }
               className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
-              aria-label="Open sidebar"
             >
               <Menu className="h-5 w-5" />
             </button>
 
             <div className="flex items-center gap-2 text-sm">
+
               <span className="hidden sm:inline font-semibold text-slate-500">
                 {activeGroupTitle}
               </span>
@@ -430,224 +941,394 @@ function DashboardLayout() {
                 /
               </span>
 
-              <span className="font-bold text-blue-950 text-base md:text-lg tracking-tight">
+              <span className="font-bold text-blue-950 text-base md:text-lg">
                 {activeItemName}
               </span>
+
             </div>
+
           </div>
 
-          {/* Right */}
+          {/* RIGHT */}
+
           <div className="flex items-center gap-2.5 md:gap-4">
-            {/* Search */}
+
+            {/* SEARCH */}
+
             <div className="relative hidden md:block w-56 lg:w-72">
+
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
               <input
                 type="text"
                 placeholder="Search orders, items..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-9 pr-12 text-xs md:text-sm text-slate-800 placeholder-slate-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                onChange={(e) =>
+                  setSearchQuery(
+                    e.target.value
+                  )
+                }
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-9 pr-12 text-xs md:text-sm text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
 
-              <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 shadow-xs">
-                ⌘K
-              </kbd>
             </div>
 
-            {/* New POS Order */}
-            <NavLink
-              to="/pos"
-              className="hidden sm:flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition"
-            >
-              <Plus className="h-4 w-4" />
-              <span>New POS Order</span>
-            </NavLink>
+            {/* =================================================
+                NOTIFICATIONS
+            ================================================= */}
 
-            {/* Notifications */}
-            <div className="relative" ref={notificationsRef}>
+            <div
+              className="relative"
+              ref={notificationsRef}
+            >
+
               <button
                 onClick={() =>
-                  setShowNotifications(!showNotifications)
+                  setShowNotifications(
+                    (prev) => !prev
+                  )
                 }
-                className="relative rounded-xl p-2 text-slate-600 hover:bg-slate-100 transition-colors"
-                aria-label="Notifications"
+                className="relative rounded-xl p-2 text-slate-600 hover:bg-slate-100"
               >
+
                 <Bell className="h-5 w-5" />
 
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
+                {unreadCount > 0 && (
+                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
+                )}
+
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl ring-1 ring-black/5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-slate-900 text-sm">
+                <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+
+                  {/* Header */}
+
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+
+                    <div>
+
+                      <h3 className="text-sm font-semibold text-slate-900">
                         Notifications
                       </h3>
 
-                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
-                        2 New
-                      </span>
+                      <p className="text-[10px] text-slate-400">
+                        {unreadCount} unread
+                      </p>
+
                     </div>
 
-                    <button className="text-xs text-blue-600 hover:underline">
-                      Mark read
-                    </button>
-                  </div>
-
-                  <div className="mt-2 divide-y divide-slate-100 max-h-64 overflow-y-auto">
-                    {mockNotifications.map((n) => (
-                      <div
-                        key={n.id}
-                        className="py-2.5 flex items-start gap-3 hover:bg-slate-50 rounded-lg p-1.5 transition"
+                    {notifications.length >
+                      0 && (
+                      <button
+                        onClick={
+                          clearNotifications
+                        }
+                        className="text-[10px] font-medium text-blue-600 hover:text-blue-700"
                       >
-                        <div className="mt-0.5 rounded-full bg-blue-50 p-1.5 text-blue-600 shrink-0">
-                          <CheckCircle2 className="h-4 w-4" />
-                        </div>
+                        Clear all
+                      </button>
+                    )}
 
-                        <div className="flex-1">
-                          <p className="text-xs font-medium text-slate-800">
-                            {n.title}
-                          </p>
-
-                          <span className="text-[10px] text-slate-400">
-                            {n.time}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
                   </div>
+
+                  {/* Notification List */}
+
+                  <div className="max-h-96 overflow-y-auto">
+
+                    {notifications.length ===
+                    0 ? (
+                      <div className="flex flex-col items-center justify-center px-4 py-10">
+
+                        <Bell className="mb-2 h-8 w-8 text-slate-300" />
+
+                        <p className="text-xs font-medium text-slate-500">
+                          No notifications
+                        </p>
+
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          New kitchen activity
+                          will appear here.
+                        </p>
+
+                      </div>
+                    ) : (
+                      notifications.map(
+                        (notification) => (
+
+                          <button
+                            key={
+                              notification.id
+                            }
+                            onClick={() =>
+                              markNotificationAsRead(
+                                notification.id
+                              )
+                            }
+                            className={`
+                              flex
+                              w-full
+                              gap-3
+                              border-b
+                              border-slate-100
+                              px-4
+                              py-3
+                              text-left
+                              transition
+                              hover:bg-slate-50
+
+                              ${
+                                notification.read
+                                  ? "bg-white"
+                                  : "bg-blue-50/50"
+                              }
+                            `}
+                          >
+
+                            {/* Icon */}
+
+                            <div
+                              className={`
+                                mt-0.5
+                                flex
+                                h-8
+                                w-8
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-lg
+
+                                ${
+                                  notification.type ===
+                                  "ready"
+                                    ? "bg-green-100 text-green-600"
+                                    : "bg-blue-100 text-blue-600"
+                                }
+                              `}
+                            >
+
+                              {notification.type ===
+                              "ready" ? (
+                                <CheckCircle2 className="h-4 w-4" />
+                              ) : (
+                                <ClipboardList className="h-4 w-4" />
+                              )}
+
+                            </div>
+
+                            {/* Content */}
+
+                            <div className="min-w-0 flex-1">
+
+                              <div className="flex items-start justify-between gap-2">
+
+                                <p
+                                  className={`
+                                    text-xs
+
+                                    ${
+                                      notification.read
+                                        ? "font-medium text-slate-700"
+                                        : "font-bold text-slate-900"
+                                    }
+                                  `}
+                                >
+                                  {
+                                    notification.title
+                                  }
+                                </p>
+
+                                {!notification.read && (
+                                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
+                                )}
+
+                              </div>
+
+                              <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                                {
+                                  notification.message
+                                }
+                              </p>
+
+                              <p className="mt-1 text-[10px] text-slate-400">
+
+                                {notification.createdAt
+                                  ? new Date(
+                                      notification.createdAt
+                                    ).toLocaleTimeString(
+                                      [],
+                                      {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      }
+                                    )
+                                  : "Just now"}
+
+                              </p>
+
+                            </div>
+
+                          </button>
+
+                        )
+                      )
+                    )}
+
+                  </div>
+
                 </div>
               )}
+
             </div>
 
-            {/* Divider */}
+            {/* DIVIDER */}
+
             <div className="h-6 w-px bg-slate-200 hidden sm:block" />
 
-            {/* -----------------------------------------
+            {/* =================================================
                 USER MENU
-            ----------------------------------------- */}
+            ================================================= */}
 
-            <div className="relative" ref={userMenuRef}>
+            <div
+              className="relative"
+              ref={userMenuRef}
+            >
+
               <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-3 rounded-xl p-1.5 hover:bg-slate-100 transition-colors text-left"
+                onClick={() =>
+                  setShowUserMenu(
+                    (prev) => !prev
+                  )
+                }
+                className="flex items-center gap-3 rounded-xl p-1.5 hover:bg-slate-100"
               >
+
+                {/* Avatar */}
+
                 <div className="relative">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-slate-800 to-slate-700 text-sm font-semibold text-white shadow-sm">
+
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-slate-800 to-slate-700 text-sm font-semibold text-white">
+
                     {userInitials}
+
                   </div>
 
                   <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white" />
+
                 </div>
 
+                {/* User information */}
+
                 <div className="hidden md:flex flex-col">
-                  <span className="text-xs font-bold text-slate-900 leading-tight">
-                    {user?.name || "User"}
+
+                  <span className="text-xs font-bold text-slate-900">
+                    {displayName}
                   </span>
 
-                  <span className="text-[11px] font-medium text-slate-500">
-                    {user?.role || "User"}
+                  <span className="text-[11px] text-slate-500">
+                    {normalizedRole}
                   </span>
+
                 </div>
 
                 <ChevronDown className="h-4 w-4 text-slate-400 hidden md:block" />
+
               </button>
 
-              {/* User Dropdown */}
+              {/* USER DROPDOWN */}
+
               {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl ring-1 ring-black/5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl z-50">
+
+                  {/* User info */}
+
                   <div className="px-3 py-2 border-b border-slate-100">
+
                     <p className="text-xs font-bold text-slate-900">
-                      {user?.name || "User"}
+                      {displayName}
                     </p>
 
                     <p className="text-[11px] text-slate-500 truncate">
-                      {user?.email || "No email"}
+                      {user?.email ||
+                        "No email"}
                     </p>
 
                     <span className="mt-1 inline-block rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
-                      {user?.role || "USER"}
+                      {normalizedRole}
                     </span>
+
                   </div>
 
-                  <div className="py-1 space-y-0.5">
-                    <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition">
+                  {/* Menu */}
+
+                  <div className="py-1">
+
+                    <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100">
+
                       <User className="h-4 w-4 text-slate-400" />
-                      <span>My Profile</span>
+
+                      My Profile
+
                     </button>
 
-                    <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition">
+                    <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100">
+
                       <Settings className="h-4 w-4 text-slate-400" />
-                      <span>Store Settings</span>
+
+                      Store Settings
+
                     </button>
 
-                    <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition">
+                    <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100">
+
                       <ShieldCheck className="h-4 w-4 text-slate-400" />
-                      <span>Audit Logs</span>
+
+                      Audit Logs
+
                     </button>
+
                   </div>
 
                   {/* Logout */}
+
                   <div className="pt-1 border-t border-slate-100">
+
                     <button
                       onClick={logout}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition">
-                      <LogOut className="h-4 w-4 text-rose-500" />
-                      <span>Log Out</span>
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                    >
+
+                      <LogOut className="h-4 w-4" />
+
+                      Log Out
+
                     </button>
+
                   </div>
+
                 </div>
               )}
+
             </div>
+
           </div>
+
         </header>
 
-        {/* -----------------------------------------
-            PAGE CONTENT
-        ----------------------------------------- */}
+        {/* ===================================================
+            BODY
+        =================================================== */}
 
         <main className="min-w-0 flex-1 p-4 md:p-6 lg:p-8">
+
           <Outlet />
+
         </main>
+
       </div>
+
     </div>
   );
 }
 
-export function getDashboardPath(role) {
-  switch (role) {
-    case ROLES.ADMIN:
-      return "/dashboard";
-
-    case ROLES.MANAGER:
-      return "/dashboard";
-
-    case ROLES.WAITER:
-    case ROLES.CASHIER:
-      return "/pos";
-
-    case ROLES.CHEF:
-      return "/kitchen";
-
-    case ROLES.BARTENDER:
-      return "/bar";
-
-    case ROLES.STOREKEEPER:
-      return "/inventory";
-
-    case ROLES.PURCHASING:
-      return "/purchasing";
-
-    case ROLES.ACCOUNTANT:
-      return "/reports";
-
-    case ROLES.HR:
-      return "/employees";
-
-    default:
-      return "/dashboard";
-  }
-}
 export default DashboardLayout;

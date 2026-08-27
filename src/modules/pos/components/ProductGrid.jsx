@@ -1,80 +1,104 @@
+import { useEffect, useState } from "react";
 import ProductCard from "./ProductCard";
+import api from "../../../services/api";
 
-const products = [
-  {
-    id: 1,
-    name: "Classic Burger",
-    category: "Food",
-    price: 350,
-    image: "🍔",
-  },
-  {
-    id: 2,
-    name: "Cheese Pizza",
-    category: "Food",
-    price: 500,
-    image: "🍕",
-  },
-  {
-    id: 3,
-    name: "Chicken Pasta",
-    category: "Food",
-    price: 450,
-    image: "🍝",
-  },
-  {
-    id: 4,
-    name: "Grilled Steak",
-    category: "Food",
-    price: 850,
-    image: "🥩",
-  },
-  {
-    id: 5,
-    name: "French Fries",
-    category: "Food",
-    price: 180,
-    image: "🍟",
-  },
-  {
-    id: 6,
-    name: "Fresh Juice",
-    category: "Drinks",
-    price: 150,
-    image: "🧃",
-  },
-  {
-    id: 7,
-    name: "Mojito",
-    category: "Bar",
-    price: 500,
-    image: "🍹",
-  },
-  {
-    id: 8,
-    name: "Beer",
-    category: "Bar",
-    price: 250,
-    image: "🍺",
-  },
-];
+function ProductGrid({
+  onAddProduct,
+  activeCategory = "all",
+  orderItems = [],
+  searchTerm = "",
+})  {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-function ProductGrid({ onAddProduct, activeCategory = "all", orderItems = [] }) {
-  const filteredProducts = products.filter((product) => {
-    if (activeCategory === "all") return true;
-    return product.category.toLowerCase() === activeCategory.toLowerCase();
-  });
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await api("/products");
+
+        setProducts(response.products || []);
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+        setError(
+          error.message || "Failed to load products"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+const filteredProducts = products.filter((product) => {
+  const matchesCategory =
+    activeCategory === "all" ||
+    product.category_name?.toLowerCase() ===
+      activeCategory.toLowerCase() ||
+    product.category_type?.toLowerCase() ===
+      activeCategory.toLowerCase() ||
+    (activeCategory === "drinks" &&
+      product.category_type?.toLowerCase() === "beverage");
+
+  const matchesSearch =
+    product.name
+      ?.toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+  return matchesCategory && matchesSearch;
+});
+
+  if (loading) {
+    return (
+      <div className="flex h-40 items-center justify-center text-gray-500">
+        Loading products...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+        {error}
+      </div>
+    );
+  }
+
+  if (filteredProducts.length === 0) {
+    return (
+      <div className="flex h-40 items-center justify-center text-gray-400">
+        No products available.
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
       {filteredProducts.map((product) => {
-        const orderItem = orderItems.find((item) => item.id === product.id);
-        const quantityInOrder = orderItem ? orderItem.quantity : 0;
+        const orderItem = orderItems.find(
+          (item) => item.id === product.id
+        );
+
+        const quantityInOrder = orderItem
+          ? orderItem.quantity
+          : 0;
+
+        const productForCard = {
+          ...product,
+          category:
+            product.category_name || product.category_type,
+          price: Number(product.price),
+          image: product.image_url || "🍽️",
+        };
 
         return (
           <ProductCard
             key={product.id}
-            product={product}
+            product={productForCard}
             onAdd={onAddProduct}
             quantityInOrder={quantityInOrder}
           />

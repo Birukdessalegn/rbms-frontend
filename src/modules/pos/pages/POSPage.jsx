@@ -4,17 +4,21 @@ import TableSelector from "../components/TableSelector";
 import CategoryTabs from "../components/CategoryTabs";
 import ProductGrid from "../components/ProductGrid";
 import CurrentOrder from "../components/CurrentOrder";
+import api from "../../../services/api";
+import ActiveOrders from "../components/ActiveOrders";
 
 
 function POSPage() {
-
-const { sendToKitchen } = useRestaurant();
+  const {
+    tables,
+    loadingTables,
+  } = useRestaurant();
 
   const [orderItems, setOrderItems] = useState([]);
   const [orderType, setOrderType] = useState("Dine In");
-  const [selectedTable, setSelectedTable] = useState(5);
+  const [selectedTable, setSelectedTable] = useState(null);
   const [activeCategory, setActiveCategory] = useState("all");
-
+  const [searchTerm, setSearchTerm] = useState("");
   const handleAddProduct = (product) => {
     setOrderItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
@@ -29,19 +33,62 @@ const { sendToKitchen } = useRestaurant();
     });
   };
 
-const handleSendToKitchen = () => {
+ const handleSendToKitchen = async () => {
   if (orderItems.length === 0) {
     return;
   }
+if (orderType === "Dine In" && !selectedTable) {
+  alert("Please select a table first.");
+  return;
+}
 
-  sendToKitchen({
-    table: selectedTable,
-    type: orderType,
-    items: orderItems,
-  });
+  try {
+    const orderNumber = `ORD-${Date.now()}`;
 
-  setOrderItems([]);
-};
+    const orderData = {
+      orderNumber,
+      orderType:
+        orderType === "Dine In"
+          ? "dine_in"
+          : orderType === "Takeaway"
+          ? "takeaway"
+          : "delivery",
+
+      tableId: selectedTable?.id || null,
+
+      // For now we're using your existing waiter
+      // until we connect logged-in users.
+      waiterId: 1,
+
+      items: orderItems.map((item) => ({
+        productId: item.id,
+        quantity: item.quantity,
+        notes: item.notes || "",
+      })),
+
+      notes: "",
+    };
+
+    const response = await api("/pos/orders", {
+      method: "POST",
+      body: JSON.stringify(orderData),
+    });
+
+    console.log("Order created:", response);
+
+    setOrderItems([]);
+
+    alert("Order sent to kitchen successfully!");
+
+  } catch (error) {
+    console.error("Failed to create order:", error);
+
+    alert(
+      error.message ||
+      "Failed to send order to kitchen"
+    );
+  }
+ };
 
   const handleIncrease = (productId) => {
     setOrderItems((prevItems) =>
@@ -89,7 +136,7 @@ const handleSendToKitchen = () => {
           </p>
         </div>
 
-        <div className="flex gap-3">
+        {/* <div className="flex gap-3">
           <button
             onClick={handleClear}
             className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -103,8 +150,9 @@ const handleSendToKitchen = () => {
           >
             New Order
           </button>
-        </div>
+        </div> */}
       </div>
+<ActiveOrders />
 
       {/* Order Type */}
       <div className="flex gap-2">
@@ -142,26 +190,56 @@ const handleSendToKitchen = () => {
             </div>
 
             <TableSelector
+              tables={tables}
+              loading={loadingTables}
               selectedTable={selectedTable}
               onSelectTable={setSelectedTable}
             />
           </div>
 
           {/* Products */}
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+  {/* Categories */}
+  <div className="flex gap-2">
+    {["all", "food", "drinks"].map((category) => (
+      <button
+        key={category}
+        type="button"
+        onClick={() => setActiveCategory(category)}
+        className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+          activeCategory === category
+            ? "bg-blue-600 text-white"
+            : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+        }`}
+      >
+        {category === "all"
+          ? "All"
+          : category === "food"
+          ? "Food"
+          : "Drinks"}
+      </button>
+    ))}
+  </div>
 
-            <CategoryTabs
-              activeCategory={activeCategory}
-              onSelectCategory={setActiveCategory}
-            />
+  {/* Search */}
+  <div className="w-full sm:w-64">
+    <input
+      type="text"
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      placeholder="Search products..."
+      className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+    />
+  </div>
+</div>
 
-            <div className="mt-5">
-              <ProductGrid
-                onAddProduct={handleAddProduct}
-                activeCategory={activeCategory}
-                orderItems={orderItems}
-              />
-            </div>
+<div className="mt-5">
+  <ProductGrid
+    onAddProduct={handleAddProduct}
+    activeCategory={activeCategory}
+    orderItems={orderItems}
+    searchTerm={searchTerm}
+  />
 
           </div>
         </div>
@@ -177,10 +255,11 @@ const handleSendToKitchen = () => {
             onSendToKitchen={handleSendToKitchen}
   selectedTable={selectedTable}
   orderType={orderType}
-/>
+ />
         </div>
 
       </div>
+
     </div>
   );
 }

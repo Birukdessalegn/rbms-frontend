@@ -10,6 +10,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
+import AppHeader from "../layouts/AppHeader";
+
+
 const menuItems = [
   {
     name: "Bar Dashboard",
@@ -150,69 +153,18 @@ function BarLayout() {
 
         {/* ================= HEADER ================= */}
 
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
+        <div className="ml-64 flex min-h-screen min-w-0 flex-1 flex-col">
 
-          {/* Page title */}
+          <AppHeader
+            title="Bar Operations"
+            description="Manage bar operations and drink orders"
+          />
 
-          <div>
+          <main className="min-w-0 flex-1 p-6">
+            <Outlet />
+          </main>
 
-            <h2 className="text-lg font-bold text-slate-900">
-              {isReportsPage ? "Bar Reports" : "Bar Dashboard"}
-            </h2>
-
-            <p className="text-xs text-slate-500">
-              {isReportsPage
-                ? "View and analyze bar sales performance"
-                : "Manage drink orders and bar operations"}
-            </p>
-
-          </div>
-
-
-          {/* Right side */}
-
-          <div className="flex items-center gap-4">
-
-            {/* Online */}
-
-            <div className="hidden items-center gap-2 sm:flex">
-
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-
-              <span className="text-xs font-medium text-slate-500">
-                Online
-              </span>
-
-            </div>
-
-
-            {/* User */}
-
-            <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
-
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600 text-sm font-bold text-white">
-                {user?.name?.charAt(0)}
-              </div>
-
-              <div className="hidden md:block">
-
-                <p className="text-xs font-bold text-slate-900">
-                  {user?.name}
-                </p>
-
-                <p className="text-[11px] text-slate-500">
-                  {user?.role}
-                </p>
-
-              </div>
-
-              <ChevronDown className="hidden h-4 w-4 text-slate-400 md:block" />
-
-            </div>
-
-          </div>
-
-        </header>
+        </div>
 
 
         {/* ================= PAGE CONTENT ================= */}

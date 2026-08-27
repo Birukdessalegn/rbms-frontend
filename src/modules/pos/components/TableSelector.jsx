@@ -1,83 +1,158 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const tables = [
-  { id: 1, name: "Table 1", seats: 2, status: "available" },
-  { id: 2, name: "Table 2", seats: 4, status: "occupied" },
-  { id: 3, name: "Table 3", seats: 4, status: "available" },
-  { id: 4, name: "Table 4", seats: 6, status: "reserved" },
-  { id: 5, name: "Table 5", seats: 2, status: "available" },
-  { id: 6, name: "Table 6", seats: 8, status: "occupied" },
-  { id: 7, name: "Table 7", seats: 4, status: "available" },
-  { id: 8, name: "Table 8", seats: 6, status: "available" },
-];
+function TableSelector({
+  selectedTable,
+  onSelectTable,
+}) {
+  const [tables, setTables] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-function TableSelector({ selectedTable: selectedTableProp, onSelectTable }) {
-  const [internalSelectedTable, setInternalSelectedTable] = useState(null);
-  const selectedTable = selectedTableProp !== undefined ? selectedTableProp : internalSelectedTable;
+  const fetchTables = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-  const handleSelect = (tableId) => {
-    if (selectedTableProp === undefined) {
-      setInternalSelectedTable(tableId);
-    }
-    if (onSelectTable) {
-      onSelectTable(tableId);
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/pos/tables`, {
+  headers: {
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+  },
+})
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to fetch tables"
+        );
+      }
+
+      setTables(data.tables || []);
+
+    } catch (error) {
+      console.error("Fetch tables error:", error);
+      setError(error.message);
+
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStatusStyles = (status) => {
-    if (status === "available") {
-      return "border-green-200 bg-green-50 text-green-700 hover:border-green-400";
-    }
+  useEffect(() => {
+    fetchTables();
+  }, []);
 
-    if (status === "occupied") {
-      return "border-red-200 bg-red-50 text-red-700 cursor-not-allowed";
-    }
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <p className="text-sm text-slate-500">
+          Loading tables...
+        </p>
+      </div>
+    );
+  }
 
-    if (status === "reserved") {
-      return "border-yellow-200 bg-yellow-50 text-yellow-700 cursor-not-allowed";
-    }
+  if (error) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+        <p className="text-sm text-red-600">
+          {error}
+        </p>
 
-    return "";
-  };
+        <button
+          onClick={fetchTables}
+          className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+      <div className="mb-3">
+        <h3 className="text-sm font-bold text-slate-900">
+          Select Table
+        </h3>
+
+        <p className="text-xs text-slate-500">
+          Choose a table for this order
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {tables.map((table) => {
-          const isAvailable = table.status === "available";
-          const isSelected = selectedTable === table.id;
+
+          const isSelected =
+            selectedTable?.id === table.id;
+
+          const isAvailable =
+            table.status === "available";
 
           return (
             <button
               key={table.id}
               disabled={!isAvailable}
-              onClick={() => handleSelect(table.id)}
+              onClick={() => onSelectTable(table)}
               className={`
-                rounded-xl border p-4 text-center transition
-                ${getStatusStyles(table.status)}
-                ${isSelected ? "ring-2 ring-blue-500 ring-offset-2" : ""}
+                rounded-xl border p-4 text-left transition
+
+                ${
+                  isSelected
+                    ? "border-blue-600 bg-blue-50 ring-2 ring-blue-600/20"
+                    : isAvailable
+                    ? "border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50"
+                    : "cursor-not-allowed border-slate-200 bg-slate-100 opacity-60"
+                }
               `}
             >
-              <div className="text-lg font-bold">
-                {table.name.replace("Table ", "T")}
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-900">
+                  {table.table_number}
+                </span>
+
+                <span
+                  className={`
+                    rounded-full px-2 py-1 text-[10px] font-semibold
+
+                    ${
+                      isAvailable
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-slate-200 text-slate-500"
+                    }
+                  `}
+                >
+                  {table.status}
+                </span>
               </div>
 
-              <div className="mt-1 text-xs">
-                {table.seats} seats
-              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                Capacity: {table.capacity}
+              </p>
 
-              <div className="mt-2 text-xs font-medium capitalize">
-                {table.status}
-              </div>
+              {table.location && (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  {table.location}
+                </p>
+              )}
+
             </button>
           );
         })}
       </div>
 
-      {/* Selected table */}
-      {selectedTable && (
-        <div className="mt-4 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          Table {selectedTable} selected for this order.
+      {tables.length === 0 && (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
+          <p className="text-sm font-medium text-slate-600">
+            No restaurant tables created yet.
+          </p>
+
+          <p className="mt-1 text-xs text-slate-400">
+            Create tables from the table management page.
+          </p>
         </div>
       )}
     </div>

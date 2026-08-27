@@ -17,51 +17,41 @@ const rolePermissions = {
     "employees",
     "expenses",
     "reports",
+    "finance",
   ],
 
-  WAITER: ["dashboard", "pos"],
-  CASHIER: ["dashboard", "pos"],
-  CHEF: ["dashboard", "kitchen"],
-  BARTENDER: ["dashboard", "bar"],
-  STOREKEEPER: ["dashboard", "inventory", "products"],
-  PURCHASING: ["dashboard", "purchasing", "inventory"],
-  ACCOUNTANT: ["dashboard", "expenses", "reports"],
-  HR: ["dashboard", "employees"],
+  WAITER: ["pos"],
+  CASHIER: ["pos"],
+  CHEF: ["kitchen"],
+  BARTENDER: ["bar"],
+  STOREKEEPER: ["inventory", "products"],
+  PURCHASING: ["purchasing", "inventory"],
+  ACCOUNTANT: ["finance", "expenses", "reports"],
+  HR: ["employees"],
 };
 
 function PermissionRoute({ permission }) {
   const { user } = useAuth();
 
-  console.log("PermissionRoute:", {
-    user,
-    role: user?.role,
-    permission,
-  });
-
   if (!user) {
-    console.log("NO USER → LOGIN");
     return <Navigate to="/login" replace />;
   }
 
-  const permissions = rolePermissions[user.role] || [];
+  // Backend returns roles like "waiter", "admin", etc.
+  // Frontend permissions use "WAITER", "ADMIN", etc.
+  const normalizedRole = user.role?.toUpperCase();
+
+  const permissions = rolePermissions[normalizedRole] || [];
 
   const hasAccess =
     permissions.includes("*") ||
     permissions.includes(permission);
 
-  console.log("Permission result:", {
-    role: user.role,
-    permissions,
-    requestedPermission: permission,
-    hasAccess,
-  });
-
   if (!hasAccess) {
-    console.log("NO PERMISSION → DASHBOARD");
     return <Navigate to="/dashboard" replace />;
   }
 
   return <Outlet />;
 }
 
-export default PermissionRoute; 
+export default PermissionRoute;

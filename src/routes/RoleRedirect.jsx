@@ -28,6 +28,10 @@ function RoleRedirect() {
     return <Navigate to="/inventory" replace />;
   }
 
+  if (user.role === "ACCOUNTANT") {
+    return <Navigate to="/finance" replace />;
+  }
+
   return <Navigate to="/login" replace />;
 }
 

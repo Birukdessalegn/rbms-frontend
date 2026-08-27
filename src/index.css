@@ -30,3 +30,253 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* Hide everything */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Show only the report */
+  .bar-report-print,
+  .bar-report-print * {
+    visibility: visible !important;
+  }
+
+  .bar-report-print {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: white !important;
+  }
+
+  /* Remove unnecessary shadows */
+  .bar-report-print * {
+    box-shadow: none !important;
+  }
+}
+
+/* =====================================================
+   PROFESSIONAL PRINT REPORT
+===================================================== */
+
+.print-report {
+  display: none;
+}
+
+
+/* =====================================================
+   PRINT MODE
+===================================================== */
+
+@media print {
+
+  /* Hide the entire application */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only report */
+  .print-report,
+  .print-report * {
+    visibility: visible;
+  }
+
+  .print-report {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 35px 40px;
+    background: white;
+    color: #111827;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+
+  /* -----------------------------------------------
+     PAGE
+  ------------------------------------------------ */
+
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+
+  /* -----------------------------------------------
+     HEADER
+  ------------------------------------------------ */
+
+  .print-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 18px;
+  }
+
+  .print-header h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 1px;
+  }
+
+  .print-header p {
+    margin: 4px 0 0;
+    font-size: 10px;
+    color: #64748b;
+  }
+
+  .print-header-right {
+    text-align: right;
+  }
+
+  .print-header-right h2 {
+    margin: 0 0 6px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+  }
+
+  .print-header-right p {
+    margin: 2px 0;
+    font-size: 10px;
+    color: #64748b;
+  }
+
+
+  /* -----------------------------------------------
+     DIVIDER
+  ------------------------------------------------ */
+
+  .print-divider {
+    height: 2px;
+    background: #0f172a;
+    margin-bottom: 20px;
+  }
+
+
+  /* -----------------------------------------------
+     SUMMARY
+  ------------------------------------------------ */
+
+  .print-summary {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 25px;
+  }
+
+  .print-summary > div {
+    border: 1px solid #e2e8f0;
+    padding: 12px;
+    border-radius: 6px;
+  }
+
+  .print-summary span {
+    display: block;
+    font-size: 9px;
+    color: #64748b;
+    margin-bottom: 5px;
+  }
+
+  .print-summary strong {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+
+  /* -----------------------------------------------
+     SECTION
+  ------------------------------------------------ */
+
+  .print-section {
+    margin-top: 20px;
+  }
+
+  .print-section h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+
+  /* -----------------------------------------------
+     TABLE
+  ------------------------------------------------ */
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+  }
+
+  .print-table th {
+    background: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    text-align: left;
+    padding: 9px 8px;
+    border-bottom: 2px solid #cbd5e1;
+  }
+
+  .print-table td {
+    padding: 8px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #334155;
+  }
+
+  .print-table tr {
+    page-break-inside: avoid;
+  }
+
+
+  /* -----------------------------------------------
+     FOOTER
+  ------------------------------------------------ */
+
+  .print-footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 35px;
+    padding-top: 12px;
+    border-top: 1px solid #cbd5e1;
+    font-size: 9px;
+    color: #64748b;
+  }
+
+  .print-footer strong {
+    color: #0f172a;
+  }
+
+
+  /* -----------------------------------------------
+     REMOVE LINKS / BUTTONS
+  ------------------------------------------------ */
+
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  button {
+    display: none !important;
+  }
+
+}

@@ -1,112 +1,133 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
-import { UtensilsCrossed } from "lucide-react";
+import { UtensilsCrossed, Eye, EyeOff } from "lucide-react";
 
-const demoUsers = [
-  {
-    id: 1,
-    name: "Biruk Admin",
-    email: "admin@rbms-restaurant.com",
-    password: "admin123",
-    role: "ADMIN",
-  },
-  {
-    id: 2,
-    name: "Restaurant Manager",
-    email: "manager@rbms-restaurant.com",
-    password: "manager123",
-    role: "MANAGER",
-  },
-  {
-    id: 3,
-    name: "Waiter",
-    email: "waiter@rbms-restaurant.com",
-    password: "waiter123",
-    role: "WAITER",
-  },
-  {
-    id: 4,
-    name: "Head Chef",
-    email: "chef@rbms-restaurant.com",
-    password: "chef123",
-    role: "CHEF",
-  },
-  {
-    id: 5,
-    name: "Bartender",
-    email: "bartender@rbms-restaurant.com",
-    password: "bartender123",
-    role: "BARTENDER",
-  },
-  {
-    id: 6,
-    name: "Storekeeper",
-    email: "store@rbms-restaurant.com",
-    password: "store123",
-    role: "STOREKEEPER",
-  },
-  {
-    id: 7,
-    name: "Purchasing Officer",
-    email: "purchasing@rbms-restaurant.com",
-    password: "purchasing123",
-    role: "PURCHASING",
-  },
-  {
-    id: 8,
-    name: "Accountant",
-    email: "accountant@rbms-restaurant.com",
-    password: "accountant123",
-    role: "ACCOUNTANT",
-  },
-  {
-    id: 9,
-    name: "HR Officer",
-    email: "hr@rbms-restaurant.com",
-    password: "hr123",
-    role: "HR",
-  },
-];
+const API_URL = "http://localhost:5000/api";
 
 function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
 
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // If already logged in
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     setError("");
 
-    const foundUser = demoUsers.find(
-      (item) =>
-        item.email === email.trim().toLowerCase() &&
-        item.password === password
-    );
+    const cleanUsername = username.trim();
 
-    if (!foundUser) {
-      setError("Invalid email or password.");
+    if (!cleanUsername || !password) {
+      setError("Username and password are required.");
       return;
     }
 
-    const { password: _, ...userData } = foundUser;
+    try {
+      setLoading(true);
 
-    login(userData);
+      const payload = {
+        username: cleanUsername,
+        password: password,
+      };
 
-    
+      console.log("Login payload:", {
+        username: cleanUsername,
+        password: "********",
+      });
+
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      console.log("Login response:", data);
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Invalid username or password"
+        );
+      }
+
+      if (!data.success) {
+        throw new Error(
+          data.message || "Login failed"
+        );
+      }
+
+      /*
+       * Backend returns:
+       *
+       * {
+       *   success: true,
+       *   message: "Login successful",
+       *   token: "...",
+       *   user: {
+       *      id,
+       *      username,
+       *      email,
+       *      roleId,
+       *      role
+       *   }
+       * }
+       */
+
+      const loggedInUser = data.user;
+      const token = data.token;
+
+      if (!loggedInUser || !token) {
+        throw new Error(
+          "Login succeeded but user information was not returned."
+        );
+      }
+
+      console.log("Logged in user:", loggedInUser);
+
+      // Save JWT
+      localStorage.setItem("token", token);
+
+      // Save user information
+      localStorage.setItem(
+        "user",
+        JSON.stringify(loggedInUser)
+      );
+
+      // Update AuthContext
+      login(loggedInUser);
+
+      // Go to dashboard
+      navigate("/dashboard", { replace: true });
+
+    } catch (error) {
+      console.error("Login failed:", error);
+
+      setError(
+        error.message || "Unable to login. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-md">
+
         {/* Logo */}
         <div className="mb-8 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-lg shadow-blue-500/30">
@@ -124,6 +145,7 @@ function LoginPage() {
 
         {/* Login Card */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
           <div className="mb-6">
             <h2 className="text-xl font-bold text-slate-900">
               Welcome back
@@ -134,18 +156,25 @@ function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email */}
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-4"
+          >
+
+            {/* Username */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Email
+                Username
               </label>
 
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
+                type="text"
+                value={username}
+                onChange={(e) =>
+                  setUsername(e.target.value)
+                }
+                placeholder="Enter your username"
+                autoComplete="username"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
                 required
               />
@@ -157,14 +186,37 @@ function LoginPage() {
                 Password
               </label>
 
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={
+                    showPassword
+                      ? "text"
+                      : "password"
+                  }
+                  value={password}
+                  onChange={(e) =>
+                    setPassword(e.target.value)
+                  }
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 pr-12 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                  required
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowPassword(!showPassword)
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Error */}
@@ -177,12 +229,20 @@ function LoginPage() {
             {/* Submit */}
             <button
               type="submit"
-              className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+              disabled={loading}
+              className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Sign In
+              {loading ? "Signing in..." : "Sign In"}
             </button>
+
           </form>
         </div>
+
+        {/* Development information */}
+        <p className="mt-4 text-center text-xs text-slate-400">
+          RBMS Authentication
+        </p>
+
       </div>
     </div>
   );

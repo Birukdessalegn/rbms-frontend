@@ -2,44 +2,37 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 const AuthContext = createContext(null);
 
-const demoUser = {
-  id: 2,
-  name: "Chef",
-  email: "chef@rbms.com",
-  role: "CHEF",
-};
-function getStoredUser() {
-  try {
-    const storedUser = localStorage.getItem("rbms_user");
-
-    if (!storedUser) {
-      return null;
-    }
-
-    return JSON.parse(storedUser);
-  } catch (error) {
-    console.error("Failed to restore user:", error);
-    localStorage.removeItem("rbms_user");
-    return null;
-  }
-}
-
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(getStoredUser);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  // Restore login when page refreshes
   useEffect(() => {
-    if (user) {
-      localStorage.setItem("rbms_user", JSON.stringify(user));
-    } else {
-      localStorage.removeItem("rbms_user");
+    try {
+      const token = localStorage.getItem("token");
+      const savedUser = localStorage.getItem("user");
+
+      if (token && savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
+    } catch (error) {
+      console.error("Failed to restore authentication:", error);
+
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+    } finally {
+      setLoading(false);
     }
-  }, [user]);
+  }, []);
 
   const login = (userData) => {
     setUser(userData);
   };
 
   const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
     setUser(null);
   };
 
@@ -47,10 +40,9 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         user,
-        setUser,
+        loading,
         login,
         logout,
-        isAuthenticated: !!user,
       }}
     >
       {children}

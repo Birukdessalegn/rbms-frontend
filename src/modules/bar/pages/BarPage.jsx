@@ -1,77 +1,229 @@
+import { useEffect, useState } from "react";
 import {
   Wine,
   ClipboardList,
   Flame,
   CheckCircle2,
-  Clock3,
   TrendingUp,
+  Play,
+  Check,
+  RefreshCw,
 } from "lucide-react";
-
-const stats = [
-  {
-    title: "New Orders",
-    value: "8",
-    description: "Waiting for preparation",
-    icon: ClipboardList,
-  },
-  {
-    title: "Preparing",
-    value: "5",
-    description: "Currently being prepared",
-    icon: Flame,
-  },
-  {
-    title: "Ready Orders",
-    value: "12",
-    description: "Ready for pickup",
-    icon: CheckCircle2,
-  },
-  {
-    title: "Today's Orders",
-    value: "64",
-    description: "Total drink orders today",
-    icon: TrendingUp,
-  },
-];
-
-const recentOrders = [
-  {
-    id: "#B-1042",
-    table: "Table 4",
-    items: "2 Mojito, 1 Cola",
-    status: "New",
-    time: "2 min ago",
-  },
-  {
-    id: "#B-1041",
-    table: "Table 8",
-    items: "3 Beer, 2 Juice",
-    status: "Preparing",
-    time: "6 min ago",
-  },
-  {
-    id: "#B-1040",
-    table: "Table 2",
-    items: "2 Cappuccino",
-    status: "Ready",
-    time: "9 min ago",
-  },
-  {
-    id: "#B-1039",
-    table: "Table 6",
-    items: "1 Cocktail, 2 Water",
-    status: "Ready",
-    time: "12 min ago",
-  },
-];
+import api from "../../../services/api";
 
 function BarPage() {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatingOrder, setUpdatingOrder] = useState(null);
+
+  // ============================================================
+  // FETCH BAR ORDERS
+  // ============================================================
+
+  const fetchBarOrders = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await api("/bar/orders");
+
+      console.log("BAR ORDERS RESPONSE:", response);
+
+      setOrders(response.orders || []);
+    } catch (error) {
+      console.error("Failed to fetch bar orders:", error);
+
+      setError(
+        error.message || "Failed to load bar orders"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============================================================
+  // LOAD ORDERS WHEN PAGE OPENS
+  // ============================================================
+
+  useEffect(() => {
+    fetchBarOrders();
+  }, []);
+
+  // ============================================================
+  // UPDATE BAR ORDER STATUS
+  // ============================================================
+
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      setUpdatingOrder(orderId);
+
+      console.log(
+        "Updating bar order:",
+        orderId,
+        newStatus
+      );
+
+      const response = await api(
+        `/bar/orders/${orderId}/status`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            status: newStatus,
+          }),
+        }
+      );
+
+      console.log(
+        "BAR STATUS UPDATE RESPONSE:",
+        response
+      );
+
+      // Refresh from database
+      await fetchBarOrders();
+
+    } catch (error) {
+      console.error(
+        "Failed to update bar order:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Failed to update bar order status"
+      );
+    } finally {
+      setUpdatingOrder(null);
+    }
+  };
+
+  // ============================================================
+  // STATUS HELPERS
+  // ============================================================
+
+  const getDisplayStatus = (status) => {
+    switch (status) {
+      case "pending":
+      case "confirmed":
+        return "New";
+
+      case "preparing":
+        return "Preparing";
+
+      case "ready":
+        return "Ready";
+
+      case "served":
+      case "completed":
+        return "Served";
+
+      case "cancelled":
+        return "Cancelled";
+
+      default:
+        return status;
+    }
+  };
+
+  // ============================================================
+  // COUNTERS
+  // ============================================================
+
+  const newOrders = orders.filter(
+    (order) =>
+      order.status === "pending" ||
+      order.status === "confirmed"
+  ).length;
+
+  const preparingOrders = orders.filter(
+    (order) => order.status === "preparing"
+  ).length;
+
+  const readyOrders = orders.filter(
+    (order) => order.status === "ready"
+  ).length;
+
+  // ============================================================
+  // TODAY'S ORDERS
+  // ============================================================
+
+  const today = new Date().toDateString();
+
+  const todaysOrders = orders.filter((order) => {
+    if (!order.created_at) return false;
+
+    return (
+      new Date(order.created_at).toDateString() ===
+      today
+    );
+  }).length;
+
+  // ============================================================
+  // FORMAT ORDER ITEMS
+  // ============================================================
+
+  const formatItems = (items) => {
+    if (!items || items.length === 0) {
+      return "No drink items";
+    }
+
+    return items
+      .map((item) => {
+        const quantity = Number(item.quantity || 0);
+
+        return `${quantity} ${item.product_name}`;
+      })
+      .join(", ");
+  };
+
+  // ============================================================
+  // FORMAT TIME
+  // ============================================================
+
+  const formatTime = (createdAt) => {
+    if (!createdAt) return "";
+
+    const date = new Date(createdAt);
+
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // ============================================================
+  // LOADING
+  // ============================================================
+
+  if (loading && orders.length === 0) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="flex items-center gap-3 text-slate-500">
+          <RefreshCw className="h-5 w-5 animate-spin" />
+
+          <span className="text-sm font-medium">
+            Loading bar orders...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
 
-      {/* Header */}
-      <div>
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
         <div className="flex items-center gap-3">
+
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
             <Wine className="h-6 w-6" />
           </div>
@@ -85,166 +237,329 @@ function BarPage() {
               Monitor drink orders and bar operations.
             </p>
           </div>
+
         </div>
+
+        {/* REFRESH BUTTON */}
+
+        <button
+          type="button"
+          onClick={fetchBarOrders}
+          disabled={loading}
+          className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${
+              loading ? "animate-spin" : ""
+            }`}
+          />
+
+          Refresh
+        </button>
+
       </div>
 
-      {/* Stats */}
+
+      {/* ======================================================
+          ERROR
+      ====================================================== */}
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+
+          <p className="text-sm font-semibold text-red-700">
+            {error}
+          </p>
+
+          <button
+            type="button"
+            onClick={fetchBarOrders}
+            className="mt-2 text-sm font-bold text-red-700 underline"
+          >
+            Try again
+          </button>
+
+        </div>
+      )}
+
+
+      {/* ======================================================
+          STAT CARDS
+      ====================================================== */}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
-        {stats.map((stat) => {
-          const Icon = stat.icon;
+        <StatCard
+          title="New Orders"
+          value={newOrders}
+          description="Waiting for preparation"
+          icon={ClipboardList}
+        />
 
-          return (
-            <div
-              key={stat.title}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-            >
-              <div className="flex items-start justify-between">
+        <StatCard
+          title="Preparing"
+          value={preparingOrders}
+          description="Currently being prepared"
+          icon={Flame}
+        />
 
-                <div>
-                  <p className="text-sm font-medium text-slate-500">
-                    {stat.title}
-                  </p>
+        <StatCard
+          title="Ready Orders"
+          value={readyOrders}
+          description="Ready for pickup"
+          icon={CheckCircle2}
+        />
 
-                  <h2 className="mt-2 text-3xl font-bold text-slate-900">
-                    {stat.value}
-                  </h2>
-
-                  <p className="mt-1 text-xs text-slate-400">
-                    {stat.description}
-                  </p>
-                </div>
-
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-                  <Icon className="h-5 w-5" />
-                </div>
-
-              </div>
-            </div>
-          );
-        })}
+        <StatCard
+          title="Today's Orders"
+          value={todaysOrders}
+          description="Total drink orders today"
+          icon={TrendingUp}
+        />
 
       </div>
 
-      {/* Main Content */}
-      <div className="grid gap-6 lg:grid-cols-3">
 
-        {/* Recent Orders */}
-        <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {/* ======================================================
+          ORDERS
+      ====================================================== */}
 
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-            <div>
-              <h2 className="font-bold text-slate-900">
-                Recent Drink Orders
-              </h2>
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
 
-              <p className="text-xs text-slate-500">
-                Latest orders received by the bar
-              </p>
-            </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">
+              Drink Orders
+            </h2>
 
-            <Clock3 className="h-5 w-5 text-slate-400" />
-
+            <p className="text-sm text-slate-500">
+              Manage drink preparation
+            </p>
           </div>
 
-          <div className="divide-y divide-slate-100">
+          <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
+            {orders.length} Orders
+          </span>
 
-            {recentOrders.map((order) => (
-              <div
-                key={order.id}
-                className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50"
-              >
+        </div>
 
-                <div className="min-w-0">
 
-                  <div className="flex items-center gap-2">
+        {/* ====================================================
+            EMPTY STATE
+        ==================================================== */}
 
-                    <span className="text-sm font-bold text-slate-900">
-                      {order.id}
-                    </span>
+        {orders.length === 0 && !error && (
+          <div className="flex min-h-[250px] flex-col items-center justify-center px-5 text-center">
 
-                    <span className="text-xs text-slate-400">
-                      •
-                    </span>
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-50 text-purple-500">
+              <Wine className="h-7 w-7" />
+            </div>
 
-                    <span className="text-xs font-medium text-slate-500">
-                      {order.table}
-                    </span>
+            <h3 className="mt-4 text-base font-bold text-slate-800">
+              No drink orders
+            </h3>
+
+            <p className="mt-1 text-sm text-slate-500">
+              New drink orders from the POS will appear here.
+            </p>
+
+          </div>
+        )}
+
+
+        {/* ====================================================
+            ORDER LIST
+        ==================================================== */}
+
+        {orders.length > 0 && (
+          <div className="divide-y divide-slate-200">
+
+            {orders.map((order) => {
+
+              const displayStatus =
+                getDisplayStatus(order.status);
+
+              const isUpdating =
+                updatingOrder === order.id;
+
+              return (
+                <div
+                  key={order.id}
+                  className="p-5 transition hover:bg-slate-50"
+                >
+
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+
+                    {/* ==================================================
+                        ORDER INFORMATION
+                    ================================================== */}
+
+                    <div className="min-w-0">
+
+                      <div className="flex flex-wrap items-center gap-3">
+
+                        <span className="text-base font-bold text-slate-900">
+                          {order.order_number ||
+                            `#B-${order.id}`}
+                        </span>
+
+                        <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+                          {order.table_number
+                            ? `Table ${order.table_number}`
+                            : "Takeaway"}
+                        </span>
+
+                        <StatusBadge
+                          status={displayStatus}
+                        />
+
+                      </div>
+
+
+                      {/* ITEMS */}
+
+                      <p className="mt-2 text-sm font-medium text-slate-700">
+                        {formatItems(order.items)}
+                      </p>
+
+
+                      {/* TIME */}
+
+                      <p className="mt-1 text-xs text-slate-400">
+                        Ordered{" "}
+                        {formatTime(order.created_at)}
+                      </p>
+
+                    </div>
+
+
+                    {/* ==================================================
+                        ACTION BUTTONS
+                    ================================================== */}
+
+                    <div className="flex shrink-0 items-center gap-3">
+
+                      {/* NEW */}
+
+                      {(order.status === "pending" ||
+                        order.status === "confirmed") && (
+
+                        <button
+                          type="button"
+                          disabled={isUpdating}
+                          onClick={() =>
+                            updateOrderStatus(
+                              order.id,
+                              "preparing"
+                            )
+                          }
+                          className="flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-amber-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+
+                          {isUpdating ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Play className="h-4 w-4 fill-current" />
+                          )}
+
+                          Start Preparing
+
+                        </button>
+                      )}
+
+
+                      {/* PREPARING */}
+
+                      {order.status === "preparing" && (
+
+                        <button
+                          type="button"
+                          disabled={isUpdating}
+                          onClick={() =>
+                            updateOrderStatus(
+                              order.id,
+                              "ready"
+                            )
+                          }
+                          className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+
+                          {isUpdating ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="h-4 w-4" />
+                          )}
+
+                          Mark Ready
+
+                        </button>
+                      )}
+
+
+                      {/* READY */}
+
+                      {order.status === "ready" && (
+
+                        <div className="flex items-center gap-2 rounded-xl bg-emerald-100 px-5 py-3 text-sm font-bold text-emerald-700">
+
+                          <CheckCircle2 className="h-4 w-4" />
+
+                          Ready for Waiter
+
+                        </div>
+                      )}
+
+
+                      {/* SERVED */}
+
+                      {(order.status === "served" ||
+                        order.status === "completed") && (
+
+                        <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-600">
+
+                          <CheckCircle2 className="h-4 w-4" />
+
+                          Served
+
+                        </div>
+                      )}
+
+                    </div>
 
                   </div>
 
-                  <p className="mt-1 truncate text-sm text-slate-600">
-                    {order.items}
-                  </p>
-
-                  <p className="mt-1 text-[11px] text-slate-400">
-                    {order.time}
-                  </p>
-
                 </div>
-
-                <StatusBadge status={order.status} />
-
-              </div>
-            ))}
+              );
+            })}
 
           </div>
+        )}
 
-        </div>
+      </div>
 
-        {/* Quick Overview */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
-          <h2 className="font-bold text-slate-900">
-            Bar Overview
-          </h2>
+      {/* ======================================================
+          BAR STATUS
+      ====================================================== */}
 
-          <p className="mt-1 text-xs text-slate-500">
-            Current workload
-          </p>
+      <div className="rounded-2xl border border-purple-200 bg-purple-50 p-5">
 
-          <div className="mt-6 space-y-5">
+        <div className="flex items-center gap-3">
 
-            <ProgressItem
-              label="New Orders"
-              value={8}
-              total={20}
-            />
-
-            <ProgressItem
-              label="Preparing"
-              value={5}
-              total={20}
-            />
-
-            <ProgressItem
-              label="Ready"
-              value={12}
-              total={20}
-            />
-
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-600 text-white">
+            <Wine className="h-5 w-5" />
           </div>
 
-          <div className="mt-6 rounded-xl bg-purple-50 p-4">
+          <div>
 
-            <div className="flex items-center gap-3">
+            <p className="font-bold text-purple-900">
+              Bar is operational
+            </p>
 
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-600 text-white">
-                <Wine className="h-5 w-5" />
-              </div>
-
-              <div>
-                <p className="text-sm font-bold text-purple-900">
-                  Bar is operational
-                </p>
-
-                <p className="text-xs text-purple-700">
-                  Orders are being processed normally.
-                </p>
-              </div>
-
-            </div>
+            <p className="text-sm text-purple-700">
+              Orders are being processed normally.
+            </p>
 
           </div>
 
@@ -256,49 +571,103 @@ function BarPage() {
   );
 }
 
+
+/* ============================================================
+   STAT CARD
+============================================================ */
+
+function StatCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+      <div className="flex items-start justify-between">
+
+        <div>
+
+          <p className="text-sm font-medium text-slate-500">
+            {title}
+          </p>
+
+          <h2 className="mt-2 text-3xl font-bold text-slate-900">
+            {value}
+          </h2>
+
+          <p className="mt-1 text-xs text-slate-400">
+            {description}
+          </p>
+
+        </div>
+
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+
+          <Icon className="h-5 w-5" />
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+/* ============================================================
+   STATUS BADGE
+============================================================ */
+
 function StatusBadge({ status }) {
-  const styles = {
-    New: "bg-blue-50 text-blue-700 border-blue-200",
-    Preparing: "bg-amber-50 text-amber-700 border-amber-200",
-    Ready: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  };
+
+  if (status === "New") {
+    return (
+      <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+        New
+      </span>
+    );
+  }
+
+  if (status === "Preparing") {
+    return (
+      <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+        Preparing
+      </span>
+    );
+  }
+
+  if (status === "Ready") {
+    return (
+      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+        Ready
+      </span>
+    );
+  }
+
+  if (status === "Served") {
+    return (
+      <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+        Served
+      </span>
+    );
+  }
+
+  if (status === "Cancelled") {
+    return (
+      <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
+        Cancelled
+      </span>
+    );
+  }
 
   return (
-    <span
-      className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold ${
-        styles[status] || "bg-slate-50 text-slate-600 border-slate-200"
-      }`}
-    >
+    <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
       {status}
     </span>
   );
 }
 
-function ProgressItem({ label, value, total }) {
-  const percentage = Math.min((value / total) * 100, 100);
-
-  return (
-    <div>
-
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-700">
-          {label}
-        </span>
-
-        <span className="text-xs font-semibold text-slate-500">
-          {value}
-        </span>
-      </div>
-
-      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className="h-full rounded-full bg-purple-600 transition-all"
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-
-    </div>
-  );
-}
 
 export default BarPage;

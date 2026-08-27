@@ -102,19 +102,13 @@ function CurrentOrder({
 
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-3">
-
+          <div className="mt-5">
             <button
               onClick={onClear}
-              className="rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
             >
-              Clear
+              Clear Order
             </button>
-
-            <button className="rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700">
-              Payment
-            </button>
-
           </div>
 
           <button

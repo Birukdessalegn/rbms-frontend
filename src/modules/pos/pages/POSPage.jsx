@@ -12,6 +12,7 @@ function POSPage() {
   const {
     tables,
     loadingTables,
+    fetchTables,
   } = useRestaurant();
 
   const [orderItems, setOrderItems] = useState([]);
@@ -38,30 +39,34 @@ function POSPage() {
     return;
   }
 if (orderType === "Dine In" && !selectedTable) {
-  alert("Please select a table first.");
+  alert("Please select a table for Dine In orders.");
   return;
 }
 
   try {
     const orderNumber = `ORD-${Date.now()}`;
 
-    const orderData = {
-      orderNumber,
-      orderType:
-        orderType === "Dine In"
-          ? "dine_in"
-          : orderType === "Takeaway"
-          ? "takeaway"
-          : "delivery",
+      const rawTableId = Number(selectedTable?.id);
+      const tableId = (!isNaN(rawTableId) && rawTableId > 0) ? rawTableId : null;
 
-      tableId: selectedTable?.id || null,
+      const orderData = {
+        orderNumber,
+        orderType:
+          orderType === "Dine In"
+            ? "dine_in"
+            : orderType === "Takeaway"
+            ? "takeaway"
+            : "delivery",
 
-      // For now we're using your existing waiter
-      // until we connect logged-in users.
-      waiterId: 1,
+        tableId,
+
+        waiterId: 1,
 
       items: orderItems.map((item) => ({
         productId: item.id,
+        product_id: item.id,
+        name: item.name,
+        product_name: item.name,
         quantity: item.quantity,
         notes: item.notes || "",
       })),
@@ -76,7 +81,25 @@ if (orderType === "Dine In" && !selectedTable) {
 
     console.log("Order created:", response);
 
+    // Explicitly update table status to occupied if table was selected
+    if (selectedTable?.id) {
+      try {
+        await api(`/tables/${selectedTable.id}/status`, {
+          method: "PUT",
+          body: JSON.stringify({ status: "occupied" }),
+        });
+      } catch (tableErr) {
+        console.log("Table status update note:", tableErr);
+      }
+    }
+
     setOrderItems([]);
+    setSelectedTable(null);
+
+    // Instantly refresh table status to Occupied on POS and Restaurant Context
+    if (fetchTables) {
+      fetchTables();
+    }
 
     alert("Order sent to kitchen successfully!");
 
@@ -156,7 +179,7 @@ if (orderType === "Dine In" && !selectedTable) {
 
       {/* Order Type */}
       <div className="flex gap-2">
-        {["Dine In", "Takeaway", "Delivery"].map((type) => (
+        {["Dine In", "Takeaway"].map((type) => (
           <button
             key={type}
             onClick={() => setOrderType(type)}

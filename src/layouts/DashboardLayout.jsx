@@ -3,6 +3,8 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { hasPermission } from "../config/permissions";
 import { useRestaurant } from "../context/RestaurantContext";
+import api from "../services/api";
+import audioService from "../services/audioService";
 
 import {
   LayoutDashboard,
@@ -35,6 +37,10 @@ import {
   Clock,
   ArrowLeftRight,
   AlertTriangle,
+  Wallet,
+  CreditCard,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 
 /* =========================================================
@@ -60,23 +66,23 @@ const navigationGroups = [
 
     items: [
       {
-        name: "POS",
+        name: "POS & Sales",
         icon: ShoppingCart,
         permission: "pos.view",
 
         children: [
           {
-            name: "POS Dashboard",
+            name: "POS Terminal",
             path: "/pos",
             icon: ShoppingCart,
           },
           {
-            name: "Tables",
+            name: "Table Map",
             path: "/pos/tables",
             icon: UtensilsCrossed,
           },
           {
-            name: "Reports",
+            name: "POS Reports",
             path: "/pos/reports",
             icon: BarChart3,
           },
@@ -90,12 +96,12 @@ const navigationGroups = [
 
         children: [
           {
-            name: "Kitchen Dashboard",
+            name: "Kitchen Display (KDS)",
             path: "/kitchen",
             icon: Flame,
           },
           {
-            name: "Reports",
+            name: "Kitchen Reports",
             path: "/kitchen/reports",
             icon: BarChart3,
           },
@@ -109,12 +115,12 @@ const navigationGroups = [
 
         children: [
           {
-            name: "Bar Dashboard",
+            name: "Bar Display",
             path: "/bar",
             icon: Wine,
           },
           {
-            name: "Reports",
+            name: "Bar Reports",
             path: "/bar/reports",
             icon: BarChart3,
           },
@@ -129,7 +135,7 @@ const navigationGroups = [
       },
 
       {
-        name: "Tables",
+        name: "Tables & Seating",
         path: "/tables",
         icon: Armchair,
         permission: "tables.view",
@@ -142,10 +148,32 @@ const navigationGroups = [
 
     items: [
       {
-        name: "Products",
-        path: "/products",
-        icon: Package,
-        permission: "products.view",
+        name: "Finance",
+        icon: Wallet,
+        permission: "finance.view",
+
+        children: [
+          {
+            name: "Cashier Reconciliation",
+            path: "/finance/cashier-reconciliation",
+            icon: CreditCard,
+          },
+          {
+            name: "Finance Overview",
+            path: "/finance",
+            icon: Wallet,
+          },
+          {
+            name: "Expenses",
+            path: "/finance/expenses",
+            icon: Receipt,
+          },
+          {
+            name: "Reports",
+            path: "/finance/reports",
+            icon: BarChart3,
+          },
+        ],
       },
 
       {
@@ -160,22 +188,22 @@ const navigationGroups = [
             icon: Boxes,
           },
           {
-            name: "Stock",
+            name: "Stock Levels",
             path: "/inventory/stock",
             icon: Package,
           },
           {
-            name: "Low Stock",
+            name: "Low Stock Alerts",
             path: "/inventory/low-stock",
             icon: AlertTriangle,
           },
           {
-            name: "Transactions",
+            name: "Stock Movements",
             path: "/inventory/transactions",
             icon: ArrowLeftRight,
           },
           {
-            name: "Reports",
+            name: "Inventory Reports",
             path: "/inventory/reports",
             icon: BarChart3,
           },
@@ -183,17 +211,31 @@ const navigationGroups = [
       },
 
       {
+        name: "Purchasing",
+        icon: ShoppingBag,
+        permission: "purchasing.view",
+
+        children: [
+          {
+            name: "Purchase Orders",
+            path: "/purchasing",
+            icon: ShoppingBag,
+          },
+        ],
+      },
+
+      {
+        name: "Products & Catalog",
+        path: "/products",
+        icon: Package,
+        permission: "products.view",
+      },
+
+      {
         name: "Customers",
         path: "/customers",
         icon: Users,
         permission: "customers.view",
-      },
-
-      {
-        name: "Purchasing",
-        path: "/purchasing",
-        icon: ShoppingBag,
-        permission: "purchasing.view",
       },
     ],
   },
@@ -203,18 +245,18 @@ const navigationGroups = [
 
     items: [
       {
-        name: "Employees",
+        name: "Human Resources",
         icon: UserCheck,
         permission: "employees.view",
 
         children: [
           {
-            name: "Employee Dashboard",
+            name: "Employee Directory",
             path: "/employees",
             icon: UserCheck,
           },
           {
-            name: "Attendance",
+            name: "Attendance Log",
             path: "/employees/attendance",
             icon: Clock,
           },
@@ -222,14 +264,14 @@ const navigationGroups = [
       },
 
       {
-        name: "Expenses",
+        name: "Company Expenses",
         path: "/expenses",
         icon: Receipt,
         permission: "expenses.view",
       },
 
       {
-        name: "Reports",
+        name: "Executive Reports",
         path: "/reports",
         icon: BarChart3,
         permission: "reports.view",
@@ -304,6 +346,9 @@ function DashboardLayout() {
 
   const [searchQuery, setSearchQuery] =
     useState("");
+
+  const [soundMuted, setSoundMuted] =
+    useState(!audioService.isAudioEnabled());
 
   const [openMenus, setOpenMenus] =
     useState({});
@@ -972,6 +1017,26 @@ function DashboardLayout() {
               />
 
             </div>
+
+            {/* =================================================
+                SOUND CHIME TOGGLE
+            ================================================= */}
+
+            <button
+              onClick={() => {
+                const enabled = audioService.toggleAudio();
+                if (enabled) audioService.playNewOrderSound();
+                setSoundMuted(!enabled);
+              }}
+              title={soundMuted ? "Unmute Order Sounds" : "Mute Order Sounds"}
+              className="rounded-xl p-2 text-slate-600 hover:bg-slate-100 transition"
+            >
+              {soundMuted ? (
+                <VolumeX className="h-5 w-5 text-rose-500" />
+              ) : (
+                <Volume2 className="h-5 w-5 text-emerald-600" />
+              )}
+            </button>
 
             {/* =================================================
                 NOTIFICATIONS

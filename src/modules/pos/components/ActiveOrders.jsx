@@ -7,10 +7,13 @@ function ActiveOrders() {
   const [paymentOrder, setPaymentOrder] = useState(null);
   const [barOrders, setBarOrders] = useState([]);
   const [loadingBarOrders, setLoadingBarOrders] = useState(false);
+  const [paidOrderIds, setPaidOrderIds] = useState(new Set());
 
   const {
     kitchenOrders,
     updateKitchenOrderStatus,
+    fetchTables,
+    fetchKitchenOrders,
   } = useRestaurant();
 
   console.log("KITCHEN ORDERS:", kitchenOrders);
@@ -19,6 +22,8 @@ function ActiveOrders() {
   // ============================================================
   // FETCH BAR ORDERS
   // ============================================================
+
+  const [posOrders, setPosOrders] = useState([]);
 
   const fetchBarOrders = async () => {
     try {
@@ -36,26 +41,178 @@ function ActiveOrders() {
     }
   };
 
+  const fetchPosOrders = async () => {
+    try {
+      const response = await api("/pos/orders");
+      setPosOrders(response.orders || response.data || []);
+    } catch (error) {
+      console.log("POS orders fetch notice:", error);
+    }
+  };
+
   useEffect(() => {
     fetchBarOrders();
+    fetchPosOrders();
+    if (fetchKitchenOrders) fetchKitchenOrders();
+    if (fetchTables) fetchTables();
 
-    // Refresh so waiter can see newly prepared drinks
+    // Auto refresh so waiter sees active orders & table statuses live without manual refresh
     const interval = setInterval(() => {
       fetchBarOrders();
-    }, 5000);
+      fetchPosOrders();
+      if (fetchKitchenOrders) fetchKitchenOrders();
+      if (fetchTables) fetchTables();
+    }, 3000);
 
     return () => clearInterval(interval);
   }, []);
 
+  // Map of completed/paid POS order statuses from backend
+  const posOrderPaymentStatusMap = new Map(
+    posOrders.map((po) => [
+      String(po.id),
+      {
+        payment_status: po.payment_status,
+        status: po.status,
+      },
+    ])
+  );
+
   // ============================================================
-  // ACTIVE KITCHEN ORDERS
+  // COMBINED & GROUPED BY TABLE
   // ============================================================
 
-  const activeOrders = kitchenOrders.filter(
-    (order) =>
-      order.status !== "completed" &&
-      order.status !== "cancelled" &&
-      order.payment_status !== "paid"
+  const parseRawItems = (itemsInput) => {
+    if (!itemsInput) return [];
+    if (typeof itemsInput === "string") {
+      try {
+        return JSON.parse(itemsInput);
+      } catch (e) {
+        console.error("Failed to parse items string:", e);
+        return [];
+      }
+    }
+    return Array.isArray(itemsInput) ? itemsInput : [];
+  };
+
+  const tableOrderGroupMap = new Map();
+
+  kitchenOrders.forEach((kOrder) => {
+    const mainOrderId = kOrder.order_id || kOrder.id;
+
+    if (kOrder.status === "cancelled") {
+      return;
+    }
+
+    const tNum = kOrder.table_number || kOrder.table_id;
+    const tableGroupKey = tNum ? `TBL_${tNum}` : `ORD_${mainOrderId}`;
+
+    const kItems = parseRawItems(kOrder.items || kOrder.order_items);
+    const posMeta = posOrderPaymentStatusMap.get(String(mainOrderId));
+
+    const isPaid =
+      kOrder.payment_status === "paid" ||
+      kOrder.status === "completed" ||
+      posMeta?.payment_status === "paid" ||
+      posMeta?.status === "completed" ||
+      paidOrderIds.has(String(mainOrderId));
+
+    if (!tableOrderGroupMap.has(tableGroupKey)) {
+      tableOrderGroupMap.set(tableGroupKey, {
+        uniqueKey: tableGroupKey,
+        id: mainOrderId,
+        order_id: mainOrderId,
+        order_number: kOrder.order_number || `#${mainOrderId}`,
+        table_id: kOrder.table_id,
+        table_number: kOrder.table_number,
+        status: isPaid ? "completed" : kOrder.status,
+        payment_status: isPaid ? "paid" : (kOrder.payment_status || "unpaid"),
+        created_at: kOrder.created_at,
+        kitchenOrder: kOrder,
+        kitchen_order_id: kOrder.id,
+        items: kItems,
+        barOrder: null,
+      });
+    } else {
+      const existing = tableOrderGroupMap.get(tableGroupKey);
+      if (isPaid) {
+        existing.payment_status = "paid";
+        existing.status = "completed";
+      }
+      kItems.forEach((newItem) => {
+        const hasItem = existing.items.some(
+          (e) =>
+            (e.id && e.id === newItem.id) ||
+            (e.product_name || e.name) === (newItem.product_name || newItem.name)
+        );
+        if (!hasItem) {
+          existing.items.push(newItem);
+        }
+      });
+    }
+  });
+
+  barOrders.forEach((bOrder, bIdx) => {
+    const orderIdRef = bOrder.order_id || bOrder.id;
+
+    if (bOrder.status === "cancelled") {
+      return;
+    }
+
+    const tNum = bOrder.table_number || bOrder.table_id;
+    const tableGroupKey = tNum ? `TBL_${tNum}` : `B_ORD_${orderIdRef || bIdx}`;
+
+    const bItems = parseRawItems(bOrder.items).map((i) => ({
+      ...i,
+      category: i.category || "drink",
+    }));
+
+    const posMeta = posOrderPaymentStatusMap.get(String(orderIdRef));
+    const isPaid =
+      bOrder.payment_status === "paid" ||
+      bOrder.status === "completed" ||
+      posMeta?.payment_status === "paid" ||
+      posMeta?.status === "completed" ||
+      paidOrderIds.has(String(orderIdRef));
+
+    if (tableOrderGroupMap.has(tableGroupKey)) {
+      const existing = tableOrderGroupMap.get(tableGroupKey);
+      existing.barOrder = bOrder;
+      if (isPaid) {
+        existing.payment_status = "paid";
+        existing.status = "completed";
+      }
+
+      bItems.forEach((bItem) => {
+        const hasItem = existing.items.some(
+          (e) =>
+            (e.id && e.id === bItem.id) ||
+            (e.product_name || e.name) === (bItem.product_name || bItem.name)
+        );
+        if (!hasItem) {
+          existing.items.push(bItem);
+        }
+      });
+    } else {
+      tableOrderGroupMap.set(tableGroupKey, {
+        uniqueKey: tableGroupKey,
+        id: orderIdRef,
+        order_id: orderIdRef,
+        order_number: bOrder.order_number || `#B-${orderIdRef}`,
+        table_id: bOrder.table_id,
+        table_number: bOrder.table_number,
+        status: isPaid ? "completed" : (bOrder.status || "pending"),
+        payment_status: isPaid ? "paid" : "unpaid",
+        created_at: bOrder.created_at,
+        items: bItems,
+        barOrder: bOrder,
+        isBarOnly: true,
+      });
+    }
+  });
+
+  const activeOrders = Array.from(tableOrderGroupMap.values()).filter(
+    (o) => o.status !== "cancelled"
   );
 
   // ============================================================
@@ -63,7 +220,7 @@ function ActiveOrders() {
   // ============================================================
 
   const getBarOrder = (order) => {
-    return barOrders.find(
+    return order.barOrder || barOrders.find(
       (barOrder) =>
         Number(barOrder.order_id) === Number(order.order_id || order.id)
     );
@@ -139,13 +296,43 @@ function ActiveOrders() {
 
   const handleServeFood = async (order) => {
     try {
-      await updateKitchenOrderStatus(order.id, "served");
+      const kId = order.kitchen_order_id || (order.kitchenOrder ? order.kitchenOrder.id : order.id);
+      console.log("Serving food for kitchen_order_id:", kId);
+      await updateKitchenOrderStatus(kId, "served");
+      if (fetchKitchenOrders) await fetchKitchenOrders();
     } catch (error) {
-      console.error(
-        "Failed to mark food as served:",
-        error
-      );
+      console.error("Failed to mark food as served:", error);
     }
+  };
+
+  const calculateOrderTotal = (order) => {
+    if (!order) return 0;
+    const items = Array.isArray(order.items)
+      ? order.items
+      : parseRawItems(order.items || order.order_items);
+
+    const subtotal = items.reduce((sum, item) => {
+      const qty = Number(item.quantity ?? item.qty ?? 1);
+      const price = Number(
+        item.unit_price ??
+        item.unitPrice ??
+        item.price ??
+        item.product_price ??
+        item.productPrice ??
+        item.product?.price ??
+        0
+      );
+      return sum + qty * price;
+    }, 0);
+
+    const discount = Number(order.discount || order.discount_amount || 0);
+    const tax = Number(order.tax || order.tax_amount || subtotal * 0.05);
+    const serviceCharge = Number(order.service_charge || order.service_charge_amount || subtotal * 0.10);
+
+    const grandTotal = Math.max(subtotal - discount + tax + serviceCharge, 0);
+    const dbTotal = Number(order.total_amount ?? order.totalAmount ?? order.total ?? 0);
+
+    return dbTotal > subtotal ? dbTotal : (grandTotal > 0 ? grandTotal : subtotal);
   };
 
   // ============================================================
@@ -202,16 +389,83 @@ function ActiveOrders() {
   // PAYMENT SUCCESS
   // ============================================================
 
-  const handlePaymentSuccess = (
+  const handlePaymentSuccess = async (
     response,
     order
   ) => {
     console.log(
-      "Payment completed:",
-      response
+      "Payment completed successfully:",
+      response,
+      order
     );
 
     setPaymentOrder(null);
+
+    const targetOrderId = order.order_id || order.id;
+    const targetTableId = order.table_id || order.table_number;
+
+    // Track paid order key in local state so UI instantly renders 'Paid' badge
+    setPaidOrderIds((prev) => {
+      const next = new Set(prev);
+      if (order.id) next.add(String(order.id));
+      if (order.order_id) next.add(String(order.order_id));
+      if (order.uniqueKey) next.add(String(order.uniqueKey));
+      if (targetTableId) next.add(`TBL_${targetTableId}`);
+      return next;
+    });
+
+    // 1. Instantly remove paid order from local bar state
+    setBarOrders((prev) =>
+      prev.filter((o) => (o.id || o.order_id) !== targetOrderId)
+    );
+
+    // 2. Free up table in backend if table ID exists
+    if (targetTableId) {
+      try {
+        await api(`/tables/${targetTableId}/status`, {
+          method: "PUT",
+          body: JSON.stringify({ status: "available" }),
+        });
+      } catch (tableErr) {
+        console.log("Table status auto-reset notice:", tableErr);
+      }
+    }
+
+    // 3. Trigger context refresh
+    try {
+      if (fetchTables) await fetchTables();
+      if (fetchKitchenOrders) await fetchKitchenOrders();
+      await fetchBarOrders();
+    } catch (e) {
+      console.error("Failed to refresh state after payment:", e);
+    }
+  };
+
+  const parseOrderItems = (order) => {
+    if (!order) return [];
+    let rawItems =
+      order.items ||
+      order.order_items ||
+      (order.barOrder ? order.barOrder.items : null) ||
+      [];
+
+    if (typeof rawItems === "string") {
+      try {
+        rawItems = JSON.parse(rawItems);
+      } catch {
+        rawItems = [];
+      }
+    }
+
+    if (Array.isArray(rawItems) && rawItems.length > 0) {
+      return rawItems;
+    }
+
+    if (order.items_summary) {
+      return [{ name: order.items_summary, quantity: 1 }];
+    }
+
+    return [];
   };
 
   // ============================================================
@@ -219,18 +473,16 @@ function ActiveOrders() {
   // ============================================================
 
   const isOrderFullyServed = (order) => {
+    if (!order) return false;
     const barOrder = getBarOrder(order);
 
     const kitchenServed =
       order.status === "served" ||
-      order.status === "completed";
-
-    // If there is no bar order, only kitchen matters
-    if (!barOrder) {
-      return kitchenServed;
-    }
+      order.status === "completed" ||
+      order.isBarOnly;
 
     const drinksServed =
+      !barOrder ||
       barOrder.status === "served" ||
       barOrder.status === "completed";
 
@@ -298,32 +550,24 @@ function ActiveOrders() {
 
             <table className="w-full text-left text-sm">
 
-              <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+              <thead className="bg-slate-100/80 text-xs font-bold uppercase tracking-wider text-slate-600">
 
                 <tr>
 
                   <th className="px-5 py-4">
-                    Order
+                    Table & Order
                   </th>
 
                   <th className="px-5 py-4">
-                    Table
+                    Ordered Items (Food, Drinks & Other)
                   </th>
 
-                  <th className="px-5 py-4">
-                    Items
-                  </th>
-
-                  <th className="px-5 py-4">
-                    Kitchen
-                  </th>
-
-                  <th className="px-5 py-4">
-                    Bar
+                  <th className="px-5 py-4 text-center">
+                    Table Status
                   </th>
 
                   <th className="px-5 py-4 text-right">
-                    Action
+                    Actions & Payment
                   </th>
 
                 </tr>
@@ -332,7 +576,7 @@ function ActiveOrders() {
 
               <tbody className="divide-y divide-gray-100">
 
-                {activeOrders.map((order) => {
+                {activeOrders.map((order, orderIdx) => {
 
                   const barOrder =
                     getBarOrder(order);
@@ -340,188 +584,187 @@ function ActiveOrders() {
                   const fullyServed =
                     isOrderFullyServed(order);
 
+                  const rowKey =
+                    order.uniqueKey ||
+                    `table-row-${order.id || order.table_id || orderIdx}-${orderIdx}`;
+
+                  const totalBirr = calculateOrderTotal(order);
+
                   return (
 
                     <tr
-                      key={order.id}
-                      className="hover:bg-gray-50"
+                      key={rowKey}
+                      className="hover:bg-gray-50/80 transition"
                     >
 
-                      {/* =================================================
-                          ORDER
-                      ================================================= */}
-
-                      <td className="px-5 py-4 font-semibold text-gray-900">
-
-                        #{order.order_number}
-
+                      {/* TABLE & ORDER */}
+                      <td className="px-5 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-base font-extrabold text-slate-900">
+                            {order.table_number || order.table_id
+                              ? `Table #${order.table_number || order.table_id}`
+                              : "Takeaway / Counter"}
+                          </span>
+                          <span className="text-xs font-bold text-slate-500">
+                            #{order.order_number || order.id}
+                          </span>
+                        </div>
                       </td>
 
-                      {/* =================================================
-                          TABLE
-                      ================================================= */}
+                      {/* ITEMS (FOOD, DRINKS, OTHER) */}
+                      <td className="min-w-[280px] px-5 py-3">
 
-                      <td className="px-5 py-4 font-medium text-gray-900">
+                        <div className="flex flex-wrap items-center gap-1.5">
 
-                        {order.table_number || "-"}
+                          {parseOrderItems(order).length > 0 ? (
+                            parseOrderItems(order).map(
+                              (item, idx) => {
+                                const qty = item.quantity || item.qty || 1;
+                                const name =
+                                  item.product_name ||
+                                  item.name ||
+                                  item.title ||
+                                  item.item_name ||
+                                  item.description ||
+                                  (item.productId || item.product_id
+                                    ? `Item #${item.productId || item.product_id}`
+                                    : "Order Item");
 
-                      </td>
+                                const nameLower = name.toLowerCase();
+                                const isDrink =
+                                  item.category === "drink" ||
+                                  item.category === "bar" ||
+                                  nameLower.includes("beer") ||
+                                  nameLower.includes("wine") ||
+                                  nameLower.includes("whiskey") ||
+                                  nameLower.includes("drink") ||
+                                  nameLower.includes("cocktail") ||
+                                  nameLower.includes("soda") ||
+                                  nameLower.includes("water");
 
-                      {/* =================================================
-                          ITEMS
-                      ================================================= */}
+                                const isFood =
+                                  item.category === "food" ||
+                                  item.category === "kitchen" ||
+                                  nameLower.includes("doro") ||
+                                  nameLower.includes("burger") ||
+                                  nameLower.includes("pizza") ||
+                                  nameLower.includes("steak") ||
+                                  nameLower.includes("pasta");
 
-                      <td className="min-w-[220px] px-5 py-4">
-
-                        <div className="space-y-1">
-
-                          {(order.items || []).map(
-                            (item) => (
-
-                              <div
-                                key={item.id}
-                                className="flex justify-between gap-4"
-                              >
-
-                                <span className="text-gray-700">
-                                  {item.product_name}
-                                </span>
-
-                                <span className="font-medium text-gray-900">
-                                  × {item.quantity}
-                                </span>
-
-                              </div>
-
+                                return (
+                                  <div
+                                    key={`item-${rowKey}-${item.id || idx}`}
+                                    className={`inline-flex items-center gap-1.5 rounded-lg border ${
+                                      isDrink
+                                        ? "border-purple-200/80 bg-purple-50 text-purple-900"
+                                        : isFood
+                                        ? "border-amber-200/80 bg-amber-50 text-amber-900"
+                                        : "border-sky-200/80 bg-sky-50 text-sky-900"
+                                    } px-2.5 py-1 text-xs font-semibold shadow-xs`}
+                                  >
+                                    <span
+                                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                                        isDrink
+                                          ? "bg-purple-500"
+                                          : isFood
+                                          ? "bg-amber-500"
+                                          : "bg-sky-500"
+                                      }`}
+                                    />
+                                    <span className="font-semibold text-slate-800">
+                                      {name}
+                                    </span>
+                                    <span
+                                      className={`rounded ${
+                                        isDrink
+                                          ? "bg-purple-600 text-white"
+                                          : isFood
+                                          ? "bg-amber-600 text-white"
+                                          : "bg-sky-600 text-white"
+                                      } px-1.5 py-0.2 text-[10px] font-black`}
+                                    >
+                                      ×{qty}
+                                    </span>
+                                  </div>
+                                );
+                              }
                             )
+                          ) : (
+                            <span className="text-xs font-medium text-slate-400 italic">
+                              {order.items_summary || "1x Order Item"}
+                            </span>
                           )}
 
                         </div>
 
                       </td>
 
-                      {/* =================================================
-                          KITCHEN STATUS
-                      ================================================= */}
-
-                      <td className="px-5 py-4">
+                      {/* OVERALL TABLE STATUS */}
+                      <td className="px-5 py-3 text-center">
 
                         <span
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${getStatusStyle(
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-extrabold ${getStatusStyle(
                             order.status
                           )}`}
                         >
-                          {getStatusLabel(
-                            order.status
-                          )}
+                          {getStatusLabel(order.status)}
                         </span>
 
                       </td>
 
-                      {/* =================================================
-                          BAR STATUS
-                      ================================================= */}
+                      {/* ACTIONS & PAYMENT */}
+                      <td className="px-5 py-3 text-right">
 
-                      <td className="px-5 py-4">
+                        {paidOrderIds.has(String(order.id)) ||
+                        paidOrderIds.has(String(order.order_id)) ||
+                        paidOrderIds.has(String(order.uniqueKey)) ||
+                        order.payment_status === "paid" ||
+                        order.status === "completed" ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-md whitespace-nowrap">
+                            ✓ Paid
+                          </span>
+                        ) : (
+                          <div className="flex flex-wrap items-center justify-end gap-2">
 
-                        {barOrder ? (
-
-                          <div className="flex flex-col gap-2">
-
-                            <span
-                              className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium ${getStatusStyle(
-                                barOrder.status
-                              )}`}
-                            >
-                              {getStatusLabel(
-                                barOrder.status
-                              )}
-                            </span>
-
-                            {barOrder.status ===
-                              "ready" && (
-
+                            {/* SERVE DRINKS BUTTON */}
+                            {barOrder && (barOrder.status === "ready" || barOrder.status === "preparing") && (
                               <button
-                                onClick={() =>
-                                  handleServeDrinks(
-                                    barOrder
-                                  )
-                                }
-                                className="w-fit rounded-lg bg-purple-600 px-3 py-2 text-xs font-medium text-white hover:bg-purple-700"
+                                type="button"
+                                onClick={() => handleServeDrinks(barOrder)}
+                                className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-purple-700 transition shadow-xs whitespace-nowrap"
                               >
-                                Serve Drinks
+                                🍺 Mark Drinks Served
                               </button>
-
                             )}
 
+                            {/* SERVE FOOD BUTTON */}
+                            {(order.status === "ready" || order.kitchenOrder?.status === "ready") && (
+                              <button
+                                type="button"
+                                onClick={() => handleServeFood(order)}
+                                className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 transition shadow-xs whitespace-nowrap"
+                              >
+                                🍔 Mark Food Served
+                              </button>
+                            )}
+
+                            {/* COMPLETE PAYMENT BUTTON */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const tBirr = calculateOrderTotal(order);
+                                setPaymentOrder({
+                                  ...order,
+                                  id: order.order_id || order.id,
+                                  calculatedTotal: tBirr,
+                                });
+                              }}
+                              className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white shadow-md hover:bg-emerald-700 active:scale-95 transition flex items-center gap-1.5 whitespace-nowrap"
+                            >
+                              💳 {totalBirr > 0 ? `Pay Birr ${totalBirr.toFixed(2)}` : "Complete Payment"}
+                            </button>
+
                           </div>
-
-                        ) : (
-
-                          <span className="text-xs text-gray-400">
-                            No drinks
-                          </span>
-
-                        )}
-
-                      </td>
-
-                      {/* =================================================
-                          ACTION
-                      ================================================= */}
-
-                      <td className="px-5 py-4 text-right">
-
-                        {/* FOOD READY */}
-
-                        {order.status ===
-                          "ready" && (
-
-                          <button
-                            onClick={() =>
-                              handleServeFood(
-                                order
-                              )
-                            }
-                            className="rounded-lg bg-green-600 px-4 py-2 text-xs font-medium text-white hover:bg-green-700"
-                          >
-                            Serve Food
-                          </button>
-
-                        )}
-
-                        {/* FOOD STILL PREPARING */}
-
-                        {order.status !==
-                          "ready" &&
-                          order.status !==
-                            "served" &&
-                          !fullyServed && (
-
-                          <span className="text-xs text-gray-400">
-                            Waiting...
-                          </span>
-
-                        )}
-
-                        {/* EVERYTHING SERVED */}
-
-                        {fullyServed && (
-
-                          <button
-                            onClick={() =>
-                              setPaymentOrder({
-                                ...order,
-                                id:
-                                  order.order_id ||
-                                  order.id,
-                              })
-                            }
-                            className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700"
-                          >
-                            Pay
-                          </button>
-
                         )}
 
                       </td>

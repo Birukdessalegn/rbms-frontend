@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import RoleRedirect from "./RoleRedirect";
 
 const rolePermissions = {
   ADMIN: ["*"],
@@ -27,6 +28,7 @@ const rolePermissions = {
   STOREKEEPER: ["inventory", "products"],
   PURCHASING: ["purchasing", "inventory"],
   ACCOUNTANT: ["finance", "expenses", "reports"],
+  FINANCE: ["finance", "expenses", "reports", "payments"],
   HR: ["employees"],
 };
 
@@ -48,7 +50,7 @@ function PermissionRoute({ permission }) {
     permissions.includes(permission);
 
   if (!hasAccess) {
-    return <Navigate to="/dashboard" replace />;
+    return <RoleRedirect />;
   }
 
   return <Outlet />;

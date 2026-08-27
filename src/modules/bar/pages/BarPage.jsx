@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Wine,
   ClipboardList,
@@ -10,12 +10,17 @@ import {
   RefreshCw,
 } from "lucide-react";
 import api from "../../../services/api";
+import audioService from "../../../services/audioService";
+import NewOrderAlertModal from "../../../components/common/NewOrderAlertModal";
 
 function BarPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingOrder, setUpdatingOrder] = useState(null);
+  const [alertOrder, setAlertOrder] = useState(null);
+
+  const prevOrdersRef = useRef(null);
 
   // ============================================================
   // FETCH BAR ORDERS
@@ -23,14 +28,27 @@ function BarPage() {
 
   const fetchBarOrders = async () => {
     try {
-      setLoading(true);
       setError("");
 
       const response = await api("/bar/orders");
+      const fetchedOrders = response.orders || response.data || (Array.isArray(response) ? response : []);
 
-      console.log("BAR ORDERS RESPONSE:", response);
+      if (prevOrdersRef.current !== null) {
+        // Detect new pending/new bar order
+        const newBarOrder = fetchedOrders.find(
+          (o) =>
+            (o.status?.toLowerCase() === "pending" || o.status?.toLowerCase() === "new") &&
+            !prevOrdersRef.current.some((old) => old.id === o.id)
+        );
 
-      setOrders(response.orders || []);
+        if (newBarOrder) {
+          audioService.playNewOrderSound();
+          setAlertOrder(newBarOrder);
+        }
+      }
+
+      prevOrdersRef.current = fetchedOrders;
+      setOrders(fetchedOrders);
     } catch (error) {
       console.error("Failed to fetch bar orders:", error);
 
@@ -43,11 +61,13 @@ function BarPage() {
   };
 
   // ============================================================
-  // LOAD ORDERS WHEN PAGE OPENS
+  // LOAD ORDERS & POLLING
   // ============================================================
 
   useEffect(() => {
     fetchBarOrders();
+    const interval = setInterval(fetchBarOrders, 4000);
+    return () => clearInterval(interval);
   }, []);
 
   // ============================================================
@@ -162,18 +182,54 @@ function BarPage() {
   // FORMAT ORDER ITEMS
   // ============================================================
 
-  const formatItems = (items) => {
-    if (!items || items.length === 0) {
-      return "No drink items";
+  const parseItems = (rawItems) => {
+    if (!rawItems) return [];
+    if (Array.isArray(rawItems)) return rawItems;
+    if (typeof rawItems === "string") {
+      try {
+        return JSON.parse(rawItems);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const formatItems = (order) => {
+    if (!order) return "No drink items specified";
+
+    const rawItems =
+      order.items || order.order_items || order.orderItems || order.products;
+    const items = parseItems(rawItems);
+
+    if (items && items.length > 0) {
+      return items
+        .map((item) => {
+          const quantity = Number(item.quantity || item.qty || 1);
+          const name =
+            item.product_name ||
+            item.name ||
+            item.title ||
+            item.item_name ||
+            item.productName ||
+            item.description ||
+            (item.productId || item.product_id
+              ? `Product #${item.productId || item.product_id}`
+              : "Drink Item");
+
+          const notes = item.notes ? ` (${item.notes})` : "";
+          return `${quantity}x ${name}${notes}`;
+        })
+        .join(", ");
     }
 
-    return items
-      .map((item) => {
-        const quantity = Number(item.quantity || 0);
+    if (order.items_summary) return order.items_summary;
+    if (order.drink_name) return order.drink_name;
+    if (order.product_name)
+      return `${order.quantity || 1}x ${order.product_name}`;
+    if (order.description) return order.description;
 
-        return `${quantity} ${item.product_name}`;
-      })
-      .join(", ");
+    return "No drink items specified";
   };
 
   // ============================================================
@@ -420,7 +476,7 @@ function BarPage() {
                       {/* ITEMS */}
 
                       <p className="mt-2 text-sm font-medium text-slate-700">
-                        {formatItems(order.items)}
+                        {formatItems(order)}
                       </p>
 
 
@@ -442,31 +498,7 @@ function BarPage() {
 
                       {/* NEW */}
 
-                      {(order.status === "pending" ||
-                        order.status === "confirmed") && (
 
-                        <button
-                          type="button"
-                          disabled={isUpdating}
-                          onClick={() =>
-                            updateOrderStatus(
-                              order.id,
-                              "preparing"
-                            )
-                          }
-                          className="flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-amber-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-
-                          {isUpdating ? (
-                            <RefreshCw className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Play className="h-4 w-4 fill-current" />
-                          )}
-
-                          Start Preparing
-
-                        </button>
-                      )}
 
 
                       {/* PREPARING */}
@@ -567,6 +599,13 @@ function BarPage() {
 
       </div>
 
+      {/* NEW BAR DRINK ORDER POPUP */}
+      <NewOrderAlertModal
+        order={alertOrder}
+        department="bar"
+        onAccept={(orderToAccept) => updateOrderStatus(orderToAccept.id, "preparing")}
+        onDismiss={() => setAlertOrder(null)}
+      />
     </div>
   );
 }

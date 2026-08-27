@@ -41,6 +41,7 @@ import InventoryStockPage from "../modules/inventory/pages/InventoryStockPage";
 import InventoryLowStockPage from "../modules/inventory/pages/InventoryLowStockPage";
 import InventoryTransactionsPage from "../modules/inventory/pages/InventoryTransactionsPage";
 import InventoryReportsPage from "../modules/inventory/pages/InventoryReportsPage";
+import CashierReconciliationPage from "../modules/finance/pages/CashierReconciliationPage";
 
 
 function AppRoutes() {
@@ -353,6 +354,48 @@ function AppRoutes() {
               />
             </Route>
 
+            {/* -------------------------
+                FINANCE
+            -------------------------- */}
+            <Route
+              element={
+                <PermissionRoute permission="finance" />
+              }
+            >
+              <Route
+                path="/finance"
+                element={<CashierReconciliationPage />}
+              />
+              <Route
+                path="/finance/cashier-reconciliation"
+                element={<CashierReconciliationPage />}
+              />
+              <Route
+                path="/finance/sales"
+                element={<h1>Sales</h1>}
+              />
+              <Route
+                path="/finance/expenses"
+                element={<ExpensesPage />}
+              />
+              <Route
+                path="/finance/purchases"
+                element={<PurchasingPage />}
+              />
+              <Route
+                path="/finance/payments"
+                element={<PaymentPage />}
+              />
+              <Route
+                path="/finance/transactions"
+                element={<CashierReconciliationPage />}
+              />
+              <Route
+                path="/finance/reports"
+                element={<h1>Financial Reports</h1>}
+              />
+            </Route>
+
           </Route>
 
 
@@ -503,56 +546,6 @@ function AppRoutes() {
               <Route
                 path="/store/inventory/reports"
                 element={<InventoryReportsPage />}
-              />
-
-            </Route>
-          </Route>
-
-
-          {/* =================================================
-              FINANCE
-          ================================================= */}
-
-          <Route
-            element={
-              <PermissionRoute permission="finance" />
-            }
-          >
-            <Route element={<FinanceLayout />}>
-
-              <Route
-                path="/finance"
-                element={<h1>Finance Dashboard</h1>}
-              />
-
-              <Route
-                path="/finance/sales"
-                element={<h1>Sales</h1>}
-              />
-
-              <Route
-                path="/finance/expenses"
-                element={<h1>Expenses</h1>}
-              />
-
-              <Route
-                path="/finance/purchases"
-                element={<h1>Purchases</h1>}
-              />
-
-              <Route
-                path="/finance/payments"
-                element={<h1>Payments</h1>}
-              />
-
-              <Route
-                path="/finance/transactions"
-                element={<h1>Transactions</h1>}
-              />
-
-              <Route
-                path="/finance/reports"
-                element={<h1>Financial Reports</h1>}
               />
 
             </Route>

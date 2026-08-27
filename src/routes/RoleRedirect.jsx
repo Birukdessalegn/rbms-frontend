@@ -8,31 +8,39 @@ function RoleRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role === "CHEF") {
-    return <Navigate to="/kitchen" replace />;
-  }
+  const role = user.role?.toUpperCase();
 
-  if (user.role === "ADMIN" || user.role === "MANAGER") {
-    return <Navigate to="/dashboard" replace />;
-  }
+  switch (role) {
+    case "CHEF":
+      return <Navigate to="/kitchen" replace />;
 
-  if (user.role === "WAITER" || user.role === "CASHIER") {
-    return <Navigate to="/pos" replace />;
-  }
+    case "ADMIN":
+    case "MANAGER":
+      return <Navigate to="/dashboard" replace />;
 
-  if (user.role === "BARTENDER") {
-    return <Navigate to="/bar" replace />;
-  }
+    case "WAITER":
+    case "CASHIER":
+      return <Navigate to="/pos" replace />;
 
-  if (user.role === "STOREKEEPER") {
-    return <Navigate to="/inventory" replace />;
-  }
+    case "BARTENDER":
+      return <Navigate to="/bar" replace />;
 
-  if (user.role === "ACCOUNTANT") {
-    return <Navigate to="/finance" replace />;
-  }
+    case "STOREKEEPER":
+      return <Navigate to="/inventory" replace />;
 
-  return <Navigate to="/login" replace />;
+    case "PURCHASING":
+      return <Navigate to="/purchasing" replace />;
+
+    case "ACCOUNTANT":
+    case "FINANCE":
+      return <Navigate to="/finance" replace />;
+
+    case "HR":
+      return <Navigate to="/employees" replace />;
+
+    default:
+      return <Navigate to="/dashboard" replace />;
+  }
 }
 
 export default RoleRedirect;

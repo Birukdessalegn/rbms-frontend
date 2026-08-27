@@ -1,18 +1,49 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import api from "../../../services/api";
+import audioService from "../../../services/audioService";
+import NewOrderAlertModal from "../../../components/common/NewOrderAlertModal";
 
 function KitchenPage() {
   const [kitchenOrders, setKitchenOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [alertOrder, setAlertOrder] = useState(null);
+
+  const prevOrdersRef = useRef(null);
 
   const fetchKitchenOrders = async () => {
     try {
       setError("");
 
       const response = await api("/kitchen");
+      console.log("KITCHEN FETCH RESPONSE:", response);
 
-      setKitchenOrders(response.orders || []);
+      const orders =
+        response.orders ||
+        response.data?.orders ||
+        response.data ||
+        (Array.isArray(response) ? response : []);
+
+      console.log("PARSED KITCHEN ORDERS:", orders);
+
+      if (prevOrdersRef.current !== null) {
+        // Detect new pending orders
+        const newPendingOrder = orders.find(
+          (o) =>
+            (o.status?.toLowerCase() === "pending" ||
+              o.status?.toLowerCase() === "new" ||
+              o.status?.toLowerCase() === "confirmed") &&
+            !prevOrdersRef.current.some((old) => old.id === o.id)
+        );
+
+        if (newPendingOrder) {
+          audioService.playNewOrderSound();
+          setAlertOrder(newPendingOrder);
+        }
+      }
+
+      prevOrdersRef.current = orders;
+      setKitchenOrders(orders);
     } catch (error) {
       console.error("Failed to fetch kitchen orders:", error);
       setError(error.message || "Failed to load kitchen orders");
@@ -23,14 +54,22 @@ function KitchenPage() {
 
   useEffect(() => {
     fetchKitchenOrders();
+    const interval = setInterval(fetchKitchenOrders, 4000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleAction = async (order) => {
+    if (!order) return;
     let nextStatus;
 
-    if (order.status === "pending") {
+    const currentStatus = (order.status || "").toLowerCase();
+    if (
+      currentStatus === "pending" ||
+      currentStatus === "new" ||
+      currentStatus === "confirmed"
+    ) {
       nextStatus = "preparing";
-    } else if (order.status === "preparing") {
+    } else if (currentStatus === "preparing") {
       nextStatus = "ready";
     } else {
       return;
@@ -105,6 +144,25 @@ function KitchenPage() {
       default:
         return "Completed";
     }
+  };
+
+  const parseOrderItems = (order) => {
+    if (!order) return [];
+    let rawItems = order.items || order.order_items || order.products || [];
+    if (typeof rawItems === "string") {
+      try {
+        rawItems = JSON.parse(rawItems);
+      } catch {
+        rawItems = [];
+      }
+    }
+    if (Array.isArray(rawItems) && rawItems.length > 0) {
+      return rawItems;
+    }
+    if (order.items_summary) {
+      return [{ name: order.items_summary, quantity: 1 }];
+    }
+    return [];
   };
 
   if (loading) {
@@ -272,24 +330,72 @@ function KitchenPage() {
                       </td>
 
                       {/* Items */}
-                      <td className="min-w-[250px] px-5 py-4">
+                      <td className="min-w-[260px] px-5 py-4">
 
-                        <div className="space-y-1">
+                        <div className="flex flex-col gap-1.5">
 
-                          {(order.items || []).map((item) => (
-                            <div
-                              key={item.id}
-                              className="flex justify-between gap-4"
-                            >
-                              <span className="text-gray-700">
-                                {item.product_name}
-                              </span>
+                          {parseOrderItems(order).length > 0 ? (
+                            parseOrderItems(order).map((item, idx) => {
+                              const qty = item.quantity || item.qty || 1;
+                              const name =
+                                item.product_name ||
+                                item.name ||
+                                item.title ||
+                                item.item_name ||
+                                item.description ||
+                                (item.productId || item.product_id
+                                  ? `Item #${item.productId || item.product_id}`
+                                  : "Order Item");
 
-                              <span className="font-medium text-gray-900">
-                                × {item.quantity}
-                              </span>
-                            </div>
-                          ))}
+                              const nameLower = name.toLowerCase();
+                              const isDrink =
+                                item.category === "drink" ||
+                                item.category === "bar" ||
+                                nameLower.includes("beer") ||
+                                nameLower.includes("wine") ||
+                                nameLower.includes("whiskey") ||
+                                nameLower.includes("drink") ||
+                                nameLower.includes("cocktail") ||
+                                nameLower.includes("soda") ||
+                                nameLower.includes("water");
+
+                              return (
+                                <div
+                                  key={item.id || idx}
+                                  className={`flex items-center justify-between gap-3 rounded-lg border ${
+                                    isDrink
+                                      ? "border-purple-200/70 bg-purple-50/70 text-purple-900"
+                                      : "border-amber-200/70 bg-amber-50/70 text-amber-900"
+                                  } px-2.5 py-1 text-xs font-semibold shadow-xs transition hover:shadow-sm`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span
+                                      className={`h-2 w-2 rounded-full shrink-0 ${
+                                        isDrink ? "bg-purple-500" : "bg-amber-500"
+                                      }`}
+                                    />
+                                    <span className="truncate font-semibold text-slate-800">
+                                      {name}
+                                    </span>
+                                  </div>
+
+                                  <span
+                                    className={`shrink-0 rounded-md ${
+                                      isDrink
+                                        ? "bg-purple-600 text-white"
+                                        : "bg-amber-600 text-white"
+                                    } px-2 py-0.5 text-[11px] font-extrabold shadow-xs`}
+                                  >
+                                    ×{qty}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <span className="text-xs font-medium text-slate-400 italic">
+                              {order.items_summary || "1x Order Item"}
+                            </span>
+                          )}
 
                         </div>
 
@@ -348,12 +454,17 @@ function KitchenPage() {
               </tbody>
 
             </table>
-
           </div>
         )}
-
       </div>
 
+      {/* NEW KITCHEN ORDER ALERT POPUP */}
+      <NewOrderAlertModal
+        order={alertOrder}
+        department="kitchen"
+        onAccept={(orderToAccept) => handleAction(orderToAccept)}
+        onDismiss={() => setAlertOrder(null)}
+      />
     </div>
   );
 }

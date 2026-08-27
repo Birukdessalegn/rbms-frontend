@@ -9,6 +9,7 @@ export const ROLES = {
   PURCHASING: "PURCHASING",
   ACCOUNTANT: "ACCOUNTANT",
   HR: "HR",
+  FINANCE: "FINANCE",
 };
 
 export const ROLE_PERMISSIONS = {
@@ -31,6 +32,8 @@ export const ROLE_PERMISSIONS = {
     "expenses.view",
     "employees.view",
     "reports.view",
+    "finance.view",
+    "cashier.reconcile",
   ],
 
   // Waiter and Cashier/POS share the POS dashboard
@@ -84,6 +87,18 @@ export const ROLE_PERMISSIONS = {
     "payments.view",
     "expenses.view",
     "accounting.view",
+    "reports.view",
+    "finance.view",
+    "cashier.reconcile",
+  ],
+
+  [ROLES.FINANCE]: [
+    "dashboard.view",
+    "finance.view",
+    "payments.view",
+    "payments.verify",
+    "cashier.reconcile",
+    "expenses.view",
     "reports.view",
   ],
 

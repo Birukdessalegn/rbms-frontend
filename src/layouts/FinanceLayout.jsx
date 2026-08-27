@@ -20,6 +20,11 @@ const menuItems = [
     icon: Wallet,
   },
   {
+    name: "Cashier Reconciliation",
+    path: "/finance/cashier-reconciliation",
+    icon: CreditCard,
+  },
+  {
     name: "Sales",
     path: "/finance/sales",
     icon: TrendingUp,
@@ -60,6 +65,10 @@ function FinanceLayout() {
       return "Finance Dashboard";
     }
 
+    if (location.pathname === "/finance/cashier-reconciliation") {
+      return "Cashier Money Reconciliation";
+    }
+
     if (location.pathname === "/finance/sales") {
       return "Sales";
     }
@@ -90,6 +99,10 @@ function FinanceLayout() {
   const getPageDescription = () => {
     if (location.pathname === "/finance") {
       return "Monitor restaurant financial performance.";
+    }
+
+    if (location.pathname === "/finance/cashier-reconciliation") {
+      return "Verify cashier daily cash handovers, shift totals, and digital payment receipts.";
     }
 
     if (location.pathname === "/finance/sales") {

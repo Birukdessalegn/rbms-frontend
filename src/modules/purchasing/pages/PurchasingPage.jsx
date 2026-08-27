@@ -1910,7 +1910,7 @@ function PurchasingPage() {
                   </p>
 
                   <p className="mt-1 text-xs leading-5 text-amber-700">
-                    Confirm only after the supplier has delivered the stock. The backend will update the purchase status and inventory.
+                    Confirm only after the supplier has delivered the stock.
                   </p>
 
                 </div>

@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import api from "../services/api";
+import audioService from "../services/audioService";
 
 const RestaurantContext = createContext();
 
@@ -47,11 +48,14 @@ const [loadingTables, setLoadingTables] = useState(false);
   // ============================================================
 const fetchTables = async () => {
   try {
-    setLoadingTables(true);
-
     const response = await api("/tables");
+    const loadedTables =
+      response.tables ||
+      response.data?.tables ||
+      response.data ||
+      (Array.isArray(response) ? response : []);
 
-    setTables(response.tables || []);
+    setTables(loadedTables);
   } catch (error) {
     console.error("Failed to fetch tables:", error);
   } finally {
@@ -102,6 +106,8 @@ const fetchTables = async () => {
           if (!notifiedOrdersRef.current.has(notificationKey)) {
             notifiedOrdersRef.current.add(notificationKey);
 
+            audioService.playNewOrderSound();
+
             addNotification({
               type: "new_order",
               title: "New Kitchen Order",
@@ -128,6 +134,8 @@ const fetchTables = async () => {
 
           if (!notifiedOrdersRef.current.has(notificationKey)) {
             notifiedOrdersRef.current.add(notificationKey);
+
+            audioService.playOrderReadySound();
 
             addNotification({
               type: "ready",

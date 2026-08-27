@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Plus, Users, MapPin } from "lucide-react";
+import { Plus, Users, MapPin, Trash2, CheckCircle2, XCircle, X } from "lucide-react";
 import api from "../../../services/api";
 
 function TablesPage() {
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
 
   const [showForm, setShowForm] = useState(false);
 
@@ -14,57 +15,114 @@ function TablesPage() {
     location: "",
   });
 
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  };
+
   const fetchTables = async () => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const data = await api("/pos/tables");
+      const data = await api("/pos/tables");
 
-    setTables(data.tables || []);
+      setTables(data.tables || []);
 
-  } catch (error) {
-    console.error("Failed to fetch tables:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (error) {
+      console.error("Failed to fetch tables:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-useEffect(() => {
-  fetchTables();
-}, []);
+  useEffect(() => {
+    fetchTables();
+  }, []);
 
-const handleCreateTable = async (e) => {
-  e.preventDefault();
+  const handleCreateTable = async (e) => {
+    e.preventDefault();
 
-  try {
-    const data = await api("/pos/tables", {
-      method: "POST",
-      body: JSON.stringify(formData),
-    });
+    try {
+      const data = await api("/pos/tables", {
+        method: "POST",
+        body: JSON.stringify(formData),
+      });
 
-    // Add newly created table immediately
-    setTables((previous) => [
-      ...previous,
-      data.table,
-    ]);
+      // Add newly created table immediately
+      setTables((previous) => [
+        ...previous,
+        data.table,
+      ]);
 
-    // Reset form
-    setFormData({
-      tableNumber: "",
-      capacity: 2,
-      location: "",
-    });
+      showToast(`Table "${formData.tableNumber}" created successfully!`, "success");
 
-    setShowForm(false);
+      // Reset form
+      setFormData({
+        tableNumber: "",
+        capacity: 2,
+        location: "",
+      });
 
-  } catch (error) {
-    console.error("Create table error:", error);
-    alert(error.message);
-  }
-};
+      setShowForm(false);
+
+    } catch (error) {
+      console.error("Create table error:", error);
+      showToast(error.message || "Failed to create table", "error");
+    }
+  };
+
+  const handleDeleteTable = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this table?")) return;
+
+    try {
+      try {
+        await api(`/tables/${id}`, {
+          method: "DELETE",
+        });
+      } catch {
+        await api(`/pos/tables/${id}`, {
+          method: "DELETE",
+        });
+      }
+
+      setTables((previous) => previous.filter((table) => table.id !== id));
+      showToast("Table deleted successfully!", "success");
+    } catch (error) {
+      console.error("Delete table error:", error);
+      showToast(error.message || "Failed to delete table", "error");
+    }
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
+
+      {/* SUCCESS / ERROR TOAST NOTIFICATION */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl px-5 py-3.5 shadow-2xl backdrop-blur-md transition-all duration-300 ${
+            toast.type === "success"
+              ? "bg-slate-900/95 border border-emerald-500/40 text-emerald-200"
+              : "bg-slate-900/95 border border-rose-500/40 text-rose-200"
+          }`}
+        >
+          {toast.type === "success" ? (
+            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+          ) : (
+            <XCircle className="h-5 w-5 text-rose-400 shrink-0" />
+          )}
+
+          <span className="text-sm font-semibold">{toast.message}</span>
+
+          <button
+            onClick={() => setToast(null)}
+            className="ml-2 rounded-lg p-1 text-slate-400 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Header */}
 
@@ -256,15 +314,26 @@ const handleCreateTable = async (e) => {
                     <Users className="h-5 w-5" />
                   </div>
 
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
-                      table.status === "available"
-                        ? "bg-emerald-50 text-emerald-600"
-                        : "bg-amber-50 text-amber-600"
-                    }`}
-                  >
-                    {table.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                        table.status === "available"
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-amber-50 text-amber-600"
+                      }`}
+                    >
+                      {table.status}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTable(table.id)}
+                      title="Delete Table"
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
 
                 </div>
 

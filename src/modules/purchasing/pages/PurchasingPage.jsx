@@ -40,6 +40,10 @@ function PurchasingPage() {
   /* Supplier modal */
   const [showSupplierModal, setShowSupplierModal] = useState(false);
 
+  /* Product modal */
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [productTargetItemIndex, setProductTargetItemIndex] = useState(null);
+
   /* Receive modal */
   const [showReceiveModal, setShowReceiveModal] = useState(false);
 
@@ -71,7 +75,16 @@ function PurchasingPage() {
     phone: "",
   });
 
+  /* =====================================================
+     PRODUCT FORM
+  ===================================================== */
+
+  const [productForm, setProductForm] = useState({
+    name: "",
+  });
+
   const [savingSupplier, setSavingSupplier] = useState(false);
+  const [savingProduct, setSavingProduct] = useState(false);
   const [savingPurchase, setSavingPurchase] = useState(false);
   const [receivingPurchase, setReceivingPurchase] = useState(false);
 
@@ -114,10 +127,7 @@ function PurchasingPage() {
 
   const loadPurchases = async () => {
     try {
-      const response = await api({
-        url: "/api/purchasing",
-        method: "GET",
-      });
+      const response = await api("/purchasing");
 
       setOrders(response.purchases || []);
     } catch (error) {
@@ -134,14 +144,11 @@ function PurchasingPage() {
     try {
       setLoadingSuppliers(true);
 
-      const response = await api({
-        url: "/api/purchasing/suppliers",
-        method: "GET",
-      });
+      const response = await api("/purchasing/suppliers");
 
       console.log("Suppliers response:", response);
 
-      setSuppliers(response.suppliers || []);
+      setSuppliers(response.suppliers || response.data || []);
     } catch (error) {
       console.error("Failed to load suppliers:", error);
       setSuppliers([]);
@@ -152,20 +159,13 @@ function PurchasingPage() {
 
   /* =====================================================
      LOAD PRODUCTS
-     
-     IMPORTANT:
-     Purchasing DOES NOT create products.
-     Products must already exist in Products module.
   ===================================================== */
 
   const loadProducts = async () => {
     try {
       setLoadingProducts(true);
 
-      const response = await api({
-        url: "/api/products",
-        method: "GET",
-      });
+      const response = await api("/products");
 
       console.log("Products response:", response);
 
@@ -328,13 +328,12 @@ function PurchasingPage() {
     try {
       setSavingSupplier(true);
 
-      const response = await api({
-        url: "/api/purchasing/suppliers",
+      const response = await api("/purchasing/suppliers", {
         method: "POST",
-        data: supplierForm,
+        body: JSON.stringify(supplierForm),
       });
 
-      const newSupplier = response.supplier;
+      const newSupplier = response.supplier || response.data;
 
       if (!newSupplier?.id) {
         throw new Error(
@@ -369,6 +368,95 @@ function PurchasingPage() {
       );
     } finally {
       setSavingSupplier(false);
+    }
+  };
+
+  /* =====================================================
+     ADD PRODUCT MODAL
+  ===================================================== */
+
+  const openProductModal = (itemIndex = null) => {
+    setProductTargetItemIndex(itemIndex);
+    setProductForm({
+      name: "",
+    });
+
+    setShowProductModal(true);
+  };
+
+  const closeProductModal = () => {
+    if (savingProduct) return;
+
+    setShowProductModal(false);
+    setProductTargetItemIndex(null);
+  };
+
+  /* =====================================================
+     SAVE PRODUCT
+  ===================================================== */
+
+  const handleSaveProduct = async (event) => {
+    event.preventDefault();
+
+    if (!productForm.name.trim()) {
+      alert("Product name is required.");
+      return;
+    }
+
+    try {
+      setSavingProduct(true);
+
+      const response = await api("/products", {
+        method: "POST",
+        body: JSON.stringify({
+          name: productForm.name.trim(),
+          price: 0,
+          costPrice: 0,
+          unit: "pcs",
+          isAvailable: true,
+          isActive: true,
+        }),
+      });
+
+      const newProduct = response.product || response.data;
+
+      if (!newProduct?.id) {
+        throw new Error(
+          "Product was created but no product ID was returned."
+        );
+      }
+
+      /* Add new product immediately */
+      setProducts((current) => [
+        newProduct,
+        ...current,
+      ]);
+
+      /* Automatically select new product in current item if target specified */
+      if (productTargetItemIndex !== null) {
+        updatePurchaseItem(
+          productTargetItemIndex,
+          "productId",
+          newProduct.id
+        );
+      }
+
+      setShowProductModal(false);
+      setProductTargetItemIndex(null);
+
+      alert("Product added successfully.");
+    } catch (error) {
+      console.error(
+        "Failed to create product:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Failed to create product."
+      );
+    } finally {
+      setSavingProduct(false);
     }
   };
 
@@ -420,6 +508,8 @@ function PurchasingPage() {
         purchaseNumber:
           purchaseForm.purchaseNumber,
 
+        status: "ordered",
+
         supplierId:
           Number(purchaseForm.supplierId),
 
@@ -439,10 +529,9 @@ function PurchasingPage() {
         payload
       );
 
-      const response = await api({
-        url: "/api/purchasing",
+      const response = await api("/purchasing", {
         method: "POST",
-        data: payload,
+        body: JSON.stringify(payload),
       });
 
       console.log(
@@ -487,10 +576,9 @@ function PurchasingPage() {
     try {
       setReceivingPurchase(true);
 
-      const response = await api({
-        url: `/api/purchasing/${selectedOrder.id}/receive`,
+      const response = await api(`/purchasing/${selectedOrder.id}/receive`, {
         method: "POST",
-        data: {},
+        body: JSON.stringify({}),
       });
 
       console.log(
@@ -888,8 +976,9 @@ function PurchasingPage() {
 
                       <td className="px-5 py-4 text-center">
 
-                        {status ===
-                        "ordered" ? (
+                        {status === "ordered" ||
+                        status === "pending" ||
+                        status === "draft" ? (
 
                           <button
                             type="button"
@@ -1038,31 +1127,7 @@ function PurchasingPage() {
 
                 {/* BASIC INFORMATION */}
 
-                <div className="grid gap-4 sm:grid-cols-2">
-
-                  {/* PURCHASE NUMBER */}
-
-                  <div>
-
-                    <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                      Purchase Number
-                    </label>
-
-                    <input
-                      type="text"
-                      value={
-                        purchaseForm.purchaseNumber
-                      }
-                      onChange={(e) =>
-                        handlePurchaseChange(
-                          "purchaseNumber",
-                          e.target.value
-                        )
-                      }
-                      className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                    />
-
-                  </div>
+                <div>
 
                   {/* SUPPLIER */}
 
@@ -1187,52 +1252,78 @@ function PurchasingPage() {
 
                           <div>
 
-                            <label className="mb-1 block text-xs font-semibold text-slate-500">
-                              Product
-                            </label>
+                            <div className="mb-1 flex items-center justify-between">
 
-                            <select
-                              value={
-                                item.productId
-                              }
-                              onChange={(e) =>
-                                updatePurchaseItem(
-                                  index,
-                                  "productId",
-                                  e.target.value
-                                )
-                              }
-                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                            >
+                              <label className="text-xs font-semibold text-slate-500">
+                                Product
+                              </label>
 
-                              <option value="">
-                                {loadingProducts
-                                  ? "Loading products..."
-                                  : products.length === 0
-                                  ? "No products available"
-                                  : "Select product"}
-                              </option>
+                              <button
+                                type="button"
+                                onClick={() => openProductModal(index)}
+                                className="inline-flex items-center gap-0.5 text-[11px] font-bold text-indigo-600 hover:text-indigo-700"
+                              >
+                                <Plus className="h-3 w-3" />
+                                Add
+                              </button>
 
-                              {products.map(
-                                (
-                                  product
-                                ) => (
+                            </div>
 
-                                  <option
-                                    key={
-                                      product.id
-                                    }
-                                    value={
-                                      product.id
-                                    }
-                                  >
-                                    {product.name}
-                                  </option>
+                            <div className="flex gap-2">
 
-                                )
-                              )}
+                              <select
+                                value={
+                                  item.productId
+                                }
+                                onChange={(e) =>
+                                  updatePurchaseItem(
+                                    index,
+                                    "productId",
+                                    e.target.value
+                                  )
+                                }
+                                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                              >
 
-                            </select>
+                                <option value="">
+                                  {loadingProducts
+                                    ? "Loading products..."
+                                    : products.length === 0
+                                    ? "No products available"
+                                    : "Select product"}
+                                </option>
+
+                                {products.map(
+                                  (
+                                    product
+                                  ) => (
+
+                                    <option
+                                      key={
+                                        product.id
+                                      }
+                                      value={
+                                        product.id
+                                      }
+                                    >
+                                      {product.name}
+                                    </option>
+
+                                  )
+                                )}
+
+                              </select>
+
+                              <button
+                                type="button"
+                                onClick={() => openProductModal(index)}
+                                title="Add new product"
+                                className="inline-flex shrink-0 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-indigo-700 transition hover:bg-indigo-100"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </button>
+
+                            </div>
 
                           </div>
 
@@ -1561,6 +1652,118 @@ function PurchasingPage() {
                     <>
                       <Plus className="h-4 w-4" />
                       Save Supplier
+                    </>
+                  )}
+
+                </button>
+
+              </div>
+
+            </form>
+
+          </div>
+
+        </div>
+
+      )}
+
+      {/* =================================================
+          ADD PRODUCT MODAL
+      ================================================= */}
+
+      {showProductModal && (
+
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+
+            {/* HEADER */}
+
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+
+              <div>
+
+                <h2 className="text-lg font-bold text-slate-900">
+                  Add New Product
+                </h2>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  Add a product name to your system.
+                </p>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={closeProductModal}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              >
+
+                <X className="h-5 w-5" />
+
+              </button>
+
+            </div>
+
+            {/* FORM */}
+
+            <form onSubmit={handleSaveProduct}>
+
+              <div className="space-y-4 p-6">
+
+                {/* NAME */}
+
+                <div>
+
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                    Product Name *
+                  </label>
+
+                  <input
+                    type="text"
+                    value={productForm.name}
+                    onChange={(e) =>
+                      setProductForm({
+                        name: e.target.value,
+                      })
+                    }
+                    placeholder="Enter product name (e.g. Tomato, Coffee Beans)"
+                    required
+                    autoFocus
+                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  />
+
+                </div>
+
+              </div>
+
+              {/* FOOTER */}
+
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
+
+                <button
+                  type="button"
+                  onClick={closeProductModal}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={savingProduct}
+                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                >
+
+                  {savingProduct ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4" />
+                      Save Product
                     </>
                   )}
 

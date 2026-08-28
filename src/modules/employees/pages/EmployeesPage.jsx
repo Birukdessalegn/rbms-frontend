@@ -31,10 +31,11 @@ const roles = [
   { id: 1, name: "admin" },
   { id: 2, name: "manager" },
   { id: 3, name: "hr" },
-  { id: 4, name: "cashier" },
-  { id: 5, name: "waiter" },
-  { id: 6, name: "chef" },
-  { id: 7, name: "bartender" },
+  { id: 4, name: "finance" },
+  { id: 5, name: "cashier" },
+  { id: 6, name: "waiter" },
+  { id: 7, name: "chef" },
+  { id: 8, name: "bartender" },
 ];
 
 const departments = [

@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   RefreshCw,
   Printer,
-  Download,
 } from "lucide-react";
 import api from "../../../services/api";
 
@@ -82,7 +81,24 @@ function POSReportsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* OFFICIAL EXECUTIVE PRINT HEADER (Appears on Printed PDF Document) */}
+      <div className="hidden print:block mb-6 border-b-2 border-slate-900 pb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900">RBMS PRO</h1>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mt-0.5">
+              Restaurant & Bar Management System • Official Executive Sales Audit
+            </p>
+          </div>
+          <div className="text-right">
+            <h2 className="text-base font-bold text-slate-900">POS Sales & Revenue Audit Report</h2>
+            <p className="text-xs text-slate-600 mt-1">Generated: {new Date().toLocaleString()}</p>
+            <p className="text-xs text-slate-600">Period: {fromDate || "All Time"} to {toDate || "Present"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Screen Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
@@ -103,10 +119,10 @@ function POSReportsPage() {
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition"
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition shadow-sm"
           >
             <Printer className="h-4 w-4" />
-            Print Report
+            Print / Export PDF
           </button>
         </div>
       </div>
@@ -269,6 +285,20 @@ function POSReportsPage() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* OFFICIAL EXECUTIVE PRINT FOOTER (Appears on Printed PDF Document) */}
+      <div className="hidden print:block mt-10 pt-4 border-t border-slate-300">
+        <div className="flex items-center justify-between text-xs text-slate-700">
+          <div>
+            <p className="font-bold">RBMS Automated Sales Audit</p>
+            <p className="text-[10px] text-slate-500">Confidential • For Internal Financial & Operational Audit Use Only</p>
+          </div>
+          <div className="text-right">
+            <p className="font-bold">Authorized Sign: _______________________</p>
+            <p className="text-[10px] text-slate-500 mt-1">Page 1 of 1</p>
+          </div>
         </div>
       </div>
     </div>

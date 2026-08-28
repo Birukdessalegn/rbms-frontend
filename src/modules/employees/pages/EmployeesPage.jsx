@@ -181,19 +181,23 @@ function EmployeesPage() {
   // STATS
   // ===================================================
 
-  const activeToday = employeeList.filter(
+  const safeEmployees = Array.isArray(employeeList) ? employeeList : [];
+
+  const totalEmployees = safeEmployees.length;
+
+  const activeToday = safeEmployees.filter(
     (employee) =>
       employee.attendance === "Present" &&
       String(employee.status).toLowerCase() === "active"
   ).length;
 
-  const onLeave = employeeList.filter(
+  const onLeave = safeEmployees.filter(
     (employee) =>
       String(employee.status).toLowerCase() === "on leave" ||
       employee.attendance === "On Leave"
   ).length;
 
-  const absentToday = employeeList.filter(
+  const absentToday = safeEmployees.filter(
     (employee) => employee.attendance === "Absent"
   ).length;
 

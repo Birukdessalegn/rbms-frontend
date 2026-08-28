@@ -126,6 +126,22 @@ function EmployeesPage() {
 
   const [search, setSearch] = useState("");
 
+  const [showForm, setShowForm] = useState(false);
+
+  const [editingEmployee, setEditingEmployee] = useState(null);
+
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+
+  const [form, setForm] = useState(emptyForm);
+
+  const [saving, setSaving] = useState(false);
+
+  const [deleting, setDeleting] = useState(false);
+
+  const [showRejectBox, setShowRejectBox] = useState(false);
+
+  const [rejectReason, setRejectReason] = useState("");
+
   // ===================================================
   // TOAST / POPUP
   // ===================================================

@@ -4,6 +4,7 @@ const api = async (endpoint, options = {}) => {
   const token = localStorage.getItem("token");
 
   const headers = {
+
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };

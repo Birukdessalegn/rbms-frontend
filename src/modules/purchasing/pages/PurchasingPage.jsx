@@ -56,6 +56,8 @@ function PurchasingPage() {
   const [purchaseForm, setPurchaseForm] = useState({
     purchaseNumber: "",
     supplierId: "",
+    paymentStatus: "credit",
+    paymentMethod: "cash",
     notes: "",
     items: [
       {
@@ -203,6 +205,8 @@ function PurchasingPage() {
     setPurchaseForm({
       purchaseNumber: `PO-${date}-${randomNumber}`,
       supplierId: "",
+      paymentStatus: "credit",
+      paymentMethod: "cash",
       notes: "",
       items: [
         {
@@ -510,6 +514,12 @@ function PurchasingPage() {
 
         status: "ordered",
 
+        paymentStatus:
+          purchaseForm.paymentStatus || "credit",
+
+        paymentMethod:
+          purchaseForm.paymentMethod || "cash",
+
         supplierId:
           Number(purchaseForm.supplierId),
 
@@ -558,6 +568,46 @@ function PurchasingPage() {
       );
     } finally {
       setSavingPurchase(false);
+    }
+  };
+
+  /* =====================================================
+     MARK PURCHASE AS PAID
+  ===================================================== */
+
+  const handleMarkAsPaid = async (order) => {
+    const poNumber =
+      order.purchase_number ||
+      order.purchaseNumber ||
+      `#PO-${order.id}`;
+
+    if (
+      !window.confirm(
+        `Are you sure you want to mark Purchase Order ${poNumber} as PAID?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api(`/purchasing/${order.id}/pay`, {
+        method: "PUT",
+        body: JSON.stringify({
+          paymentMethod: order.payment_method || "cash",
+        }),
+      });
+
+      await loadPurchases();
+
+      alert(
+        `Purchase Order ${poNumber} marked as PAID successfully.`
+      );
+    } catch (error) {
+      console.error("Failed to mark purchase as paid:", error);
+
+      alert(
+        error.message || "Failed to update purchase payment status."
+      );
     }
   };
 
@@ -857,7 +907,11 @@ function PurchasingPage() {
                   </th>
 
                   <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">
-                    Status
+                    Stock Status
+                  </th>
+
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">
+                    Payment Status
                   </th>
 
                   <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">
@@ -889,6 +943,9 @@ function PurchasingPage() {
                     formatStatus(
                       order.status
                     );
+
+                  const isPaid =
+                    order.payment_status === "paid";
 
                   return (
 
@@ -953,6 +1010,24 @@ function PurchasingPage() {
 
                       </td>
 
+                      <td className="px-5 py-4">
+
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            isPaid
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+
+                          <DollarSign className="h-3 w-3" />
+
+                          {isPaid ? "Paid" : "Credit (Unpaid)"}
+
+                        </span>
+
+                      </td>
+
                       <td className="px-5 py-4 text-sm text-slate-600">
 
                         {formatDate(
@@ -976,44 +1051,67 @@ function PurchasingPage() {
 
                       <td className="px-5 py-4 text-center">
 
-                        {status === "ordered" ||
-                        status === "pending" ||
-                        status === "draft" ? (
+                        <div className="flex items-center justify-center gap-2">
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleReceiveClick(
-                                order
-                              )
-                            }
-                            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
-                          >
+                          {status === "ordered" ||
+                          status === "pending" ||
+                          status === "draft" ? (
 
-                            <PackageCheck className="h-4 w-4" />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleReceiveClick(
+                                  order
+                                )
+                              }
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                            >
 
-                            Receive Stock
+                              <PackageCheck className="h-3.5 w-3.5" />
 
-                          </button>
+                              Receive
 
-                        ) : status ===
-                          "received" ? (
+                            </button>
 
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                          ) : (
 
-                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
 
-                            Received
+                              <CheckCircle2 className="h-3.5 w-3.5" />
 
-                          </span>
+                              Received
 
-                        ) : (
+                            </span>
 
-                          <span className="text-xs text-slate-400">
-                            Not available
-                          </span>
+                          )}
 
-                        )}
+                          {!isPaid ? (
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleMarkAsPaid(order)
+                              }
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-700"
+                            >
+
+                              <DollarSign className="h-3.5 w-3.5" />
+
+                              Mark Paid
+
+                            </button>
+
+                          ) : (
+
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400">
+
+                              Paid
+
+                            </span>
+
+                          )}
+
+                        </div>
 
                       </td>
 
@@ -1192,6 +1290,74 @@ function PurchasingPage() {
                         Add
 
                       </button>
+
+                    </div>
+
+                  </div>
+
+                  {/* PAYMENT STATUS & METHOD */}
+
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+
+                    <div>
+
+                      <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                        Payment Status
+                      </label>
+
+                      <select
+                        value={
+                          purchaseForm.paymentStatus || "credit"
+                        }
+                        onChange={(e) =>
+                          handlePurchaseChange(
+                            "paymentStatus",
+                            e.target.value
+                          )
+                        }
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                      >
+                        <option value="credit">
+                          Credit (Unpaid)
+                        </option>
+                        <option value="paid">
+                          Paid
+                        </option>
+                      </select>
+
+                    </div>
+
+                    <div>
+
+                      <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                        Payment Method
+                      </label>
+
+                      <select
+                        value={
+                          purchaseForm.paymentMethod || "cash"
+                        }
+                        onChange={(e) =>
+                          handlePurchaseChange(
+                            "paymentMethod",
+                            e.target.value
+                          )
+                        }
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                      >
+                        <option value="cash">
+                          Cash
+                        </option>
+                        <option value="bank_transfer">
+                          Bank Transfer
+                        </option>
+                        <option value="check">
+                          Check
+                        </option>
+                        <option value="other">
+                          Other
+                        </option>
+                      </select>
 
                     </div>
 

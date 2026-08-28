@@ -898,18 +898,32 @@ function PaymentModal({
                         </div>
 
                         <div className="flex flex-wrap justify-center gap-2 pt-1 w-full">
+                          {/* Android Native Camera & Live Viewport */}
+                          <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm active:scale-95 transition">
+                            <Camera size={16} />
+                            📷 Take Photo (Camera)
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              onChange={handleImageCapture}
+                              className="hidden"
+                            />
+                          </label>
+
+                          {/* Live WebCam Stream modal fallback for PC / Web Browser */}
                           <button
                             type="button"
                             onClick={startCamera}
-                            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm active:scale-95 transition"
+                            className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 shadow-2xs active:scale-95 transition"
                           >
-                            <Camera size={16} />
-                            📷 Open PC Camera
+                            Live Cam
                           </button>
 
-                          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-50 shadow-2xs">
+                          {/* Gallery Upload */}
+                          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-2xs">
                             <Upload size={16} />
-                            Upload File
+                            Gallery
                             <input
                               type="file"
                               accept="image/*"

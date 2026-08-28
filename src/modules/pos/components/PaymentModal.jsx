@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"; 
+import { useEffect, useState, useRef } from "react"; 
 import { 
   X, 
   Banknote, 
@@ -19,6 +19,11 @@ function PaymentModal({
   const [amount, setAmount] = useState(""); 
   const [reference, setReference] = useState(""); 
   const [receiptImage, setReceiptImage] = useState(null);
+
+  // PC Camera / WebCam state
+  const [showWebcam, setShowWebcam] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
  
   const [loading, setLoading] = useState(false); 
   const [loadingOrder, setLoadingOrder] = useState(true); 
@@ -40,6 +45,51 @@ function PaymentModal({
       reader.readAsDataURL(file);
     }
   };
+
+  const startCamera = async () => {
+    try {
+      setShowWebcam(true);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Camera access error:", err);
+      alert("Could not access PC camera. Please check camera permissions or use Upload File.");
+      setShowWebcam(false);
+    }
+  };
+
+  const captureSnapshot = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    setReceiptImage(dataUrl);
+    stopCamera();
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setShowWebcam(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
  
   useEffect(() => { 
     const loadOrder = async () => { 
@@ -816,16 +866,14 @@ function PaymentModal({
                           className="max-h-48 w-auto rounded-xl object-contain shadow-md border border-indigo-200"
                         />
                         <div className="flex gap-2">
-                          <label className="cursor-pointer rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs">
-                            Retake Photo
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              onChange={handleImageCapture}
-                              className="hidden"
-                            />
-                          </label>
+                          <button
+                            type="button"
+                            onClick={startCamera}
+                            className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs"
+                          >
+                            <Camera size={14} />
+                            Retake with PC Camera
+                          </button>
                           <button
                             type="button"
                             onClick={() => setReceiptImage(null)}
@@ -836,32 +884,95 @@ function PaymentModal({
                         </div>
                       </div>
                     ) : (
-                      <label className="flex cursor-pointer flex-col items-center gap-2 py-2 px-4 w-full">
+                      <div className="flex flex-col items-center gap-3 py-2 px-4 w-full">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-md">
                           <Camera className="h-6 w-6" />
                         </div>
                         <div>
-                          <span className="text-sm font-bold text-indigo-700 block">
-                            📷 Open Camera / Attach Confirmation Photo
+                          <span className="text-sm font-bold text-indigo-900 block">
+                            Payment Receipt / Confirmation Photo
                           </span>
                           <span className="text-xs text-slate-500">
-                            Tap to take photo of Telebirr / CBE Birr receipt
+                            Capture live photo using PC camera or upload receipt file
                           </span>
                         </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={handleImageCapture}
-                          className="hidden"
-                        />
-                      </label>
+
+                        <div className="flex flex-wrap justify-center gap-2 pt-1 w-full">
+                          <button
+                            type="button"
+                            onClick={startCamera}
+                            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm active:scale-95 transition"
+                          >
+                            <Camera size={16} />
+                            📷 Open PC Camera
+                          </button>
+
+                          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-50 shadow-2xs">
+                            <Upload size={16} />
+                            Upload File
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageCapture}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
               )}
 
             </div> 
+          )}
+
+          {/* PC WEBCAM LIVE CAMERA OVERLAY */}
+          {showWebcam && (
+            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-4 backdrop-blur-md">
+              <div className="relative w-full max-w-lg rounded-3xl bg-slate-900 p-5 shadow-2xl border border-slate-700">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Camera className="h-5 w-5 text-indigo-400" />
+                    PC WebCam Live Viewport
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={stopCamera}
+                    className="rounded-xl bg-slate-800 p-2 text-slate-400 hover:bg-slate-700 hover:text-white transition"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="relative mt-4 aspect-video w-full overflow-hidden rounded-2xl bg-black border border-slate-800 shadow-inner">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+
+                <div className="mt-5 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={stopCamera}
+                    className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={captureSnapshot}
+                    className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-lg active:scale-95 transition"
+                  >
+                    <Camera size={16} />
+                    📸 Capture Snapshot
+                  </button>
+                </div>
+              </div>
+            </div>
           )} 
  
           {/* ERROR */} 

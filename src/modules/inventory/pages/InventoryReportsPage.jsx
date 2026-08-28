@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   CalendarDays,
@@ -7,118 +7,97 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   ClipboardList,
+  RefreshCw,
 } from "lucide-react";
-
-const reportData = [
-  {
-    id: "TXN-1001",
-    date: "2026-08-25",
-    item: "Chicken Breast",
-    category: "Meat",
-    type: "Stock Out",
-    quantity: 15,
-    unit: "Kg",
-    reference: "Kitchen Request #K-204",
-  },
-  {
-    id: "TXN-1002",
-    date: "2026-08-25",
-    item: "Cooking Oil",
-    category: "Ingredients",
-    type: "Stock In",
-    quantity: 20,
-    unit: "L",
-    reference: "Purchase #PO-105",
-  },
-  {
-    id: "TXN-1003",
-    date: "2026-08-24",
-    item: "Tomatoes",
-    category: "Vegetables",
-    type: "Stock Out",
-    quantity: 10,
-    unit: "Kg",
-    reference: "Kitchen Request #K-203",
-  },
-  {
-    id: "TXN-1004",
-    date: "2026-08-24",
-    item: "Mineral Water",
-    category: "Beverages",
-    type: "Stock In",
-    quantity: 5,
-    unit: "Box",
-    reference: "Purchase #PO-104",
-  },
-  {
-    id: "TXN-1005",
-    date: "2026-08-23",
-    item: "Rice",
-    category: "Grains",
-    type: "Adjustment",
-    quantity: 3,
-    unit: "Kg",
-    reference: "Inventory Count",
-  },
-  {
-    id: "TXN-1006",
-    date: "2026-08-23",
-    item: "Soft Drinks",
-    category: "Beverages",
-    type: "Stock Out",
-    quantity: 2,
-    unit: "Box",
-    reference: "Bar Request #B-118",
-  },
-  {
-    id: "TXN-1007",
-    date: "2026-08-22",
-    item: "Beef",
-    category: "Meat",
-    type: "Stock In",
-    quantity: 30,
-    unit: "Kg",
-    reference: "Purchase #PO-103",
-  },
-];
+import api from "../../../services/api";
 
 function InventoryReportsPage() {
-  const [startDate, setStartDate] = useState("2026-08-22");
-  const [endDate, setEndDate] = useState("2026-08-25");
-  const [type, setType] = useState("All");
-  const [category, setCategory] = useState("All");
+  const [inventoryList, setInventoryList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const categories = [
-    "All",
-    ...new Set(reportData.map((item) => item.category)),
-  ];
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [typeFilter, setTypeFilter] = useState("All");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+
+  const fetchInventoryData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await api("/inventory");
+      console.log("INVENTORY REPORTS FETCH:", res);
+      const list = res.inventory || res.data || (Array.isArray(res) ? res : []);
+      setInventoryList(list);
+    } catch (err) {
+      console.error("Failed to fetch inventory reports:", err);
+      setError(err.message || "Failed to load inventory report data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInventoryData();
+  }, []);
+
+  const reportData = useMemo(() => {
+    return inventoryList.map((item) => {
+      const qty = Number(item.quantity || 0);
+      const min = Number(item.minimum_stock || 0);
+
+      let movementType = "In Stock";
+      if (qty <= 0) {
+        movementType = "Stock Out";
+      } else if (min > 0 && qty <= min) {
+        movementType = "Low Stock";
+      }
+
+      const dateStr = item.updated_at ? item.updated_at.split("T")[0] : "";
+
+      return {
+        id: `INV-${item.id}`,
+        productId: item.product_id || item.id,
+        date: dateStr,
+        item: item.product_name || `Product #${item.product_id}`,
+        category: item.category_name || "General",
+        type: movementType,
+        quantity: qty,
+        unit: item.unit || "pcs",
+        costPrice: Number(item.cost_price || item.price || 0),
+        reference: `Ref #${item.product_code || item.id}`,
+      };
+    });
+  }, [inventoryList]);
+
+  const categories = useMemo(() => {
+    return ["All", ...new Set(reportData.map((item) => item.category))];
+  }, [reportData]);
 
   const filteredData = useMemo(() => {
     return reportData.filter((item) => {
       const dateMatch =
-        item.date >= startDate && item.date <= endDate;
+        (!startDate || (item.date && item.date >= startDate)) &&
+        (!endDate || (item.date && item.date <= endDate));
 
       const typeMatch =
-        type === "All" || item.type === type;
+        typeFilter === "All" || item.type === typeFilter;
 
       const categoryMatch =
-        category === "All" || item.category === category;
+        categoryFilter === "All" || item.category === categoryFilter;
 
       return dateMatch && typeMatch && categoryMatch;
     });
-  }, [startDate, endDate, type, category]);
+  }, [reportData, startDate, endDate, typeFilter, categoryFilter]);
 
-  const stockIn = filteredData
-    .filter((item) => item.type === "Stock In")
-    .reduce((total, item) => total + item.quantity, 0);
-
-  const stockOut = filteredData
-    .filter((item) => item.type === "Stock Out")
-    .reduce((total, item) => total + item.quantity, 0);
-
-  const adjustments = filteredData
-    .filter((item) => item.type === "Adjustment")
-    .reduce((total, item) => total + item.quantity, 0);
+  const totalItemsCount = filteredData.length;
+  const lowStockCount = filteredData.filter((i) => i.type === "Low Stock").length;
+  const outOfStockCount = filteredData.filter((i) => i.type === "Stock Out").length;
+  
+  const totalValuation = filteredData.reduce(
+    (total, item) => total + item.quantity * item.costPrice,
+    0
+  );
 
   const handlePrint = () => {
     window.print();
@@ -126,82 +105,68 @@ function InventoryReportsPage() {
 
   const handleDownload = () => {
     const headers = [
-      "Transaction ID",
-      "Date",
-      "Item",
+      "Inventory ID",
+      "Product Name",
       "Category",
-      "Type",
-      "Quantity",
+      "Status/Type",
+      "Current Quantity",
       "Unit",
-      "Reference",
+      "Unit Cost (ETB)",
+      "Total Value (ETB)",
     ];
 
     const rows = filteredData.map((item) => [
       item.id,
-      item.date,
       item.item,
       item.category,
       item.type,
       item.quantity,
       item.unit,
-      item.reference,
+      item.costPrice,
+      item.quantity * item.costPrice,
     ]);
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) =>
-        row
-          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
-          .join(",")
-      ),
-    ].join("\n");
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
 
-    const blob = new Blob([csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
+    const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
-
-    link.href = url;
-    link.download = `inventory-report-${startDate}-to-${endDate}.csv`;
-
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `Inventory_Report_${new Date().toISOString().split("T")[0]}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="space-y-6 print:bg-white print:p-0">
-
-      {/* Header */}
+    <div className="space-y-6">
+      {/* HEADER */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between print:hidden">
-
-        <div className="flex items-center gap-3">
-
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-            <BarChart3 className="h-5 w-5" />
-          </div>
-
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              Inventory Reports
-            </h1>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Analyze inventory movements for any period.
-            </p>
-          </div>
-
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">
+            Inventory Audit & Reports
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Audit inventory valuation, stock movements, and item levels live from database.
+          </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={fetchInventoryData}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
 
           <button
             onClick={handleDownload}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs"
           >
             <Download className="h-4 w-4" />
             Export CSV
@@ -209,373 +174,180 @@ function InventoryReportsPage() {
 
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-2xs"
           >
             <Printer className="h-4 w-4" />
             Print Report
           </button>
-
         </div>
-
       </div>
 
-
-      {/* Print Header */}
-      <div className="hidden print:block">
-
-        <div className="border-b border-slate-300 pb-4">
-
-          <h1 className="text-2xl font-bold">
-            RBMS Restaurant
-          </h1>
-
-          <h2 className="mt-1 text-lg font-semibold">
-            Inventory Report
-          </h2>
-
-          <p className="mt-1 text-sm">
-            Period: {startDate} to {endDate}
-          </p>
-
-          <p className="text-sm">
-            Generated: {new Date().toLocaleString()}
-          </p>
-
-        </div>
-
-      </div>
-
-
-      {/* Filters */}
+      {/* FILTERS */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:hidden">
-
-        <div className="mb-4 flex items-center gap-2">
-
-          <CalendarDays className="h-5 w-5 text-blue-600" />
-
-          <h2 className="font-bold text-slate-900">
-            Report Filters
-          </h2>
-
-        </div>
-
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-
-          {/* Start Date */}
+        <div className="grid gap-4 md:grid-cols-4">
           <div>
-
-            <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600">
               Start Date
             </label>
-
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-blue-500"
             />
-
           </div>
 
-
-          {/* End Date */}
           <div>
-
-            <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600">
               End Date
             </label>
-
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-blue-500"
             />
-
           </div>
 
-
-          {/* Type */}
           <div>
-
-            <label className="mb-1.5 block text-xs font-semibold text-slate-600">
-              Transaction Type
-            </label>
-
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
-            >
-              <option value="All">All Types</option>
-              <option value="Stock In">Stock In</option>
-              <option value="Stock Out">Stock Out</option>
-              <option value="Adjustment">Adjustment</option>
-            </select>
-
-          </div>
-
-
-          {/* Category */}
-          <div>
-
-            <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600">
               Category
             </label>
-
             <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-blue-500"
             >
-              {categories.map((item) => (
-                <option key={item} value={item}>
-                  {item === "All" ? "All Categories" : item}
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat === "All" ? "All Categories" : cat}
                 </option>
               ))}
             </select>
-
           </div>
 
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">
+              Stock Status Filter
+            </label>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            >
+              <option value="All">All Statuses</option>
+              <option value="In Stock">In Stock</option>
+              <option value="Low Stock">Low Stock</option>
+              <option value="Stock Out">Stock Out</option>
+            </select>
+          </div>
         </div>
-
       </div>
 
-
-      {/* Summary */}
-      <div className="grid gap-4 sm:grid-cols-3">
-
+      {/* SUMMARY CARDS */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-          <div className="flex items-center gap-3">
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-              <ArrowDownToLine className="h-5 w-5" />
-            </div>
-
-            <div>
-
-              <p className="text-xs text-slate-500">
-                Stock In
-              </p>
-
-              <p className="text-xl font-bold text-emerald-600">
-                +{stockIn}
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-          <div className="flex items-center gap-3">
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
-              <ArrowUpFromLine className="h-5 w-5" />
-            </div>
-
-            <div>
-
-              <p className="text-xs text-slate-500">
-                Stock Out
-              </p>
-
-              <p className="text-xl font-bold text-orange-600">
-                -{stockOut}
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-          <div className="flex items-center gap-3">
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-              <ClipboardList className="h-5 w-5" />
-            </div>
-
-            <div>
-
-              <p className="text-xs text-slate-500">
-                Adjustments
-              </p>
-
-              <p className="text-xl font-bold text-blue-600">
-                {adjustments}
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
-
-      {/* Report Table */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print:rounded-none print:border-slate-300 print:shadow-none">
-
-        <div className="border-b border-slate-100 px-5 py-4">
-
-          <h2 className="font-bold text-slate-900">
-            Inventory Movement Report
+          <p className="text-sm font-medium text-slate-500">Tracked Items</p>
+          <h2 className="mt-2 text-2xl font-bold text-slate-900">
+            {loading ? "..." : totalItemsCount}
           </h2>
-
-          <p className="mt-1 text-xs text-slate-500">
-            {filteredData.length} transaction(s) found
-          </p>
-
+          <p className="mt-1 text-xs text-slate-400">Total items in report</p>
         </div>
 
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm font-medium text-slate-500">Stock Valuation</p>
+          <h2 className="mt-2 text-2xl font-bold text-emerald-600">
+            {loading ? "..." : `${totalValuation.toLocaleString()} ETB`}
+          </h2>
+          <p className="mt-1 text-xs text-slate-400">Total inventory asset value</p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm font-medium text-slate-500">Low Stock Warning</p>
+          <h2 className="mt-2 text-2xl font-bold text-amber-600">
+            {loading ? "..." : lowStockCount}
+          </h2>
+          <p className="mt-1 text-xs text-slate-400">Items below threshold</p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm font-medium text-slate-500">Out of Stock</p>
+          <h2 className="mt-2 text-2xl font-bold text-rose-600">
+            {loading ? "..." : outOfStockCount}
+          </h2>
+          <p className="mt-1 text-xs text-slate-400">Depleted inventory items</p>
+        </div>
+      </div>
+
+      {/* INVENTORY REPORT TABLE */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h2 className="font-bold text-slate-900">Inventory Valuation & Item Audit Log</h2>
+        </div>
 
         <div className="overflow-x-auto">
-
-          <table className="w-full min-w-[900px] text-left">
-
-            <thead className="bg-slate-50 print:bg-white">
-
-              <tr className="border-b border-slate-200">
-
-                <th className="px-5 py-3 text-xs font-semibold uppercase text-slate-500">
-                  ID
-                </th>
-
-                <th className="px-5 py-3 text-xs font-semibold uppercase text-slate-500">
-                  Date
-                </th>
-
-                <th className="px-5 py-3 text-xs font-semibold uppercase text-slate-500">
-                  Item
-                </th>
-
-                <th className="px-5 py-3 text-xs font-semibold uppercase text-slate-500">
-                  Category
-                </th>
-
-                <th className="px-5 py-3 text-xs font-semibold uppercase text-slate-500">
-                  Type
-                </th>
-
-                <th className="px-5 py-3 text-xs font-semibold uppercase text-slate-500">
-                  Quantity
-                </th>
-
-                <th className="px-5 py-3 text-xs font-semibold uppercase text-slate-500">
-                  Reference
-                </th>
-
+          <table className="w-full min-w-[800px] text-left text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Item Name</th>
+                <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Category</th>
+                <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Quantity</th>
+                <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Unit Price</th>
+                <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Stock Valuation</th>
+                <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
               </tr>
-
             </thead>
-
-
             <tbody className="divide-y divide-slate-100">
-
-              {filteredData.map((item) => {
-
-                const isIn = item.type === "Stock In";
-                const isOut = item.type === "Stock Out";
-
-                return (
-                  <tr key={item.id}>
-
-                    <td className="px-5 py-4 text-sm font-medium">
-                      {item.id}
-                    </td>
-
-                    <td className="px-5 py-4 text-sm">
-                      {item.date}
-                    </td>
-
-                    <td className="px-5 py-4 text-sm font-semibold">
+              {loading ? (
+                <tr>
+                  <td colSpan="6" className="px-5 py-8 text-center text-slate-400">
+                    Loading inventory data...
+                  </td>
+                </tr>
+              ) : filteredData.length > 0 ? (
+                filteredData.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50">
+                    <td className="px-5 py-3.5 font-semibold text-slate-900">
                       {item.item}
                     </td>
-
-                    <td className="px-5 py-4 text-sm">
+                    <td className="px-5 py-3.5 text-slate-600">
                       {item.category}
                     </td>
-
-                    <td className="px-5 py-4 text-sm">
-                      {item.type}
-                    </td>
-
-                    <td
-                      className={`px-5 py-4 text-sm font-bold ${
-                        isIn
-                          ? "text-emerald-600"
-                          : isOut
-                          ? "text-orange-600"
-                          : "text-blue-600"
-                      }`}
-                    >
-                      {isIn ? "+" : isOut ? "-" : ""}
+                    <td className="px-5 py-3.5 font-bold text-slate-900">
                       {item.quantity} {item.unit}
                     </td>
-
-                    <td className="px-5 py-4 text-sm">
-                      {item.reference}
+                    <td className="px-5 py-3.5 text-slate-700 font-medium">
+                      {item.costPrice.toLocaleString()} ETB
                     </td>
-
+                    <td className="px-5 py-3.5 font-bold text-emerald-700">
+                      {(item.quantity * item.costPrice).toLocaleString()} ETB
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span
+                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                          item.type === "In Stock"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : item.type === "Low Stock"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-rose-100 text-rose-800"
+                        }`}
+                      >
+                        {item.type}
+                      </span>
+                    </td>
                   </tr>
-                );
-              })}
-
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="px-5 py-8 text-center text-slate-400">
+                    No inventory records match the selected filters.
+                  </td>
+                </tr>
+              )}
             </tbody>
-
           </table>
-
         </div>
-
       </div>
-
-
-      {/* Footer */}
-      <div className="hidden print:block">
-
-        <div className="mt-8 border-t border-slate-300 pt-4">
-
-          <div className="flex justify-between text-sm">
-
-            <div>
-              <p className="font-semibold">
-                Prepared By
-              </p>
-
-              <p className="mt-6">
-                ______________________
-              </p>
-
-            </div>
-
-
-            <div>
-              <p className="font-semibold">
-                Approved By
-              </p>
-
-              <p className="mt-6">
-                ______________________
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
     </div>
   );
 }

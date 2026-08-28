@@ -144,49 +144,9 @@ function EmployeesPage() {
     });
 
     setTimeout(() => {
-      setToast({
-        show: false,
-        type: "",
-        message: "",
-      });
+      setToast({ show: false, type: "", message: "" });
     }, 3000);
   };
-
-  // ===================================================
-  // SELECTED EMPLOYEE
-  // ===================================================
-
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
-
-  // ===================================================
-  // CREATE / EDIT
-  // ===================================================
-
-  const [showForm, setShowForm] = useState(false);
-
-  const [editingEmployee, setEditingEmployee] = useState(null);
-
-  const [saving, setSaving] = useState(false);
-
-  // ===================================================
-  // DELETE
-  // ===================================================
-
-  const [deleting, setDeleting] = useState(false);
-
-  // ===================================================
-  // LEAVE
-  // ===================================================
-
-  const [showRejectBox, setShowRejectBox] = useState(false);
-
-  const [rejectReason, setRejectReason] = useState("");
-
-  // ===================================================
-  // FORM
-  // ===================================================
-
-  const [form, setForm] = useState(emptyForm);
 
   // ===================================================
   // FETCH EMPLOYEES
@@ -194,79 +154,39 @@ function EmployeesPage() {
 
   const fetchEmployees = async () => {
     try {
-      setError("");
       setLoading(true);
-
-      const response = await api("/employees");
-
-      setEmployeeList(response.employees || []);
-    } catch (error) {
-      console.error("Failed to fetch employees:", error);
-
-      setError(error.message || "Failed to load employees");
+      const data = await api("/employees");
+      setEmployeeList(data);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to fetch employees.");
     } finally {
       setLoading(false);
     }
   };
-
-  // ===================================================
-  // LOAD PAGE
-  // ===================================================
 
   useEffect(() => {
     fetchEmployees();
   }, []);
 
   // ===================================================
-  // SEARCH
+  // FILTERED LIST
   // ===================================================
 
   const filteredEmployees = useMemo(() => {
-    const query = search.toLowerCase().trim();
-
-    let employees = employeeList;
-
-    if (query) {
-      employees = employeeList.filter((employee) => {
-        const values = [
-          employee.name,
-          employee.first_name,
-          employee.last_name,
-          employee.employee_code,
-          employee.username,
-          employee.role,
-          employee.department,
-          employee.phone,
-        ];
-
-        return values
-          .filter(Boolean)
-          .some((value) =>
-            String(value).toLowerCase().includes(query)
-          );
-      });
-    }
-
-    // Active employees first, inactive employees at bottom
-    return [...employees].sort((a, b) => {
-      const aInactive =
-        String(a.status).toLowerCase() === "inactive";
-
-      const bInactive =
-        String(b.status).toLowerCase() === "inactive";
-
-      if (aInactive && !bInactive) return 1;
-      if (!aInactive && bInactive) return -1;
-
-      return 0;
+    return employeeList.filter((emp) => {
+      const searchLower = search.toLowerCase();
+      return (
+        emp.first_name?.toLowerCase().includes(searchLower) ||
+        emp.last_name?.toLowerCase().includes(searchLower) ||
+        emp.employee_code?.toLowerCase().includes(searchLower)
+      );
     });
-  }, [search, employeeList]);
+  }, [employeeList, search]);
 
   // ===================================================
-  // STATISTICS
+  // STATS
   // ===================================================
-
-  const totalEmployees = employeeList.length;
 
   const activeToday = employeeList.filter(
     (employee) =>

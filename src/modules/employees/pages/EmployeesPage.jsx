@@ -148,15 +148,12 @@ function EmployeesPage() {
     }, 3000);
   };
 
-  // ===================================================
-  // FETCH EMPLOYEES
-  // ===================================================
 
   const fetchEmployees = async () => {
     try {
       setLoading(true);
       const data = await api("/employees");
-      setEmployeeList(data);
+      setEmployeeList(Array.isArray(data) ? data : data.employees || []);
     } catch (err) {
       console.error(err);
       setError("Failed to fetch employees.");
@@ -169,12 +166,8 @@ function EmployeesPage() {
     fetchEmployees();
   }, []);
 
-  // ===================================================
-  // FILTERED LIST
-  // ===================================================
-
   const filteredEmployees = useMemo(() => {
-    return employeeList.filter((emp) => {
+    return (Array.isArray(employeeList) ? employeeList : []).filter((emp) => {
       const searchLower = search.toLowerCase();
       return (
         emp.first_name?.toLowerCase().includes(searchLower) ||

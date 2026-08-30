@@ -624,7 +624,7 @@ function DashboardLayout() {
 
                 <div className="flex items-center gap-1.5">
                   <span className="font-black text-lg text-white tracking-wide">
-                    THE OAK CLUB
+                    THE OAK 
                   </span>
                 </div>
 

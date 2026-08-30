@@ -152,7 +152,7 @@ function LoginPage() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Sign in to access your club dashboard.
+              Sign in.
             </p>
           </div>
 

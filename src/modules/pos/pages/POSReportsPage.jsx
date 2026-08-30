@@ -85,9 +85,9 @@ function POSReportsPage() {
       <div className="hidden print:block mb-6 border-b-2 border-slate-900 pb-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">RBMS PRO</h1>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900">THE OAK CLUB</h1>
             <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mt-0.5">
-              Restaurant & Bar Management System • Official Executive Sales Audit
+              Club & Lounge Management System • Official Executive Sales Audit
             </p>
           </div>
           <div className="text-right">
@@ -292,7 +292,7 @@ function POSReportsPage() {
       <div className="hidden print:block mt-10 pt-4 border-t border-slate-300">
         <div className="flex items-center justify-between text-xs text-slate-700">
           <div>
-            <p className="font-bold">RBMS Automated Sales Audit</p>
+            <p className="font-bold">THE OAK CLUB Automated Sales Audit</p>
             <p className="text-[10px] text-slate-500">Confidential • For Internal Financial & Operational Audit Use Only</p>
           </div>
           <div className="text-right">

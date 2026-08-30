@@ -134,12 +134,12 @@ function LoginPage() {
             <UtensilsCrossed className="h-7 w-7" />
           </div>
 
-          <h1 className="mt-4 text-2xl font-bold text-slate-900">
-            RBMS
+          <h1 className="mt-4 text-2xl font-black tracking-wide text-slate-900">
+            THE OAK CLUB
           </h1>
 
           <p className="mt-1 text-sm text-slate-500">
-            Restaurant & Bar Management System
+            Club & Lounge Management System
           </p>
         </div>
 
@@ -152,7 +152,7 @@ function LoginPage() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Sign in to access your dashboard.
+              Sign in to access your club dashboard.
             </p>
           </div>
 
@@ -161,28 +161,32 @@ function LoginPage() {
             className="space-y-4"
           >
 
+            {/* Error Message */}
+            {error && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">
+                {error}
+              </div>
+            )}
+
             {/* Username */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="block text-xs font-bold text-slate-700">
                 Username
               </label>
 
               <input
                 type="text"
                 value={username}
-                onChange={(e) =>
-                  setUsername(e.target.value)
-                }
+                onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter your username"
-                autoComplete="username"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm text-slate-900 transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 required
               />
             </div>
 
             {/* Password */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="block text-xs font-bold text-slate-700">
                 Password
               </label>
 
@@ -199,7 +203,7 @@ function LoginPage() {
                   }
                   placeholder="Enter your password"
                   autoComplete="current-password"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 pr-12 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2 pr-12 text-sm text-slate-900 transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   required
                 />
 

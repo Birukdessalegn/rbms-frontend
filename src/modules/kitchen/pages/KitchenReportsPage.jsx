@@ -136,9 +136,9 @@ function KitchenReportsPage() {
         <div className="border-b border-slate-200 pb-5">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-black text-slate-900">RBMS</h1>
+              <h1 className="text-2xl font-black text-slate-900">THE OAK CLUB</h1>
               <p className="text-sm text-slate-500 font-medium">
-                Restaurant Kitchen Production Report
+                Club Kitchen Production Report
               </p>
             </div>
 

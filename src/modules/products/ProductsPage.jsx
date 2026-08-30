@@ -10,6 +10,11 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
+  Star,
+  Users,
+  UserCheck,
+  Sparkles,
+  BookOpen,
 } from "lucide-react";
 
 import api from "../../services/api";
@@ -29,6 +34,9 @@ function ProductsPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
+  const [activeTab, setActiveTab] = useState("catalog"); // "catalog" | "menu"
+  const [menuAudienceFilter, setMenuAudienceFilter] = useState("all"); // "all" | "customer" | "employee"
+
   const [form, setForm] = useState({
     productCode: "",
     name: "",
@@ -36,10 +44,13 @@ function ProductsPage() {
     description: "",
     price: "",
     costPrice: "",
+    staffPrice: "",
     unit: "pcs",
     imageUrl: "",
     isAvailable: true,
     isActive: true,
+    menuType: "both", // "both" | "customer" | "employee"
+    isTodaysSpecial: false,
   });
 
   // ============================================================
@@ -127,10 +138,13 @@ function ProductsPage() {
       description: "",
       price: "",
       costPrice: "",
+      staffPrice: "",
       unit: "pcs",
       imageUrl: "",
       isAvailable: true,
       isActive: true,
+      menuType: "both",
+      isTodaysSpecial: false,
     });
 
     setShowModal(true);
@@ -193,6 +207,11 @@ function ProductsPage() {
               ? 0
               : Number(form.costPrice),
 
+          staffPrice:
+            form.staffPrice === ""
+              ? 0
+              : Number(form.staffPrice),
+
           unit: form.unit,
 
           imageUrl:
@@ -201,6 +220,10 @@ function ProductsPage() {
           isAvailable: form.isAvailable,
 
           isActive: form.isActive,
+
+          menuType: form.menuType || "both",
+
+          isTodaysSpecial: form.isTodaysSpecial,
         }),
       });
 
@@ -228,6 +251,33 @@ function ProductsPage() {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ============================================================
+  // FAST INLINE MENU TOGGLE
+  // ============================================================
+
+  const handleToggleMenuSetting = async (product, payload) => {
+    try {
+      // Optimistic state update
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, ...payload } : p))
+      );
+
+      await api(`/products/${product.id}/menu`, {
+        method: "PUT",
+        body: JSON.stringify({
+          menuType: payload.menu_type !== undefined ? payload.menu_type : product.menu_type,
+          isAvailable: payload.is_available !== undefined ? payload.is_available : product.is_available,
+          isTodaysSpecial: payload.is_todays_special !== undefined ? payload.is_todays_special : product.is_todays_special,
+          staffPrice: payload.staff_price !== undefined ? payload.staff_price : product.staff_price,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to update menu setting:", err);
+      setError("Failed to update menu setting.");
+      await fetchProducts();
     }
   };
 
@@ -335,11 +385,11 @@ function ProductsPage() {
 
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
-            Products
+            Products & Menu Management
           </h1>
 
           <p className="mt-1 text-sm text-slate-500">
-            Manage food, drinks, and bar products.
+            Manage food & drinks catalog, customer menus, staff meal rules, and daily specials.
           </p>
         </div>
 
@@ -350,6 +400,38 @@ function ProductsPage() {
           <Plus className="h-4 w-4" />
 
           Add Product
+        </button>
+
+      </div>
+
+      {/* ======================================================
+          TOP TAB SWITCHER (CATALOG vs DAILY MENU MANAGER)
+      ====================================================== */}
+
+      <div className="flex border-b border-slate-200">
+
+        <button
+          onClick={() => setActiveTab("catalog")}
+          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition ${
+            activeTab === "catalog"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          <Package className="h-4 w-4" />
+          Master Catalog ({products.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab("menu")}
+          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition ${
+            activeTab === "menu"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          <BookOpen className="h-4 w-4" />
+          Daily Menu Manager (Customer vs Staff)
         </button>
 
       </div>
@@ -418,7 +500,7 @@ function ProductsPage() {
       </div>
 
       {/* ======================================================
-          PRODUCTS
+          PRODUCTS CONTAINER (CATALOG vs MENU MANAGER)
       ====================================================== */}
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -445,34 +527,84 @@ function ProductsPage() {
 
           </div>
 
-          {/* Category */}
+          <div className="flex flex-wrap items-center gap-3">
 
-          <select
-            value={categoryFilter}
-            onChange={(e) =>
-              setCategoryFilter(e.target.value)
-            }
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500"
-          >
+            {/* Menu Audience Filter (Only in Menu Tab) */}
 
-            <option value="all">
-              All Categories
-            </option>
+            {activeTab === "menu" && (
+              <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1 text-xs">
 
-            {categories.map((category) => (
-              <option
-                key={category.id}
-                value={category.id}
-              >
-                {category.name}
+                <button
+                  type="button"
+                  onClick={() => setMenuAudienceFilter("all")}
+                  className={`rounded-lg px-3 py-1.5 font-semibold transition ${
+                    menuAudienceFilter === "all"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  All Items
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMenuAudienceFilter("customer")}
+                  className={`flex items-center gap-1 rounded-lg px-3 py-1.5 font-semibold transition ${
+                    menuAudienceFilter === "customer"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  Customer Menu
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMenuAudienceFilter("employee")}
+                  className={`flex items-center gap-1 rounded-lg px-3 py-1.5 font-semibold transition ${
+                    menuAudienceFilter === "employee"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  Employee Menu
+                </button>
+
+              </div>
+            )}
+
+            {/* Category Filter */}
+
+            <select
+              value={categoryFilter}
+              onChange={(e) =>
+                setCategoryFilter(e.target.value)
+              }
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500"
+            >
+
+              <option value="all">
+                All Categories
               </option>
-            ))}
 
-          </select>
+              {categories.map((category) => (
+                <option
+                  key={category.id}
+                  value={category.id}
+                >
+                  {category.name}
+                </option>
+              ))}
+
+            </select>
+
+          </div>
 
         </div>
 
-        {/* Table */}
+        {/* Table / Content */}
 
         {filteredProducts.length === 0 ? (
 
@@ -485,7 +617,7 @@ function ProductsPage() {
             </p>
 
             <p className="mt-1 text-xs text-slate-400">
-              Create your first product.
+              Create your first product or adjust search filters.
             </p>
 
           </div>
@@ -509,19 +641,25 @@ function ProductsPage() {
                   </th>
 
                   <th className="px-5 py-4">
-                    Price
+                    Customer Price
                   </th>
 
                   <th className="px-5 py-4">
-                    Unit
+                    Staff Price
                   </th>
 
                   <th className="px-5 py-4">
-                    Available
+                    Menu Audience
                   </th>
 
-                  <th className="px-5 py-4">
-                    Status
+                  {activeTab === "menu" && (
+                    <th className="px-5 py-4 text-center">
+                      Today's Special
+                    </th>
+                  )}
+
+                  <th className="px-5 py-4 text-center">
+                    Available Today
                   </th>
 
                 </tr>
@@ -530,13 +668,22 @@ function ProductsPage() {
 
               <tbody className="divide-y divide-slate-100">
 
-                {filteredProducts.map(
-                  (product) => {
+                {filteredProducts
+                  .filter((product) => {
+                    if (activeTab !== "menu" || menuAudienceFilter === "all") return true;
+                    const scope = product.menu_type || "both";
+                    if (menuAudienceFilter === "customer") return scope === "customer" || scope === "both";
+                    if (menuAudienceFilter === "employee") return scope === "employee" || scope === "both";
+                    return true;
+                  })
+                  .map((product) => {
 
                     const CategoryIcon =
                       getCategoryIcon(
                         product.category_type
                       );
+
+                    const menuScope = product.menu_type || "both";
 
                     return (
                       <tr
@@ -550,17 +697,34 @@ function ProductsPage() {
 
                           <div className="flex items-center gap-3">
 
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
 
                               <CategoryIcon className="h-5 w-5" />
+
+                              {product.is_todays_special && (
+                                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-white shadow">
+                                  <Star className="h-2.5 w-2.5 fill-white" />
+                                </span>
+                              )}
 
                             </div>
 
                             <div>
 
-                              <p className="font-semibold text-slate-900">
-                                {product.name}
-                              </p>
+                              <div className="flex items-center gap-2">
+
+                                <p className="font-semibold text-slate-900">
+                                  {product.name}
+                                </p>
+
+                                {product.is_todays_special && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                    <Sparkles className="h-2.5 w-2.5" />
+                                    Special
+                                  </span>
+                                )}
+
+                              </div>
 
                               {product.product_code && (
                                 <p className="text-xs text-slate-400">
@@ -585,59 +749,133 @@ function ProductsPage() {
 
                         </td>
 
-                        {/* Price */}
+                        {/* Customer Price */}
 
                         <td className="px-5 py-4 font-semibold text-slate-900">
 
                           {Number(
                             product.price || 0
-                          ).toFixed(2)}
+                          ).toLocaleString()}{" "}
+                          <span className="text-xs font-normal text-slate-500">
+                            ETB / {product.unit || "pcs"}
+                          </span>
 
                         </td>
 
-                        {/* Unit */}
+                        {/* Staff Price */}
 
-                        <td className="px-5 py-4 text-slate-500">
-                          {product.unit || "pcs"}
-                        </td>
+                        <td className="px-5 py-4 font-medium text-slate-700">
 
-                        {/* Available */}
-
-                        <td className="px-5 py-4">
-
-                          {product.is_available ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-600">
-
-                              <span className="h-2 w-2 rounded-full bg-green-500" />
-
-                              Available
-
+                          {Number(product.staff_price || 0) === 0 ? (
+                            <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+                              Free (0 ETB)
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500">
-
-                              <span className="h-2 w-2 rounded-full bg-red-500" />
-
-                              Unavailable
-
+                            <span>
+                              {Number(product.staff_price).toLocaleString()} ETB
                             </span>
                           )}
 
                         </td>
 
-                        {/* Status */}
+                        {/* Menu Audience Toggle */}
 
                         <td className="px-5 py-4">
 
-                          {product.is_active ? (
-                            <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
-                              Active
-                            </span>
+                          {activeTab === "menu" ? (
+                            <select
+                              value={menuScope}
+                              onChange={(e) =>
+                                handleToggleMenuSetting(product, {
+                                  menu_type: e.target.value,
+                                })
+                              }
+                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 outline-none focus:border-blue-500"
+                            >
+                              <option value="both">Both (Cust & Staff)</option>
+                              <option value="customer">Customer Only</option>
+                              <option value="employee">Employee Only</option>
+                            </select>
                           ) : (
-                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
-                              Inactive
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                menuScope === "customer"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : menuScope === "employee"
+                                  ? "bg-purple-100 text-purple-800"
+                                  : "bg-slate-100 text-slate-700"
+                              }`}
+                            >
+                              {menuScope === "customer"
+                                ? "Customer Only"
+                                : menuScope === "employee"
+                                ? "Employee Only"
+                                : "Both"}
                             </span>
                           )}
+
+                        </td>
+
+                        {/* Today's Special Toggle (Menu Tab) */}
+
+                        {activeTab === "menu" && (
+                          <td className="px-5 py-4 text-center">
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleToggleMenuSetting(product, {
+                                  is_todays_special: !product.is_todays_special,
+                                })
+                              }
+                              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                                product.is_todays_special
+                                  ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                              }`}
+                            >
+                              <Star
+                                className={`h-3.5 w-3.5 ${
+                                  product.is_todays_special
+                                    ? "fill-amber-500 text-amber-500"
+                                    : ""
+                                }`}
+                              />
+                              {product.is_todays_special ? "Special" : "Normal"}
+                            </button>
+
+                          </td>
+                        )}
+
+                        {/* Available Today Switch */}
+
+                        <td className="px-5 py-4 text-center">
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleToggleMenuSetting(product, {
+                                is_available: !product.is_available,
+                              })
+                            }
+                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition ${
+                              product.is_available
+                                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                                : "bg-red-100 text-red-800 hover:bg-red-200"
+                            }`}
+                          >
+
+                            <span
+                              className={`h-2 w-2 rounded-full ${
+                                product.is_available
+                                  ? "bg-emerald-500"
+                                  : "bg-red-500"
+                              }`}
+                            />
+
+                            {product.is_available ? "Available" : "Sold Out"}
+
+                          </button>
 
                         </td>
 
@@ -801,9 +1039,9 @@ function ProductsPage() {
 
               {/* Prices */}
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
 
-                <FormField label="Selling Price *">
+                <FormField label="Customer Price *">
 
                   <input
                     type="number"
@@ -814,6 +1052,21 @@ function ProductsPage() {
                     min="0"
                     step="0.01"
                     required
+                    className={inputClass}
+                  />
+
+                </FormField>
+
+                <FormField label="Staff Price (ETB)">
+
+                  <input
+                    type="number"
+                    name="staffPrice"
+                    value={form.staffPrice}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
                     className={inputClass}
                   />
 
@@ -833,6 +1086,64 @@ function ProductsPage() {
                   />
 
                 </FormField>
+
+              </div>
+
+              {/* Menu Scope & Today's Special */}
+
+              <div className="grid gap-4 md:grid-cols-2">
+
+                <FormField label="Menu Assignment">
+
+                  <select
+                    name="menuType"
+                    value={form.menuType || "both"}
+                    onChange={handleChange}
+                    className={inputClass}
+                  >
+                    <option value="both">
+                      Both (Customers & Employees)
+                    </option>
+                    <option value="customer">
+                      Customer Only
+                    </option>
+                    <option value="employee">
+                      Employee / Staff Only
+                    </option>
+                  </select>
+
+                </FormField>
+
+                <div className="flex items-end">
+
+                  <label className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+
+                    <div className="flex items-center gap-2">
+
+                      <Star className="h-4 w-4 fill-amber-400 text-amber-500" />
+
+                      <div>
+                        <p className="text-xs font-semibold text-slate-800">
+                          Today's Special
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          Highlight in POS & Menu
+                        </p>
+                      </div>
+
+                    </div>
+
+                    <input
+                      type="checkbox"
+                      name="isTodaysSpecial"
+                      checked={form.isTodaysSpecial}
+                      onChange={handleChange}
+                      className="h-4 w-4 accent-amber-500"
+                    />
+
+                  </label>
+
+                </div>
 
               </div>
 

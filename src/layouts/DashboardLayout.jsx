@@ -623,19 +623,13 @@ function DashboardLayout() {
               <div>
 
                 <div className="flex items-center gap-1.5">
-
-                  <span className="font-bold text-lg text-white tracking-wide">
-                    RBMS
+                  <span className="font-black text-lg text-white tracking-wide">
+                    THE OAK CLUB
                   </span>
-
-                  <span className="rounded-md bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-blue-400 border border-blue-500/30 uppercase">
-                    PRO
-                  </span>
-
                 </div>
 
-                <span className="text-[11px] font-medium text-slate-400">
-                  Restaurant & Bar
+                <span className="text-[11px] font-medium text-blue-400">
+                  Club & Lounge
                 </span>
 
               </div>

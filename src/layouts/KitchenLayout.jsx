@@ -40,8 +40,8 @@ function KitchenLayout() {
           </div>
 
           <div>
-            <h1 className="font-bold">
-              RBMS
+            <h1 className="font-black tracking-wide">
+              THE OAK CLUB
             </h1>
 
             <p className="text-xs text-slate-400">

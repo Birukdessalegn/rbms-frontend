@@ -9,7 +9,7 @@ import { useAuth } from "../context/AuthContext";
 
 function AppHeader({
   title = "Dashboard",
-  description = "Restaurant & Bar Management System",
+  description = "THE OAK CLUB Management System",
 }) {
   const { user, logout } = useAuth();
 

@@ -2,6 +2,4 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/ambbatxv/theoak.ambbatech.com/
-    - npm ci
-    - npm run build
     - /bin/cp -R dist/. $DEPLOYPATH

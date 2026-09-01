@@ -6,13 +6,57 @@ function OrderItem({
 }) {
   const itemTotal = item.price * item.quantity;
 
+  const rawImage =
+    item.image_url ||
+    item.imageUrl ||
+    item.image ||
+    item.photo ||
+    item.picture ||
+    item.image_path ||
+    item.product_image;
+
+  const isImageSrc =
+    typeof rawImage === "string" &&
+    (rawImage.startsWith("/") ||
+      rawImage.startsWith("http://") ||
+      rawImage.startsWith("https://") ||
+      rawImage.startsWith("data:") ||
+      rawImage.startsWith("blob:"));
+
+  const getFullSrc = (url) => {
+    if (!url) return "";
+    if (
+      url.startsWith("http://") ||
+      url.startsWith("https://") ||
+      url.startsWith("data:") ||
+      url.startsWith("blob:")
+    )
+      return url;
+    const baseUrl = import.meta.env.VITE_API_URL
+      ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "")
+      : "http://localhost:5000";
+    return `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+  };
+
   return (
     <div className="rounded-lg border border-gray-100 p-3">
 
       <div className="flex items-center gap-3">
 
-        <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gray-100 text-2xl">
-          {item.image}
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 text-xl border border-gray-200">
+          {isImageSrc ? (
+            <img
+              src={getFullSrc(rawImage)}
+              alt={item.name}
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.style.display = "none";
+              }}
+            />
+          ) : (
+            <span>{typeof item.image === "string" && !isImageSrc ? item.image : "🍽️"}</span>
+          )}
         </div>
 
         <div className="min-w-0 flex-1">

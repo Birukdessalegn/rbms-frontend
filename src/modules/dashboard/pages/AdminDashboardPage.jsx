@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Shield,
   Eye,
+  Wine,
 } from "lucide-react";
 import api from "../../../services/api";
 

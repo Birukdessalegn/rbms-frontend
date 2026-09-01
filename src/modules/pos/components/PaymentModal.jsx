@@ -1,9 +1,9 @@
-import { useEffect, useState, useRef, useMemo } from "react"; 
-import { 
-  X, 
-  Banknote, 
-  CreditCard, 
-  Smartphone, 
+import { useEffect, useState, useRef, useMemo } from "react";
+import {
+  X,
+  Banknote,
+  CreditCard,
+  Smartphone,
   Camera,
   Upload,
   CheckCircle2,
@@ -15,43 +15,68 @@ import {
   Minus,
   Plus,
   Sparkles,
-} from "lucide-react"; 
-import api from "../../../services/api"; 
- 
-function PaymentModal({ 
-  order, 
-  onClose, 
-  onPaymentSuccess, 
-}) { 
-  const [paymentMethod, setPaymentMethod] = useState("cash"); 
+} from "lucide-react";
+import api from "../../../services/api";
+
+function PaymentModal({
+  order,
+  onClose,
+  onPaymentSuccess,
+}) {
+  const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentMode, setPaymentMode] = useState("full"); // "full" | "split"
   const [selectedQuantities, setSelectedQuantities] = useState({});
   const [paidQuantities, setPaidQuantities] = useState({});
   const [shareSuccessMessage, setShareSuccessMessage] = useState("");
-  const [amount, setAmount] = useState(""); 
-  const [reference, setReference] = useState(""); 
+  const [amount, setAmount] = useState("");
+  const [reference, setReference] = useState("");
   const [receiptImage, setReceiptImage] = useState(null);
 
   // Special Person / VIP Credit Tab State
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [creditReason, setCreditReason] = useState("");
+  const [showVipDropdown, setShowVipDropdown] = useState(false);
+  const [selectedVip, setSelectedVip] = useState(null);
+  const [vipList, setVipList] = useState([]);
+
+  useEffect(() => {
+    localStorage.removeItem("rbms_vip_customers");
+    const fetchVipCustomers = async () => {
+      try {
+        const res = await api("/vip-customers");
+        const list = Array.isArray(res) ? res : res?.data || [];
+        setVipList(list);
+      } catch {
+        setVipList([]);
+      }
+    };
+    fetchVipCustomers();
+  }, []);
+
+  const filteredVips = useMemo(() => {
+    if (!customerName.trim()) return vipList;
+    return vipList.filter((v) =>
+      v.name.toLowerCase().includes(customerName.toLowerCase()) ||
+      (v.phone && v.phone.includes(customerName))
+    );
+  }, [vipList, customerName]);
 
   // PC Camera / WebCam state
   const [showWebcam, setShowWebcam] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
- 
-  const [loading, setLoading] = useState(false); 
-  const [loadingOrder, setLoadingOrder] = useState(true); 
-  const [error, setError] = useState(""); 
- 
-  const [fullOrder, setFullOrder] = useState(order); 
-  const [success, setSuccess] = useState(false); 
+
+  const [loading, setLoading] = useState(false);
+  const [loadingOrder, setLoadingOrder] = useState(true);
+  const [error, setError] = useState("");
+
+  const [fullOrder, setFullOrder] = useState(order);
+  const [success, setSuccess] = useState(false);
   const [partialSuccessData, setPartialSuccessData] = useState(null);
- 
-  const [successfulAmount, setSuccessfulAmount] = 
-    useState(0); 
+
+  const [successfulAmount, setSuccessfulAmount] =
+    useState(0);
 
   const handleImageCapture = (e) => {
     const file = e.target.files?.[0];
@@ -147,129 +172,129 @@ function PaymentModal({
       stopCamera();
     };
   }, []);
- 
-  useEffect(() => { 
-    const loadOrder = async () => { 
-      try { 
-        setLoadingOrder(true); 
- 
-        const response = await api( 
-          `/pos/orders/${order.order_id || order.id}` 
-        ); 
- 
-        const loadedOrder = 
-          response?.order || 
-          response?.data?.order || 
-          response?.data || 
-          response; 
- 
-        console.log("PAYMENT ORDER RESPONSE:", response); 
-        console.log("LOADED ORDER:", loadedOrder); 
-        console.log("ORDER ITEMS:", loadedOrder?.items); 
-        console.log("ORDER TOTAL:", loadedOrder?.total_amount); 
- 
-        setFullOrder(loadedOrder); 
- 
+
+  useEffect(() => {
+    const loadOrder = async () => {
+      try {
+        setLoadingOrder(true);
+
+        const response = await api(
+          `/pos/orders/${order.order_id || order.id}`
+        );
+
+        const loadedOrder =
+          response?.order ||
+          response?.data?.order ||
+          response?.data ||
+          response;
+
+        console.log("PAYMENT ORDER RESPONSE:", response);
+        console.log("LOADED ORDER:", loadedOrder);
+        console.log("ORDER ITEMS:", loadedOrder?.items);
+        console.log("ORDER TOTAL:", loadedOrder?.total_amount);
+
+        setFullOrder(loadedOrder);
+
         /* 
          * Calculate subtotal from actual order items. 
-         */ 
-        const calculatedSubtotal = ( 
-          loadedOrder.items || [] 
-        ).reduce((sum, item) => { 
-          const quantity = Number( 
-            item.quantity ?? 
-            item.qty ?? 
-            0 
-          ); 
- 
-          const unitPrice = Number( 
-            item.unit_price ?? 
-            item.unitPrice ?? 
-            item.price ?? 
-            item.product_price ?? 
-            item.productPrice ?? 
-            item.product?.price ?? 
-            item.product?.unit_price ?? 
-            0 
-          ); 
- 
-          console.log("PAYMENT ITEM:", item); 
-          console.log("QUANTITY:", quantity); 
-          console.log("UNIT PRICE:", unitPrice); 
- 
-          return sum + quantity * unitPrice; 
-        }, 0); 
- 
-        const discount = Number( 
-          loadedOrder.discount ?? 
-          loadedOrder.discount_amount ?? 
-          0 
-        ); 
- 
+         */
+        const calculatedSubtotal = (
+          loadedOrder.items || []
+        ).reduce((sum, item) => {
+          const quantity = Number(
+            item.quantity ??
+            item.qty ??
+            0
+          );
+
+          const unitPrice = Number(
+            item.unit_price ??
+            item.unitPrice ??
+            item.price ??
+            item.product_price ??
+            item.productPrice ??
+            item.product?.price ??
+            item.product?.unit_price ??
+            0
+          );
+
+          console.log("PAYMENT ITEM:", item);
+          console.log("QUANTITY:", quantity);
+          console.log("UNIT PRICE:", unitPrice);
+
+          return sum + quantity * unitPrice;
+        }, 0);
+
+        const discount = Number(
+          loadedOrder.discount ??
+          loadedOrder.discount_amount ??
+          0
+        );
+
         // Tax amount from backend order payload (0 if VAT is already included in product prices)
-        const loadedTax = Number( 
-          loadedOrder.tax ?? 
-          loadedOrder.tax_amount ?? 
-          0 
-        ); 
+        const loadedTax = Number(
+          loadedOrder.tax ??
+          loadedOrder.tax_amount ??
+          0
+        );
 
         const tax = loadedTax;
- 
-        const backendTotal = Number( 
-          loadedOrder.total_amount ?? 
-          loadedOrder.totalAmount ?? 
-          loadedOrder.total ?? 
-          loadedOrder.grand_total ?? 
-          loadedOrder.grandTotal ?? 
-          0 
-        ); 
- 
-        const calculatedTotal = calculatedSubtotal > 0 
-          ? Math.max( 
-              calculatedSubtotal - discount + tax, 
-              0 
-            ) 
-          : (backendTotal > 0 ? backendTotal : Math.max(calculatedSubtotal - discount + tax, 0)); 
- 
-        const paid = ( 
-          loadedOrder.payments || [] 
-        ) 
-          .filter( 
-            (payment) => 
-              payment.status === "paid" 
-          ) 
-          .reduce( 
-            (sum, payment) => 
-              sum + Number(payment.amount ?? 0), 
-            0 
-          ); 
- 
-        const remaining = Math.max( 
-          calculatedTotal - paid, 
-          0 
-        ); 
- 
-        setAmount(remaining.toFixed(2)); 
- 
-      } catch (err) { 
-        console.error( 
-          "Failed to load order:", 
-          err 
-        ); 
- 
-        setError( 
-          err.message || 
-            "Failed to load order details" 
-        ); 
- 
-      } finally { 
-        setLoadingOrder(false); 
-      } 
-    }; 
- 
-    loadOrder(); 
-  }, [order.order_id, order.id]); 
- 
+
+        const backendTotal = Number(
+          loadedOrder.total_amount ??
+          loadedOrder.totalAmount ??
+          loadedOrder.total ??
+          loadedOrder.grand_total ??
+          loadedOrder.grandTotal ??
+          0
+        );
+
+        const calculatedTotal = calculatedSubtotal > 0
+          ? Math.max(
+            calculatedSubtotal - discount + tax,
+            0
+          )
+          : (backendTotal > 0 ? backendTotal : Math.max(calculatedSubtotal - discount + tax, 0));
+
+        const paid = (
+          loadedOrder.payments || []
+        )
+          .filter(
+            (payment) =>
+              payment.status === "paid"
+          )
+          .reduce(
+            (sum, payment) =>
+              sum + Number(payment.amount ?? 0),
+            0
+          );
+
+        const remaining = Math.max(
+          calculatedTotal - paid,
+          0
+        );
+
+        setAmount(remaining.toFixed(2));
+
+      } catch (err) {
+        console.error(
+          "Failed to load order:",
+          err
+        );
+
+        setError(
+          err.message ||
+          "Failed to load order details"
+        );
+
+      } finally {
+        setLoadingOrder(false);
+      }
+    };
+
+    loadOrder();
+  }, [order.order_id, order.id]);
+
   // Helper to extract item unit price
   const getItemUnitPrice = (item) => {
     if (!item) return 0;
@@ -376,35 +401,35 @@ function PaymentModal({
 
   /* 
    * Calculate actual order subtotal 
-   */ 
-  const calculatedSubtotal = displayItems.reduce((sum, item) => { 
-    const quantity = Number(item.quantity ?? item.qty ?? 1); 
-    const unitPrice = getItemUnitPrice(item); 
-    return sum + quantity * unitPrice; 
-  }, 0); 
+   */
+  const calculatedSubtotal = displayItems.reduce((sum, item) => {
+    const quantity = Number(item.quantity ?? item.qty ?? 1);
+    const unitPrice = getItemUnitPrice(item);
+    return sum + quantity * unitPrice;
+  }, 0);
 
-  const discount = Number( 
-    fullOrder?.discount ?? 
-    fullOrder?.discount_amount ?? 
+  const discount = Number(
+    fullOrder?.discount ??
+    fullOrder?.discount_amount ??
     order?.discount ??
-    0 
-  ); 
+    0
+  );
 
   // Service charge (10%)
-  const serviceCharge = Number( 
-    fullOrder?.service_charge ?? 
-    fullOrder?.service_charge_amount ?? 
+  const serviceCharge = Number(
+    fullOrder?.service_charge ??
+    fullOrder?.service_charge_amount ??
     order?.service_charge ??
-    (calculatedSubtotal * 0.10) 
+    (calculatedSubtotal * 0.10)
   );
 
   // Tax / VAT (5%)
-  const tax = Number( 
-    fullOrder?.tax ?? 
-    fullOrder?.tax_amount ?? 
+  const tax = Number(
+    fullOrder?.tax ??
+    fullOrder?.tax_amount ??
     order?.tax ??
-    (calculatedSubtotal * 0.05) 
-  ); 
+    (calculatedSubtotal * 0.05)
+  );
 
   const calculatedGrandTotal = Math.max(
     calculatedSubtotal - discount + serviceCharge + tax,
@@ -412,10 +437,10 @@ function PaymentModal({
   );
 
   const dbTotal = Number(
-    fullOrder?.total ?? 
-    fullOrder?.total_amount ?? 
-    fullOrder?.totalAmount ?? 
-    fullOrder?.grand_total ?? 
+    fullOrder?.total ??
+    fullOrder?.total_amount ??
+    fullOrder?.totalAmount ??
+    fullOrder?.grand_total ??
     order?.total ??
     order?.total_amount ??
     0
@@ -423,53 +448,53 @@ function PaymentModal({
 
   const total = dbTotal > 0 ? dbTotal : calculatedGrandTotal;
 
-  const subtotal = calculatedSubtotal > 0 ? calculatedSubtotal : total; 
+  const subtotal = calculatedSubtotal > 0 ? calculatedSubtotal : total;
 
   /* 
    * Already paid 
-   */ 
-  const paidAmount = ( 
-    fullOrder?.payments || order?.payments || [] 
-  ) 
-    .filter((payment) => payment.status === "paid") 
-    .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0); 
+   */
+  const paidAmount = (
+    fullOrder?.payments || order?.payments || []
+  )
+    .filter((payment) => payment.status === "paid")
+    .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
 
   /* 
    * Remaining 
-   */ 
-  const remainingAmount = Math.max(total - paidAmount, 0); 
+   */
+  const remainingAmount = Math.max(total - paidAmount, 0);
 
   const payableAmount = paymentMode === "split"
     ? selectedItemsSummary.selectedGrandTotal
-    : (remainingAmount > 0 
-      ? remainingAmount 
+    : (remainingAmount > 0
+      ? remainingAmount
       : (total > 0 ? total : Number(order?.calculatedTotal || 0)));
 
   /* 
    * PAYMENT 
-   */ 
-  const handlePayment = async () => { 
-    setError(""); 
+   */
+  const handlePayment = async () => {
+    setError("");
 
     if (paymentMode === "split" && selectedItemsSummary.totalSelectedQty <= 0) {
       setError("Please select at least 1 item/quantity to pay for this customer share.");
       return;
     }
 
-    if (payableAmount <= 0) { 
-      setError( 
-        "Enter a valid payment amount." 
-      ); 
-      return; 
-    } 
+    if (payableAmount <= 0) {
+      setError(
+        "Enter a valid payment amount."
+      );
+      return;
+    }
 
     if (paymentMethod === "credit" && !customerName.trim()) {
       setError("Please enter the Special Person / VIP Customer Name for credit authorization.");
       return;
     }
 
-    try { 
-      setLoading(true); 
+    try {
+      setLoading(true);
 
       // Extract real numeric PostgreSQL order ID (excluding JS timestamps > 2,000,000,000)
       const getRealNumericDbOrderId = () => {
@@ -502,16 +527,18 @@ function PaymentModal({
               body: JSON.stringify({
                 amount: payableAmount,
                 paymentMethod,
+                customerId: selectedVip?.id || null,
+                vipCustomerId: selectedVip?.id || null,
                 customerName: customerName.trim() || null,
                 customerPhone: customerPhone.trim() || null,
                 creditReason: creditReason.trim() || null,
                 reference: paymentMode === "split"
                   ? `SPLIT_SHARE:${selectedItemsSummary.totalSelectedQty}_ITEMS`
                   : customerName.trim()
-                  ? `VIP_CREDIT:${customerName.trim()}`
-                  : receiptImage
-                  ? "IMAGE_ATTACHED"
-                  : "PAYMENT",
+                    ? `VIP_CREDIT:${customerName.trim()}`
+                    : receiptImage
+                      ? "IMAGE_ATTACHED"
+                      : "PAYMENT",
                 receiptImage: receiptImage || null,
                 imageUrl: receiptImage || null,
                 status: paymentMethod === "credit" ? "credit_pending" : "paid",
@@ -521,7 +548,7 @@ function PaymentModal({
           );
         } catch (primaryErr) {
           console.log("Primary POS payment endpoint notice:", primaryErr?.message || primaryErr);
-          
+
           let paymentHandled = false;
 
           // If backend order total in DB was lower than calculated grand total, retry with DB remaining balance
@@ -622,203 +649,202 @@ function PaymentModal({
         }
       }
 
-      console.log( 
-        "Payment successful:", 
-        response 
-      ); 
+      console.log(
+        "Payment successful:",
+        response
+      );
 
-      setSuccessfulAmount( 
-        payableAmount 
-      ); 
+      setSuccessfulAmount(
+        payableAmount
+      );
 
-      setSuccess(true); 
+      setSuccess(true);
 
-      setTimeout(() => { 
+      setTimeout(() => {
         if (onPaymentSuccess) {
-          onPaymentSuccess( 
+          onPaymentSuccess(
             response,
             order
-          ); 
+          );
         }
 
-        onClose(); 
-      }, 1500); 
+        onClose();
+      }, 1500);
 
-    } catch (err) { 
-      console.error( 
-        "Payment failed:", 
-        err 
-      ); 
+    } catch (err) {
+      console.error(
+        "Payment failed:",
+        err
+      );
 
-      setError( 
-        err.message || 
-          "Failed to process payment" 
-      ); 
+      setError(
+        err.message ||
+        "Failed to process payment"
+      );
 
-    } finally { 
-      setLoading(false); 
-    } 
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* 
    * LOADING SCREEN 
-   */ 
-  if (loadingOrder) { 
-    return ( 
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"> 
-        <div className="rounded-xl bg-white p-8 font-bold text-slate-800 shadow-xl flex items-center gap-3"> 
+   */
+  if (loadingOrder) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="rounded-xl bg-white p-8 font-bold text-slate-800 shadow-xl flex items-center gap-3">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-          Loading payment details... 
-        </div> 
-      </div> 
-    ); 
-  } 
+          Loading payment details...
+        </div>
+      </div>
+    );
+  }
 
   /* 
    * PARTIAL PAYMENT SUCCESS POPUP 
-   */ 
-  if (partialSuccessData) { 
-    return ( 
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-150"> 
-        <div className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-2xl border border-slate-100 space-y-4"> 
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100"> 
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-2xl font-bold text-white shadow-md"> 
-              ✓ 
-            </div> 
-          </div> 
+   */
+  if (partialSuccessData) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+        <div className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-2xl border border-slate-100 space-y-4">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-2xl font-bold text-white shadow-md">
+              ✓
+            </div>
+          </div>
 
-          <h2 className="text-xl font-extrabold text-slate-900"> 
-            Partial Share Payment Received! 
-          </h2> 
+          <h2 className="text-xl font-extrabold text-slate-900">
+            Partial Share Payment Received!
+          </h2>
 
-          <p className="text-xs text-slate-600 font-medium"> 
-            Customer share payment of{" "} 
-            <span className="font-extrabold text-slate-900"> 
-              {partialSuccessData.amount.toFixed(2)} ETB 
-            </span>{" "} 
-            received successfully. 
-          </p> 
+          <p className="text-xs text-slate-600 font-medium">
+            Customer share payment of{" "}
+            <span className="font-extrabold text-slate-900">
+              {partialSuccessData.amount.toFixed(2)} ETB
+            </span>{" "}
+            received successfully.
+          </p>
 
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-1.5 text-xs text-left"> 
-            <div className="flex justify-between text-amber-900 font-medium"> 
-              <span>Order Number</span> 
-              <span className="font-bold">#{partialSuccessData.orderNumber}</span> 
-            </div> 
-            <div className="flex justify-between text-amber-950 font-extrabold text-sm border-t border-amber-200/80 pt-2 mt-1"> 
-              <span>Remaining Unpaid Tab</span> 
-              <span className="text-amber-700 font-black"> 
-                {partialSuccessData.remaining.toFixed(2)} ETB 
-              </span> 
-            </div> 
-          </div> 
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-1.5 text-xs text-left">
+            <div className="flex justify-between text-amber-900 font-medium">
+              <span>Order Number</span>
+              <span className="font-bold">#{partialSuccessData.orderNumber}</span>
+            </div>
+            <div className="flex justify-between text-amber-950 font-extrabold text-sm border-t border-amber-200/80 pt-2 mt-1">
+              <span>Remaining Unpaid Tab</span>
+              <span className="text-amber-700 font-black">
+                {partialSuccessData.remaining.toFixed(2)} ETB
+              </span>
+            </div>
+          </div>
 
-          <button 
-            type="button" 
-            onClick={() => { 
-              if (onPaymentSuccess) { 
-                onPaymentSuccess(partialSuccessData.response, fullOrder); 
-              } 
-              window.location.reload(); 
-            }} 
-            className="w-full rounded-2xl bg-emerald-600 py-3.5 text-base font-extrabold text-white hover:bg-emerald-700 shadow-lg active:scale-95 transition" 
-          > 
-            OK / Reload Page 
-          </button> 
-        </div> 
-      </div> 
-    ); 
-  } 
+          <button
+            type="button"
+            onClick={() => {
+              if (onPaymentSuccess) {
+                onPaymentSuccess(partialSuccessData.response, fullOrder);
+              }
+              window.location.reload();
+            }}
+            className="w-full rounded-2xl bg-emerald-600 py-3.5 text-base font-extrabold text-white hover:bg-emerald-700 shadow-lg active:scale-95 transition"
+          >
+            OK / Reload Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   /* 
    * SUCCESS POPUP 
-   */ 
-  if (success) { 
-    return ( 
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"> 
- 
-        <div className="w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-2xl"> 
- 
-          {/* Check */} 
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100"> 
- 
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500 text-3xl font-bold text-white"> 
-              ✓ 
-            </div> 
- 
-          </div> 
- 
-          <h2 className="mt-5 text-2xl font-bold text-gray-900"> 
-            Payment Successful 
-          </h2> 
- 
-          <p className="mt-2 text-gray-500"> 
-            Payment of{" "} 
-            <span className="font-bold text-gray-900"> 
-              {successfulAmount.toFixed( 
-                2 
-              )} ETB 
-            </span>{" "} 
-            received successfully. 
-          </p> 
- 
-          <div className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-700"> 
-            Order #{fullOrder.order_number} 
-          </div> 
- 
-          <p className="mt-4 text-xs text-gray-400"> 
-            Closing payment... 
-          </p> 
- 
-        </div> 
- 
-      </div> 
-    ); 
-  } 
- 
+   */
+  if (success) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+
+        <div className="w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-2xl">
+
+          {/* Check */}
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
+
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500 text-3xl font-bold text-white">
+              ✓
+            </div>
+
+          </div>
+
+          <h2 className="mt-5 text-2xl font-bold text-gray-900">
+            Payment Successful
+          </h2>
+
+          <p className="mt-2 text-gray-500">
+            Payment of{" "}
+            <span className="font-bold text-gray-900">
+              {successfulAmount.toFixed(
+                2
+              )} ETB
+            </span>{" "}
+            received successfully.
+          </p>
+
+          <div className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">
+            Order #{fullOrder.order_number}
+          </div>
+
+          <p className="mt-4 text-xs text-gray-400">
+            Closing payment...
+          </p>
+
+        </div>
+
+      </div>
+    );
+  }
+
   /* 
    * PAYMENT MODAL 
-   */ 
-  return ( 
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 sm:p-6 overflow-y-auto backdrop-blur-sm animate-in fade-in duration-150"> 
+   */
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 sm:p-6 overflow-y-auto backdrop-blur-sm animate-in fade-in duration-150">
 
-      <div className="relative my-auto flex max-h-[92vh] w-full max-w-xl flex-col rounded-3xl bg-white shadow-2xl overflow-hidden border border-slate-100"> 
+      <div className="relative my-auto flex max-h-[92vh] w-full max-w-xl flex-col rounded-3xl bg-white shadow-2xl overflow-hidden border border-slate-100">
 
-        {/* Header */} 
-        <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-6 sm:py-5"> 
+        {/* Header */}
+        <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-6 sm:py-5">
 
-          <div> 
-            <h2 className="text-xl font-extrabold text-slate-900"> 
-              Complete Payment 
-            </h2> 
+          <div>
+            <h2 className="text-xl font-extrabold text-slate-900">
+              Complete Payment
+            </h2>
 
-            <p className="mt-0.5 text-xs sm:text-sm text-slate-500 font-medium"> 
-              Order #{fullOrder?.order_number || fullOrder?.id} 
+            <p className="mt-0.5 text-xs sm:text-sm text-slate-500 font-medium">
+              Order #{fullOrder?.order_number || fullOrder?.id}
 
-              {fullOrder?.table_number && 
-                ` • Table ${fullOrder.table_number}`} 
-            </p> 
-          </div> 
+              {fullOrder?.table_number &&
+                ` • Table ${fullOrder.table_number}`}
+            </p>
+          </div>
 
-          <button 
+          <button
             type="button"
-            onClick={onClose} 
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition" 
-          > 
-            <X size={20} /> 
-          </button> 
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition"
+          >
+            <X size={20} />
+          </button>
 
-        </div> 
+        </div>
 
         {/* PAYMENT MODE SELECTION TABS */}
         <div className="mx-4 mt-4 sm:mx-6 flex items-center rounded-2xl bg-slate-100 p-1.5 text-xs font-bold shadow-inner">
           <button
             type="button"
             onClick={() => setPaymentMode("full")}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 transition ${
-              paymentMode === "full"
+            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 transition ${paymentMode === "full"
                 ? "bg-blue-600 text-white shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
-            }`}
+              }`}
           >
             <CreditCard className="h-4 w-4" />
             Full Bill Payment ({remainingAmount.toFixed(2)} ETB)
@@ -827,20 +853,19 @@ function PaymentModal({
           <button
             type="button"
             onClick={() => setPaymentMode("split")}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 transition ${
-              paymentMode === "split"
+            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 transition ${paymentMode === "split"
                 ? "bg-amber-600 text-white shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
-            }`}
+              }`}
           >
             <Utensils className="h-4 w-4" />
             Split / Shared Item Payment
           </button>
         </div>
 
-        {/* Body */} 
-        <div className="flex-1 overflow-y-auto space-y-5 p-4 sm:p-6"> 
- 
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto space-y-5 p-4 sm:p-6">
+
           {/* SHARE SUCCESS NOTIFICATION BANNER */}
           {shareSuccessMessage && (
             <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-xs font-bold text-emerald-900 shadow-sm flex items-center justify-between animate-in fade-in duration-200">
@@ -906,13 +931,12 @@ function PaymentModal({
                   return (
                     <div
                       key={item.id || idx}
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border p-3 transition ${
-                        isFullyPaid
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border p-3 transition ${isFullyPaid
                           ? "border-emerald-200 bg-emerald-50/50 opacity-80"
                           : isSomeSelected
-                          ? "border-amber-400 bg-white shadow-sm ring-1 ring-amber-400/20"
-                          : "border-slate-200 bg-slate-50 opacity-70"
-                      }`}
+                            ? "border-amber-400 bg-white shadow-sm ring-1 ring-amber-400/20"
+                            : "border-slate-200 bg-slate-50 opacity-70"
+                        }`}
                     >
                       {/* Left: Checkbox + Name + Price */}
                       <div className="flex items-center gap-3">
@@ -1027,268 +1051,264 @@ function PaymentModal({
               </div>
             </div>
           ) : (
-            /* FULL BILL ORDER ITEMS */ 
-            <div className="rounded-xl bg-gray-50 p-5"> 
-   
-              <h3 className="mb-4 text-base font-semibold text-gray-900"> 
-                Order Items 
-              </h3> 
-   
-              <div className="space-y-3"> 
-   
-                {(fullOrder?.items || []).map( 
-                  (item) => { 
-   
-                    const quantity = 
-                      Number( 
-                        item.quantity || 0 
-                      ); 
-   
-                    const unitPrice = 
-                      Number( 
-                        item.unit_price ?? 
-                        item.unitPrice ?? 
-                        item.price ?? 
-                        item.product_price ?? 
-                        item.productPrice ?? 
-                        item.product?.price ?? 
-                        item.product?.unit_price ?? 
-                        0 
-                      ); 
-   
-                    const itemTotal = 
-                      quantity * 
-                      unitPrice; 
-   
-                    return ( 
-                      <div 
-                        key={item.id} 
-                        className="flex items-center justify-between" 
-                      > 
-   
-                        <div> 
-                          <p className="font-medium text-gray-800"> 
-                            {item.product_name} 
-                          </p> 
-   
-                          <p className="text-sm text-gray-500"> 
-                            {quantity} ×{" "} 
-                            {unitPrice.toFixed( 
-                              2 
-                            )} ETB 
-                          </p> 
-   
-                        </div> 
-   
-                        <span className="font-semibold text-gray-900"> 
-                          {itemTotal.toFixed( 
-                            2 
-                          )} ETB 
-                        </span> 
-   
-                      </div> 
-                    ); 
-                  } 
-                )} 
-   
-              </div> 
-   
-              {/* CALCULATION */} 
-              <div className="mt-5 space-y-2 border-t pt-4"> 
-   
-                <div className="flex justify-between text-sm text-gray-500"> 
-                  <span> 
-                    Subtotal 
-                  </span> 
-   
-                  <span> 
-                    {subtotal.toFixed( 
-                      2 
-                    )} ETB 
-                  </span> 
-                </div> 
-   
-                <div className="flex justify-between text-sm text-gray-500"> 
-                  <span> 
-                    Discount 
-                  </span> 
-   
-                  <span> 
-                    {discount.toFixed( 
-                      2 
-                    )} ETB 
-                  </span> 
-   
-                </div> 
-   
-                <div className="flex justify-between text-sm text-gray-500"> 
-                  <span> 
-                    Tax 
-                  </span> 
-   
-                  <span> 
-                    {tax.toFixed( 
-                      2 
-                    )} ETB 
-                  </span> 
-   
-                </div> 
-   
-                <div className="flex justify-between border-t pt-3 text-lg font-bold text-gray-900"> 
-   
-                  <span> 
-                    Total 
-                  </span> 
-   
-                  <span> 
-                    {total.toFixed( 
-                      2 
-                    )} ETB 
-                  </span> 
-   
-                </div> 
-   
-                <div className="flex justify-between text-sm text-gray-500"> 
-                  <span> 
-                    Already Paid 
-                  </span> 
-   
-                  <span> 
-                    {paidAmount.toFixed( 
-                      2 
-                    )} ETB 
-                  </span> 
-   
-                </div> 
-   
-                <div className="mt-3 flex items-center justify-between"> 
-   
-                  <span className="font-semibold text-gray-900"> 
-                    Remaining 
-                  </span> 
-   
-                  <span className="text-2xl font-bold text-blue-600"> 
-                    {remainingAmount.toFixed( 
-                      2 
-                    )} ETB 
-                  </span> 
-   
-                </div> 
-   
-              </div> 
-   
-            </div> 
-          )} 
- 
-          {/* PAYMENT METHOD */} 
-          <div> 
- 
-            <label className="mb-3 block text-sm font-medium text-gray-700"> 
-              Payment Method 
-            </label> 
- 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4"> 
- 
-              {/* CASH */} 
-              <button 
-                type="button" 
-                onClick={() => 
-                  setPaymentMethod( 
-                    "cash" 
-                  ) 
-                } 
-                className={`rounded-xl border p-3.5 text-center transition ${ 
-                  paymentMethod === "cash" 
-                    ? "border-blue-500 bg-blue-50 text-blue-600 shadow-xs" 
-                    : "border-gray-200 hover:bg-gray-50 text-slate-700" 
-                }`} 
-              > 
-                <Banknote 
-                  className="mx-auto mb-1.5" 
-                  size={22} 
-                /> 
- 
-                <span className="text-xs font-bold block"> 
-                  Cash 
-                </span> 
-              </button> 
- 
-              {/* CARD */} 
-              <button 
-                type="button" 
-                onClick={() => 
-                  setPaymentMethod( 
-                    "card" 
-                  ) 
-                } 
-                className={`rounded-xl border p-3.5 text-center transition ${ 
-                  paymentMethod === "card" 
-                    ? "border-blue-500 bg-blue-50 text-blue-600 shadow-xs" 
-                    : "border-gray-200 hover:bg-gray-50 text-slate-700" 
-                }`} 
-              > 
-                <CreditCard 
-                  className="mx-auto mb-1.5" 
-                  size={22} 
-                /> 
- 
-                <span className="text-xs font-bold block"> 
-                  Card 
-                </span> 
-              </button> 
- 
-              {/* MOBILE */} 
-              <button 
-                type="button" 
-                onClick={() => 
-                  setPaymentMethod( 
-                    "mobile_money" 
-                  ) 
-                } 
-                className={`rounded-xl border p-3.5 text-center transition ${ 
-                  paymentMethod === 
-                  "mobile_money" 
-                    ? "border-blue-500 bg-blue-50 text-blue-600 shadow-xs" 
-                    : "border-gray-200 hover:bg-gray-50 text-slate-700" 
-                }`} 
-              > 
-                <Smartphone 
-                  className="mx-auto mb-1.5" 
-                  size={22} 
-                /> 
- 
-                <span className="text-xs font-bold block"> 
-                  Mobile 
-                </span> 
- 
-              </button> 
+            /* FULL BILL ORDER ITEMS */
+            <div className="rounded-xl bg-gray-50 p-5">
 
-              {/* CREDIT / SPECIAL PERSON TAB */} 
-              <button 
-                type="button" 
-                onClick={() => 
-                  setPaymentMethod( 
-                    "credit" 
-                  ) 
-                } 
-                className={`rounded-xl border p-3.5 text-center transition ${ 
-                  paymentMethod === "credit" 
-                    ? "border-amber-500 bg-amber-50 text-amber-700 shadow-xs ring-2 ring-amber-400/30" 
-                    : "border-gray-200 hover:bg-gray-50 text-slate-700" 
-                }`} 
-              > 
-                <UserCheck 
-                  className="mx-auto mb-1.5 text-amber-600" 
-                  size={22} 
-                /> 
- 
-                <span className="text-xs font-bold block"> 
-                  Credit / VIP 
-                </span> 
-              </button> 
- 
-            </div> 
- 
+              <h3 className="mb-4 text-base font-semibold text-gray-900">
+                Order Items
+              </h3>
+
+              <div className="space-y-3">
+
+                {(fullOrder?.items || []).map(
+                  (item) => {
+
+                    const quantity =
+                      Number(
+                        item.quantity || 0
+                      );
+
+                    const unitPrice =
+                      Number(
+                        item.unit_price ??
+                        item.unitPrice ??
+                        item.price ??
+                        item.product_price ??
+                        item.productPrice ??
+                        item.product?.price ??
+                        item.product?.unit_price ??
+                        0
+                      );
+
+                    const itemTotal =
+                      quantity *
+                      unitPrice;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between"
+                      >
+
+                        <div>
+                          <p className="font-medium text-gray-800">
+                            {item.product_name}
+                          </p>
+
+                          <p className="text-sm text-gray-500">
+                            {quantity} ×{" "}
+                            {unitPrice.toFixed(
+                              2
+                            )} ETB
+                          </p>
+
+                        </div>
+
+                        <span className="font-semibold text-gray-900">
+                          {itemTotal.toFixed(
+                            2
+                          )} ETB
+                        </span>
+
+                      </div>
+                    );
+                  }
+                )}
+
+              </div>
+
+              {/* CALCULATION */}
+              <div className="mt-5 space-y-2 border-t pt-4">
+
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>
+                    Subtotal
+                  </span>
+
+                  <span>
+                    {subtotal.toFixed(
+                      2
+                    )} ETB
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>
+                    Discount
+                  </span>
+
+                  <span>
+                    {discount.toFixed(
+                      2
+                    )} ETB
+                  </span>
+
+                </div>
+
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>
+                    Tax
+                  </span>
+
+                  <span>
+                    {tax.toFixed(
+                      2
+                    )} ETB
+                  </span>
+
+                </div>
+
+                <div className="flex justify-between border-t pt-3 text-lg font-bold text-gray-900">
+
+                  <span>
+                    Total
+                  </span>
+
+                  <span>
+                    {total.toFixed(
+                      2
+                    )} ETB
+                  </span>
+
+                </div>
+
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>
+                    Already Paid
+                  </span>
+
+                  <span>
+                    {paidAmount.toFixed(
+                      2
+                    )} ETB
+                  </span>
+
+                </div>
+
+                <div className="mt-3 flex items-center justify-between">
+
+                  <span className="font-semibold text-gray-900">
+                    Remaining
+                  </span>
+
+                  <span className="text-2xl font-bold text-blue-600">
+                    {remainingAmount.toFixed(
+                      2
+                    )} ETB
+                  </span>
+
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
+          {/* PAYMENT METHOD */}
+          <div>
+
+            <label className="mb-3 block text-sm font-medium text-gray-700">
+              Payment Method
+            </label>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+
+              {/* CASH */}
+              <button
+                type="button"
+                onClick={() =>
+                  setPaymentMethod(
+                    "cash"
+                  )
+                }
+                className={`rounded-xl border p-3.5 text-center transition ${paymentMethod === "cash"
+                    ? "border-blue-500 bg-blue-50 text-blue-600 shadow-xs"
+                    : "border-gray-200 hover:bg-gray-50 text-slate-700"
+                  }`}
+              >
+                <Banknote
+                  className="mx-auto mb-1.5"
+                  size={22}
+                />
+
+                <span className="text-xs font-bold block">
+                  Cash
+                </span>
+              </button>
+
+              {/* CARD */}
+              <button
+                type="button"
+                onClick={() =>
+                  setPaymentMethod(
+                    "card"
+                  )
+                }
+                className={`rounded-xl border p-3.5 text-center transition ${paymentMethod === "card"
+                    ? "border-blue-500 bg-blue-50 text-blue-600 shadow-xs"
+                    : "border-gray-200 hover:bg-gray-50 text-slate-700"
+                  }`}
+              >
+                <CreditCard
+                  className="mx-auto mb-1.5"
+                  size={22}
+                />
+
+                <span className="text-xs font-bold block">
+                  Card
+                </span>
+              </button>
+
+              {/* MOBILE */}
+              <button
+                type="button"
+                onClick={() =>
+                  setPaymentMethod(
+                    "mobile_money"
+                  )
+                }
+                className={`rounded-xl border p-3.5 text-center transition ${paymentMethod ===
+                    "mobile_money"
+                    ? "border-blue-500 bg-blue-50 text-blue-600 shadow-xs"
+                    : "border-gray-200 hover:bg-gray-50 text-slate-700"
+                  }`}
+              >
+                <Smartphone
+                  className="mx-auto mb-1.5"
+                  size={22}
+                />
+
+                <span className="text-xs font-bold block">
+                  Mobile
+                </span>
+
+              </button>
+
+              {/* CREDIT / SPECIAL PERSON TAB */}
+              <button
+                type="button"
+                onClick={() =>
+                  setPaymentMethod(
+                    "credit"
+                  )
+                }
+                className={`rounded-xl border p-3.5 text-center transition ${paymentMethod === "credit"
+                    ? "border-amber-500 bg-amber-50 text-amber-700 shadow-xs ring-2 ring-amber-400/30"
+                    : "border-gray-200 hover:bg-gray-50 text-slate-700"
+                  }`}
+              >
+                <UserCheck
+                  className="mx-auto mb-1.5 text-amber-600"
+                  size={22}
+                />
+
+                <span className="text-xs font-bold block">
+                  Credit / VIP
+                </span>
+              </button>
+
+            </div>
+
           </div>
 
           {/* CREDIT / VIP PERSON DETAILS */}
@@ -1306,17 +1326,57 @@ function PaymentModal({
                 </div>
               </div>
 
-              <div>
+              <div className="relative">
                 <label className="block text-xs font-bold text-amber-900 mb-1">
-                  Special Person / Customer Name *
+                  Search Registered VIP Customer / Enter Guest Name *
                 </label>
                 <input
                   type="text"
                   value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="e.g. VIP Guest / Mr. Abebe / Board Member"
-                  className="w-full rounded-xl border border-amber-300 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+                  onFocus={() => setShowVipDropdown(true)}
+                  onChange={(e) => {
+                    setCustomerName(e.target.value);
+                    setShowVipDropdown(true);
+                    setSelectedVip(null);
+                  }}
+                  placeholder="Type name or phone number..."
+                  className="w-full rounded-xl border border-amber-300 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
                 />
+
+                {/* Live VIP Dropdown */}
+                {showVipDropdown && filteredVips.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-xl border border-amber-200 bg-white shadow-xl">
+                    <p className="px-3 py-1.5 text-[10px] font-extrabold uppercase text-amber-800 bg-amber-50 border-b border-amber-100">
+                      Pre-Approved VIP Customers ({filteredVips.length})
+                    </p>
+                    {filteredVips.map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => {
+                          setCustomerName(v.name);
+                          setCustomerPhone(v.phone || "");
+                          setSelectedVip(v);
+                          setShowVipDropdown(false);
+                        }}
+                        className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-xs hover:bg-amber-50 transition border-b border-slate-50 last:border-0 cursor-pointer"
+                      >
+                        <div>
+                          <p className="font-bold text-slate-900">{v.name}</p>
+                          <p className="text-[11px] text-slate-500">{v.phone} • <span className="text-amber-700 font-semibold">{v.tier}</span></p>
+                        </div>
+                        <div className="text-right">
+                          <span className="block font-extrabold text-emerald-700">
+                            Limit: {Number(v.credit_limit || 0).toLocaleString()} ETB
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            Debt: {Number(v.current_debt || 0).toLocaleString()} ETB
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1347,121 +1407,121 @@ function PaymentModal({
                 </div>
               </div>
             </div>
-          )} 
- 
-          {/* AMOUNT (DISABLED / AUTO-SYNCED TO PREVENT MANUAL TYPING ERRORS) */} 
-          <div> 
+          )}
+
+          {/* AMOUNT (DISABLED / AUTO-SYNCED TO PREVENT MANUAL TYPING ERRORS) */}
+          <div>
 
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-bold text-slate-800"> 
-                Payment Amount (Calculated) 
+              <label className="text-sm font-bold text-slate-800">
+                Payment Amount (Calculated)
               </label>
               <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                 🔒 Auto-Calculated Total
               </span>
             </div>
 
-            <input 
-              type="text" 
-              value={`${payableAmount.toFixed(2)} ETB`} 
+            <input
+              type="text"
+              value={`${payableAmount.toFixed(2)} ETB`}
               disabled
-              readOnly 
-              className="w-full rounded-2xl border border-slate-200 bg-slate-100 p-4 text-xl font-black text-slate-900 shadow-inner cursor-not-allowed" 
-            /> 
+              readOnly
+              className="w-full rounded-2xl border border-slate-200 bg-slate-100 p-4 text-xl font-black text-slate-900 shadow-inner cursor-not-allowed"
+            />
             <p className="mt-1.5 text-xs text-slate-500 font-medium">
               Calculated total balance for food, drinks, and tax for this table order.
             </p>
 
           </div>
- 
-          {/* CAMERA RECEIPT PHOTO FOR MOBILE & CARD PAYMENTS */} 
-          {(paymentMethod === "card" || paymentMethod === "mobile_money") && ( 
-            <div className="space-y-4"> 
+
+          {/* CAMERA RECEIPT PHOTO FOR MOBILE & CARD PAYMENTS */}
+          {(paymentMethod === "card" || paymentMethod === "mobile_money") && (
+            <div className="space-y-4">
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-700">
                   Payment Confirmation Receipt (Camera / Screenshot)
                 </label>
 
-                  <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-indigo-300 bg-indigo-50/50 p-4 text-center">
-                    {receiptImage ? (
-                      <div className="relative flex flex-col items-center gap-3 w-full">
-                        <img
-                          src={receiptImage}
-                          alt="Mobile Payment Receipt"
-                          className="max-h-48 w-auto rounded-xl object-contain shadow-md border border-indigo-200"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={startCamera}
-                            className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs"
-                          >
-                            <Camera size={14} />
-                            Retake with PC Camera
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setReceiptImage(null)}
-                            className="rounded-lg bg-red-100 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-200"
-                          >
-                            Remove
-                          </button>
-                        </div>
+                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-indigo-300 bg-indigo-50/50 p-4 text-center">
+                  {receiptImage ? (
+                    <div className="relative flex flex-col items-center gap-3 w-full">
+                      <img
+                        src={receiptImage}
+                        alt="Mobile Payment Receipt"
+                        className="max-h-48 w-auto rounded-xl object-contain shadow-md border border-indigo-200"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={startCamera}
+                          className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs"
+                        >
+                          <Camera size={14} />
+                          Retake with PC Camera
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReceiptImage(null)}
+                          className="rounded-lg bg-red-100 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-200"
+                        >
+                          Remove
+                        </button>
                       </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-3 py-2 px-4 w-full">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-md">
-                          <Camera className="h-6 w-6" />
-                        </div>
-                        <div>
-                          <span className="text-sm font-bold text-indigo-900 block">
-                            Payment Receipt / Confirmation Photo
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            Capture live photo using PC camera or upload receipt file
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap justify-center gap-2 pt-1 w-full">
-                          {/* Android Native Camera & Live Viewport */}
-                          <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm active:scale-95 transition">
-                            <Camera size={16} />
-                            📷 Take Photo (Camera)
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              onChange={handleImageCapture}
-                              className="hidden"
-                            />
-                          </label>
-
-                          {/* Live WebCam Stream modal fallback for PC / Web Browser */}
-                          <button
-                            type="button"
-                            onClick={startCamera}
-                            className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 shadow-2xs active:scale-95 transition"
-                          >
-                            Live Cam
-                          </button>
-
-                          {/* Gallery Upload */}
-                          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-2xs">
-                            <Upload size={16} />
-                            Gallery
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleImageCapture}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3 py-2 px-4 w-full">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-md">
+                        <Camera className="h-6 w-6" />
                       </div>
-                    )}
-                  </div>
+                      <div>
+                        <span className="text-sm font-bold text-indigo-900 block">
+                          Payment Receipt / Confirmation Photo
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          Capture live photo using PC camera or upload receipt file
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap justify-center gap-2 pt-1 w-full">
+                        {/* Android Native Camera & Live Viewport */}
+                        <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm active:scale-95 transition">
+                          <Camera size={16} />
+                          📷 Take Photo (Camera)
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={handleImageCapture}
+                            className="hidden"
+                          />
+                        </label>
+
+                        {/* Live WebCam Stream modal fallback for PC / Web Browser */}
+                        <button
+                          type="button"
+                          onClick={startCamera}
+                          className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 shadow-2xs active:scale-95 transition"
+                        >
+                          Live Cam
+                        </button>
+
+                        {/* Gallery Upload */}
+                        <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-2xs">
+                          <Upload size={16} />
+                          Gallery
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageCapture}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
-            </div> 
+              </div>
+            </div>
           )}
 
           {/* PC WEBCAM LIVE CAMERA OVERLAY */}
@@ -1510,44 +1570,43 @@ function PaymentModal({
                 </div>
               </div>
             </div>
-          )} 
- 
-          {/* ERROR */} 
-          {error && ( 
-            <div className="rounded-xl bg-red-50 p-4 text-sm text-red-600"> 
-              {error} 
-            </div> 
-          )} 
- 
-          {/* COMPLETE */} 
-          <button 
-            type="button" 
-            onClick={handlePayment} 
-            disabled={ 
-              loading || 
-              payableAmount <= 0 
-            } 
-            className={`w-full rounded-2xl px-5 py-4 text-lg font-extrabold text-white active:scale-98 transition disabled:cursor-not-allowed disabled:bg-gray-300 shadow-lg ${
-              paymentMode === "split"
+          )}
+
+          {/* ERROR */}
+          {error && (
+            <div className="rounded-xl bg-red-50 p-4 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          {/* COMPLETE */}
+          <button
+            type="button"
+            onClick={handlePayment}
+            disabled={
+              loading ||
+              payableAmount <= 0
+            }
+            className={`w-full rounded-2xl px-5 py-4 text-lg font-extrabold text-white active:scale-98 transition disabled:cursor-not-allowed disabled:bg-gray-300 shadow-lg ${paymentMode === "split"
                 ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
                 : paymentMethod === "credit"
-                ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
-                : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
-            }`} 
-          > 
-            {loading 
-              ? "Processing Payment..." 
+                  ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
+                  : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
+              }`}
+          >
+            {loading
+              ? "Processing Payment..."
               : paymentMode === "split"
-              ? `Complete Split Share Payment (${payableAmount.toFixed(2)} ETB)`
-              : paymentMethod === "credit"
-              ? `Submit for Manager Approval (${payableAmount.toFixed(2)} ETB)`
-              : `Complete Payment (${payableAmount.toFixed(2)} ETB)`} 
-          </button> 
- 
-        </div> 
-      </div> 
-    </div> 
-  ); 
-} 
- 
+                ? `Complete Split Share Payment (${payableAmount.toFixed(2)} ETB)`
+                : paymentMethod === "credit"
+                  ? `Submit for Manager Approval (${payableAmount.toFixed(2)} ETB)`
+                  : `Complete Payment (${payableAmount.toFixed(2)} ETB)`}
+          </button>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default PaymentModal;

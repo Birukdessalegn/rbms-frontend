@@ -249,9 +249,9 @@ const navigationGroups = [
       },
 
       {
-        name: "Customers",
-        path: "/customers",
-        icon: Users,
+        name: "VIP & Credit Customers",
+        path: "/admin/vip-customers",
+        icon: UserCheck,
         permission: "customers.view",
       },
     ],
@@ -696,15 +696,15 @@ function DashboardLayout() {
             BRAND
         =================================================== */}
 
-        <div className="flex h-16 shrink-0 items-center justify-between px-4 border-b border-white/10">
+        <div className="flex h-20 shrink-0 items-center justify-between px-4 border-b border-white/10">
 
           <div className="flex items-center gap-3 overflow-hidden">
 
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${activePreset.logoBg} text-white shadow-lg transition-colors`}>
-
-              <UtensilsCrossed className="h-5 w-5" />
-
-            </div>
+            <img
+              src="/oak-club-logo.png"
+              alt="The Oak Club"
+              className="h-10 w-auto shrink-0 object-contain drop-shadow-md"
+            />
 
             {!isCollapsed && (
               <div>

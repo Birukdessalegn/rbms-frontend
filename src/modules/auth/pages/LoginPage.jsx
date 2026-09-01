@@ -129,10 +129,12 @@ function LoginPage() {
       <div className="w-full max-w-md">
 
         {/* Logo */}
-        <div className="mb-8 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-lg shadow-blue-500/30">
-            <UtensilsCrossed className="h-7 w-7" />
-          </div>
+        <div className="mb-6 text-center">
+          <img
+            src="/oak-club-logo.png"
+            alt="The Oak Club Logo"
+            className="mx-auto h-36 w-auto object-contain mix-blend-multiply drop-shadow-md"
+          />
 
           <h1 className="mt-4 text-2xl font-black tracking-wide text-slate-900">
             THE OAK CLUB

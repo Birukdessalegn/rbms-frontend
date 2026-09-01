@@ -7,7 +7,7 @@ import ProductGrid from "../components/ProductGrid";
 import CurrentOrder from "../components/CurrentOrder";
 import api from "../../../services/api";
 import ActiveOrders from "../components/ActiveOrders";
-
+import DrinkPortionModal from "../components/DrinkPortionModal";
 
 function POSPage() {
   const { user } = useAuth();
@@ -23,7 +23,59 @@ function POSPage() {
   const [selectedTable, setSelectedTable] = useState(null);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [portionModalProduct, setPortionModalProduct] = useState(null);
+
+  const isSpiritOrLiquorProduct = (product) => {
+    if (!product) return false;
+    const cat = (product.category_name || product.category || product.type || "").toLowerCase();
+    const pName = (product.product_name || product.name || "").toLowerCase();
+
+    const isShotItem =
+      product.is_shot_item === true ||
+      product.isShotItem === true ||
+      product.shots_capacity > 0 ||
+      product.shotsCapacity > 0;
+
+    const isSpiritCat =
+      cat.includes("whiskey") ||
+      cat.includes("spirit") ||
+      cat.includes("liquor") ||
+      cat.includes("vodka") ||
+      cat.includes("gin") ||
+      cat.includes("rum") ||
+      cat.includes("tequila") ||
+      cat.includes("brandy") ||
+      cat.includes("cognac");
+
+    const isSpiritName =
+      pName.includes("whiskey") ||
+      pName.includes("red label") ||
+      pName.includes("black label") ||
+      pName.includes("jack daniel") ||
+      pName.includes("jameson") ||
+      pName.includes("vodka") ||
+      pName.includes("gin") ||
+      pName.includes("rum") ||
+      pName.includes("tequila");
+
+    const isBeerOrSoft =
+      cat.includes("beer") ||
+      cat.includes("soft") ||
+      cat.includes("water") ||
+      pName.includes("beer") ||
+      pName.includes("coca") ||
+      pName.includes("water");
+
+    if (isBeerOrSoft) return false;
+    return isShotItem || isSpiritCat || isSpiritName;
+  };
+
   const handleAddProduct = (product) => {
+    if (isSpiritOrLiquorProduct(product)) {
+      setPortionModalProduct(product);
+      return;
+    }
+
     setOrderItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
       if (existingItem) {
@@ -35,6 +87,43 @@ function POSPage() {
       }
       return [...prevItems, { ...product, quantity: 1 }];
     });
+  };
+
+  const handleSelectPortion = (portionOption) => {
+    if (!portionModalProduct) return;
+
+    const itemUniqueId = `${portionModalProduct.id}_${portionOption.id}`;
+    const formattedName = `${portionModalProduct.name} (${portionOption.title})`;
+
+    setOrderItems((prevItems) => {
+      const existingItem = prevItems.find((item) => item.cartId === itemUniqueId || item.id === itemUniqueId);
+      if (existingItem) {
+        return prevItems.map((item) =>
+          (item.cartId === itemUniqueId || item.id === itemUniqueId)
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+
+      return [
+        ...prevItems,
+        {
+          ...portionModalProduct,
+          cartId: itemUniqueId,
+          id: itemUniqueId,
+          originalId: portionModalProduct.id,
+          name: formattedName,
+          price: portionOption.price,
+          quantity: 1,
+          portion: portionOption.id,
+          portionTitle: portionOption.title,
+          shotsDeduction: portionOption.shots,
+          notes: `${portionOption.title} (${portionOption.shots} Shots)`,
+        },
+      ];
+    });
+
+    setPortionModalProduct(null);
   };
 
  const handleSendToKitchen = async () => {
@@ -285,12 +374,21 @@ if (orderType === "Dine In" && !selectedTable) {
             onRemove={handleRemove}
             onClear={handleClear}
             onSendToKitchen={handleSendToKitchen}
-  selectedTable={selectedTable}
-  orderType={orderType}
- />
+            selectedTable={selectedTable}
+            orderType={orderType}
+          />
         </div>
 
       </div>
+
+      {/* DRINK PORTION SELECTOR MODAL */}
+      {portionModalProduct && (
+        <DrinkPortionModal
+          product={portionModalProduct}
+          onClose={() => setPortionModalProduct(null)}
+          onSelectPortion={handleSelectPortion}
+        />
+      )}
 
     </div>
   );

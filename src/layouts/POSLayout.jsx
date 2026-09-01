@@ -82,11 +82,13 @@ function POSLayout() {
 
         {/* Logo */}
 
-        <div className="flex h-16 items-center gap-3 border-b border-slate-800 px-5">
+        <div className="flex h-20 items-center gap-3 border-b border-slate-800 px-5">
 
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
-            <ShoppingCart className="h-5 w-5" />
-          </div>
+          <img
+            src="/oak-club-logo.png"
+            alt="The Oak Club"
+            className="h-10 w-auto shrink-0 object-contain drop-shadow-md"
+          />
 
           <div>
             <h1 className="text-lg font-black tracking-wide">

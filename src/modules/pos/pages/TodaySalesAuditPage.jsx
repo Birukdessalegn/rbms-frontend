@@ -179,24 +179,37 @@ function TodaySalesAuditPage() {
         }
       });
 
-      // Enrich POS orders with waiter attribution
-      const enriched = posList.map((o) => {
-        const oId = String(o.id || o.order_number || "");
-        const tId = String(o.table_id || o.table_number || "");
-        const extraWaiter = orderExtraMap.get(oId);
-        const tableWaiter = tableWaiterMap.get(tId);
+      // Enrich POS orders with waiter attribution and filter strictly for Today's date
+      const todayDateStr = new Date().toISOString().split("T")[0];
 
-        const waiterName =
-          getWaiterFromObject(o, empMap) ||
-          extraWaiter ||
-          tableWaiter ||
-          "Staff Waiter";
+      const enriched = posList
+        .filter((o) => {
+          const dateVal = o.created_at || o.createdAt;
+          if (!dateVal) return true;
+          try {
+            const orderDate = new Date(dateVal).toISOString().split("T")[0];
+            return orderDate === todayDateStr;
+          } catch {
+            return true;
+          }
+        })
+        .map((o) => {
+          const oId = String(o.id || o.order_number || "");
+          const tId = String(o.table_id || o.table_number || "");
+          const extraWaiter = orderExtraMap.get(oId);
+          const tableWaiter = tableWaiterMap.get(tId);
 
-        return {
-          ...o,
-          waiter_name: waiterName,
-        };
-      });
+          const waiterName =
+            getWaiterFromObject(o, empMap) ||
+            extraWaiter ||
+            tableWaiter ||
+            "Staff Waiter";
+
+          return {
+            ...o,
+            waiter_name: waiterName,
+          };
+        });
 
       setOrders(enriched);
     } catch (err) {

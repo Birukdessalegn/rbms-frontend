@@ -74,6 +74,8 @@ function ProductsPage() {
     isActive: true,
     menuType: "both", // "both" | "customer" | "employee"
     isTodaysSpecial: false,
+    shotsCapacity: "30",
+    isShotItem: false,
   });
 
   // ============================================================
@@ -185,7 +187,7 @@ function ProductsPage() {
       categoryId: "",
       description: "",
       price: "",
-      costPrice: "",
+      costPrice: 0,
       staffPrice: "",
       unit: "pcs",
       imageUrl: "",
@@ -193,6 +195,8 @@ function ProductsPage() {
       isActive: true,
       menuType: "both",
       isTodaysSpecial: false,
+      shotsCapacity: "30",
+      isShotItem: false,
     });
 
     setShowModal(true);
@@ -211,7 +215,7 @@ function ProductsPage() {
       categoryId: prod.category_id || prod.categoryId || "",
       description: prod.description || "",
       price: prod.price || "",
-      costPrice: prod.cost_price || prod.costPrice || "",
+      costPrice: prod.cost_price || prod.costPrice || 0,
       staffPrice: prod.staff_price || prod.staffPrice || "",
       unit: prod.unit || "pcs",
       imageUrl: prod.image_url || prod.imageUrl || "",
@@ -219,6 +223,8 @@ function ProductsPage() {
       isActive: prod.is_active ?? prod.isActive ?? true,
       menuType: prod.menu_type || prod.menuType || "both",
       isTodaysSpecial: prod.is_todays_special ?? prod.isTodaysSpecial ?? false,
+      shotsCapacity: String(prod.shots_capacity || prod.shotsCapacity || prod.bottle_shots || 30),
+      isShotItem: prod.is_shot_item ?? prod.isShotItem ?? (prod.shots_capacity > 0 || prod.shotsCapacity > 0),
     });
 
     setShowModal(true);
@@ -258,21 +264,70 @@ function ProductsPage() {
         throw new Error("Selling price cannot be negative");
       }
 
-      // Build FormData payload for multipart image upload
+      const parseNumStr = (val, fallback = "0") => {
+        if (val === undefined || val === null || val === "" || String(val).toLowerCase() === "undefined" || isNaN(Number(val))) {
+          return fallback;
+        }
+        return String(Number(val));
+      };
+
+      const safePrice = parseNumStr(form.price, "0");
+      const safeCostPrice = parseNumStr(form.costPrice, "0");
+      const safeStaffPrice = parseNumStr(form.staffPrice, "0");
+      const safeShotsCapacity = parseNumStr(form.shotsCapacity, "30");
+
+      // Build FormData payload for multipart image upload (supports both camelCase & snake_case backend keys)
       const formData = new FormData();
-      if (form.productCode.trim()) formData.append("productCode", form.productCode.trim());
+      const code = (form.productCode || "").trim();
+      if (code) {
+        formData.append("productCode", code);
+        formData.append("product_code", code);
+      }
+
       formData.append("name", form.name.trim());
-      if (form.categoryId) formData.append("categoryId", String(form.categoryId));
-      if (form.description.trim()) formData.append("description", form.description.trim());
-      formData.append("price", String(form.price));
-      formData.append("costPrice", String(form.costPrice === "" ? 0 : form.costPrice));
-      formData.append("staffPrice", String(form.staffPrice === "" ? 0 : form.staffPrice));
-      formData.append("unit", form.unit);
+      formData.append("product_name", form.name.trim());
+
+      if (form.categoryId) {
+        formData.append("categoryId", String(form.categoryId));
+        formData.append("category_id", String(form.categoryId));
+      }
+
+      if (form.description.trim()) {
+        formData.append("description", form.description.trim());
+      }
+
+      formData.append("price", safePrice);
+      formData.append("unit_price", safePrice);
+
+      formData.append("costPrice", safeCostPrice);
+      formData.append("cost_price", safeCostPrice);
+
+      formData.append("staffPrice", safeStaffPrice);
+      formData.append("staff_price", safeStaffPrice);
+
+      formData.append("shotsCapacity", safeShotsCapacity);
+      formData.append("shots_capacity", safeShotsCapacity);
+
+      formData.append("isShotItem", String(form.isShotItem));
+      formData.append("is_shot_item", String(form.isShotItem));
+
+      formData.append("unit", form.unit || "pcs");
       formData.append("menuType", form.menuType || "both");
+      formData.append("menu_type", form.menuType || "both");
+
       formData.append("isAvailable", String(form.isAvailable));
+      formData.append("is_available", String(form.isAvailable));
+
       formData.append("isActive", String(form.isActive));
+      formData.append("is_active", String(form.isActive));
+
       formData.append("isTodaysSpecial", String(form.isTodaysSpecial));
-      if (form.imageUrl.trim()) formData.append("imageUrl", form.imageUrl.trim());
+      formData.append("is_todays_special", String(form.isTodaysSpecial));
+
+      if (form.imageUrl.trim()) {
+        formData.append("imageUrl", form.imageUrl.trim());
+        formData.append("image_url", form.imageUrl.trim());
+      }
 
       // Attach file if selected from gallery
       if (imageFile) {
@@ -740,7 +795,9 @@ function ProductsPage() {
                     return (
                       <tr
                         key={product.id}
-                        className="transition hover:bg-slate-50"
+                        onClick={() => openEditModal(product)}
+                        className="transition hover:bg-slate-100/80 cursor-pointer active:bg-slate-200/60"
+                        title="Click to view & edit product price and details"
                       >
 
                         {/* Product */}
@@ -820,6 +877,14 @@ function ProductsPage() {
                             ETB / {product.unit || "pcs"}
                           </span>
 
+                          {(product.shots_capacity > 0 || product.shotsCapacity > 0 || product.is_shot_item || product.isShotItem) && (
+                            <div className="mt-1">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-extrabold text-purple-700 border border-purple-200">
+                                🥃 {product.shots_capacity || product.shotsCapacity || 30} Shots/Bottle
+                              </span>
+                            </div>
+                          )}
+
                         </td>
 
                         {/* Staff Price */}
@@ -845,6 +910,7 @@ function ProductsPage() {
                           {activeTab === "menu" ? (
                             <select
                               value={menuScope}
+                              onClick={(e) => e.stopPropagation()}
                               onChange={(e) =>
                                 handleToggleMenuSetting(product, {
                                   menu_type: e.target.value,
@@ -883,11 +949,12 @@ function ProductsPage() {
 
                             <button
                               type="button"
-                              onClick={() =>
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 handleToggleMenuSetting(product, {
                                   is_todays_special: !product.is_todays_special,
-                                })
-                              }
+                                });
+                              }}
                               className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
                                 product.is_todays_special
                                   ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
@@ -913,11 +980,12 @@ function ProductsPage() {
 
                           <button
                             type="button"
-                            onClick={() =>
+                            onClick={(e) => {
+                              e.stopPropagation();
                               handleToggleMenuSetting(product, {
                                 is_available: !product.is_available,
-                              })
-                            }
+                              });
+                            }}
                             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition ${
                               product.is_available
                                 ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
@@ -1107,7 +1175,7 @@ function ProductsPage() {
 
               {/* Prices */}
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
 
                 <FormField label="Customer Price *">
 
@@ -1133,21 +1201,6 @@ function ProductsPage() {
                     value={form.staffPrice}
                     onChange={handleChange}
                     placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    className={inputClass}
-                  />
-
-                </FormField>
-
-                <FormField label="Cost Price">
-
-                  <input
-                    type="number"
-                    name="costPrice"
-                    value={form.costPrice}
-                    onChange={handleChange}
-                    placeholder="200"
                     min="0"
                     step="0.01"
                     className={inputClass}
@@ -1213,6 +1266,86 @@ function ProductsPage() {
 
                 </div>
 
+              </div>
+
+              {/* Spirit & Liquor Portion Configuration */}
+              <div className="rounded-2xl border border-purple-200 bg-purple-50/40 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Wine className="h-5 w-5 text-purple-600" />
+                    <div>
+                      <h4 className="text-xs font-extrabold text-purple-900 uppercase tracking-wider">
+                        Spirit / Liquor Shot & Bottle Setup
+                      </h4>
+                      <p className="text-[11px] text-purple-700">
+                        Configure custom shots per bottle (Single/Double Shot, Half & Full Bottle)
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <span className="text-xs font-bold text-slate-700">
+                      Enable Portion Items
+                    </span>
+                    <input
+                      type="checkbox"
+                      name="isShotItem"
+                      checked={form.isShotItem}
+                      onChange={handleChange}
+                      className="h-4 w-4 rounded-sm accent-purple-600 cursor-pointer"
+                    />
+                  </label>
+                </div>
+
+                <div className="space-y-3 pt-2 border-t border-purple-200/60">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <FormField label="Custom Shots Per Bottle Capacity *">
+                      <input
+                        type="number"
+                        name="shotsCapacity"
+                        value={form.shotsCapacity ?? ""}
+                        onChange={handleChange}
+                        placeholder="e.g. 25, 30, 40"
+                        min="1"
+                        step="1"
+                        className="w-full rounded-xl border border-purple-300 bg-white px-3.5 py-2.5 text-sm font-extrabold text-purple-900 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 shadow-xs"
+                      />
+                    </FormField>
+
+                    <div className="flex items-center">
+                      <p className="text-xs text-slate-600 font-semibold italic">
+                        Type total shots inside 1 full bottle (e.g. 25 for 750ml, 40 for 1L).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* LIVE PORTION PRICE CALCULATOR PREVIEW */}
+                  {Number(form.price) > 0 && Number(form.shotsCapacity || 30) > 0 && (
+                    <div className="rounded-xl bg-white p-3 border border-purple-200 text-xs space-y-2 shadow-xs">
+                      <p className="font-extrabold text-purple-900 uppercase text-[10px] tracking-wider">
+                        Live Calculated Portion Prices (Custom {form.shotsCapacity || 30} Shots Bottle):
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-bold text-slate-800">
+                        <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                          <span className="text-[10px] text-slate-400 block">Single Shot</span>
+                          <span className="text-purple-700">{Number(form.price).toFixed(2)} ETB</span>
+                        </div>
+                        <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                          <span className="text-[10px] text-slate-400 block">Double Shot (2x)</span>
+                          <span className="text-purple-700">{(Number(form.price) * 2).toFixed(2)} ETB</span>
+                        </div>
+                        <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                          <span className="text-[10px] text-slate-400 block">Half Bottle ({Math.round(Number(form.shotsCapacity || 30) / 2)} Shots)</span>
+                          <span className="text-purple-700">{(Number(form.price) * Math.round(Number(form.shotsCapacity || 30) / 2)).toFixed(2)} ETB</span>
+                        </div>
+                        <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                          <span className="text-[10px] text-slate-400 block">Full Bottle ({form.shotsCapacity || 30} Shots)</span>
+                          <span className="text-purple-700">{(Number(form.price) * Number(form.shotsCapacity || 30)).toFixed(2)} ETB</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Description */}

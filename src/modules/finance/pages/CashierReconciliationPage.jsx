@@ -99,39 +99,7 @@ function CashierReconciliationPage() {
         );
 
         // Fallback demo credit orders if DB empty
-        if (creditList.length > 0) {
-          setCreditOrders(creditList);
-        } else {
-          setCreditOrders([
-            {
-              id: 201,
-              order_number: "ORD-9021",
-              table_number: "T4",
-              total: 2450.0,
-              payment_method: "credit",
-              payment_status: "credit_pending",
-              customer_name: "Abebe Kebede (VIP)",
-              customer_phone: "0911223344",
-              credit_reason: "Monthly VIP Tab Authorization",
-              waiter_name: "Mewael B. (Waiter)",
-              created_at: new Date(Date.now() - 3600 * 1000).toISOString(),
-            },
-            {
-              id: 202,
-              order_number: "ORD-8942",
-              table_number: "T1",
-              total: 1800.0,
-              payment_method: "credit",
-              payment_status: "credit_approved",
-              customer_name: "Dr. Almaz Ayana",
-              customer_phone: "0918765432",
-              credit_reason: "Board Member Guest",
-              waiter_name: "Abera K. (Waiter)",
-              approved_by_name: "Manager Admin",
-              created_at: new Date(Date.now() - 7200 * 1000).toISOString(),
-            },
-          ]);
-        }
+        setCreditOrders(creditList);
       } catch (ce) {
         console.log("Credit orders fetch notice:", ce);
       }
@@ -243,8 +211,23 @@ function CashierReconciliationPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const totalCashCollected = shifts.reduce(
+    (sum, s) => sum + (Number(s.actual_cash || s.expected_cash) || 0),
+    0
+  );
+
+  const totalDigitalSales = shifts.reduce(
+    (sum, s) => sum + (Number(s.total_card_sales) || 0) + (Number(s.total_mobile_sales) || 0),
+    0
+  );
+
   const totalCreditSales = creditOrders.reduce(
     (sum, c) => sum + (Number(c.total) || 0),
+    0
+  );
+
+  const totalDiscrepancies = shifts.reduce(
+    (sum, s) => sum + (Number(s.shortage_overage) || 0),
     0
   );
 

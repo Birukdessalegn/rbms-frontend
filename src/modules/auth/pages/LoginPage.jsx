@@ -135,14 +135,6 @@ function LoginPage() {
             alt="The Oak Club Logo"
             className="mx-auto h-36 w-auto object-contain mix-blend-multiply drop-shadow-md"
           />
-
-          <h1 className="mt-4 text-2xl font-black tracking-wide text-slate-900">
-            THE OAK CLUB
-          </h1>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Club & Lounge Management System
-          </p>
         </div>
 
         {/* Login Card */}

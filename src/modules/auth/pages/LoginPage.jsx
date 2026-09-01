@@ -137,7 +137,7 @@ function LoginPage() {
           />
 
           <h1 className="mt-4 text-2xl font-black tracking-wide text-slate-900">
-            THE OAK CLUB
+            THE OAK
           </h1>
 
           <p className="mt-1 text-sm text-slate-500">

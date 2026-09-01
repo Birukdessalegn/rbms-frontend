@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   ShoppingCart,
   BarChart3,
+  Receipt,
   LogOut,
   User,
   Settings,
@@ -14,9 +15,14 @@ import { useState, useRef, useEffect } from "react";
 
 const menuItems = [
   {
-    name: "POS",
+    name: "POS Terminal",
     path: "/pos",
     icon: ShoppingCart,
+  },
+  {
+    name: "Daily Sales Audit",
+    path: "/pos/sales-audit",
+    icon: Receipt,
   },
   {
     name: "Reports",

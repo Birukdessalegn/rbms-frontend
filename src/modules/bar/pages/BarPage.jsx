@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Wine,
   ClipboardList,
@@ -8,19 +9,40 @@ import {
   Play,
   Check,
   RefreshCw,
+  Volume2,
+  VolumeX,
+  Clock,
+  AlertTriangle,
 } from "lucide-react";
 import api from "../../../services/api";
 import audioService from "../../../services/audioService";
 import NewOrderAlertModal from "../../../components/common/NewOrderAlertModal";
 
 function BarPage() {
+  const location = useLocation();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingOrder, setUpdatingOrder] = useState(null);
   const [alertOrder, setAlertOrder] = useState(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [activeTab, setActiveTab] = useState("all");
 
   const prevOrdersRef = useRef(null);
+
+  // Sync tab with URL route if accessing /bar/new, /bar/preparing, etc.
+  useEffect(() => {
+    const path = location.pathname.toLowerCase();
+    if (path.endsWith("/new")) {
+      setActiveTab("new");
+    } else if (path.endsWith("/preparing")) {
+      setActiveTab("preparing");
+    } else if (path.endsWith("/ready")) {
+      setActiveTab("ready");
+    } else {
+      setActiveTab("all");
+    }
+  }, [location.pathname]);
 
   // ============================================================
   // FETCH BAR ORDERS
@@ -42,7 +64,9 @@ function BarPage() {
         );
 
         if (newBarOrder) {
-          audioService.playNewOrderSound();
+          if (soundEnabled) {
+            audioService.playNewOrderSound();
+          }
           setAlertOrder(newBarOrder);
         }
       }
@@ -152,16 +176,25 @@ function BarPage() {
   const newOrders = orders.filter(
     (order) =>
       order.status === "pending" ||
-      order.status === "confirmed"
+      order.status === "confirmed" ||
+      order.status === "new"
   ).length;
 
   const preparingOrders = orders.filter(
-    (order) => order.status === "preparing"
+    (order) => order.status === "preparing" || order.status === "in_progress"
   ).length;
 
   const readyOrders = orders.filter(
     (order) => order.status === "ready"
   ).length;
+
+  const displayedOrders = orders.filter((order) => {
+    const s = (order.status || "").toLowerCase();
+    if (activeTab === "new") return s === "pending" || s === "confirmed" || s === "new";
+    if (activeTab === "preparing") return s === "preparing" || s === "in_progress";
+    if (activeTab === "ready") return s === "ready";
+    return true;
+  });
 
   // ============================================================
   // TODAY'S ORDERS
@@ -296,22 +329,38 @@ function BarPage() {
 
         </div>
 
-        {/* REFRESH BUTTON */}
+        {/* HEADER CONTROLS */}
 
-        <button
-          type="button"
-          onClick={fetchBarOrders}
-          disabled={loading}
-          className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${
-              loading ? "animate-spin" : ""
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSoundEnabled((prev) => !prev)}
+            className={`flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-semibold shadow-sm transition ${
+              soundEnabled
+                ? "border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
+                : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
             }`}
-          />
+            title={soundEnabled ? "Sound Alerts Enabled" : "Sound Alerts Muted"}
+          >
+            {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-red-500" />}
+            <span>{soundEnabled ? "Sound On" : "Muted"}</span>
+          </button>
 
-          Refresh
-        </button>
+          <button
+            type="button"
+            onClick={fetchBarOrders}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${
+                loading ? "animate-spin" : ""
+              }`}
+            />
+
+            Refresh
+          </button>
+        </div>
 
       </div>
 
@@ -382,7 +431,7 @@ function BarPage() {
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
 
           <div>
             <h2 className="text-lg font-bold text-slate-900">
@@ -394,9 +443,49 @@ function BarPage() {
             </p>
           </div>
 
-          <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
-            {orders.length} Orders
-          </span>
+          {/* FILTER TABS */}
+          <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-slate-100 p-1">
+            <button
+              onClick={() => setActiveTab("all")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                activeTab === "all"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              All ({orders.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("new")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                activeTab === "new"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-blue-600"
+              }`}
+            >
+              New ({newOrders})
+            </button>
+            <button
+              onClick={() => setActiveTab("preparing")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                activeTab === "preparing"
+                  ? "bg-amber-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-amber-600"
+              }`}
+            >
+              Preparing ({preparingOrders})
+            </button>
+            <button
+              onClick={() => setActiveTab("ready")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                activeTab === "ready"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-emerald-600"
+              }`}
+            >
+              Ready ({readyOrders})
+            </button>
+          </div>
 
         </div>
 
@@ -405,7 +494,7 @@ function BarPage() {
             EMPTY STATE
         ==================================================== */}
 
-        {orders.length === 0 && !error && (
+        {displayedOrders.length === 0 && !error && (
           <div className="flex min-h-[250px] flex-col items-center justify-center px-5 text-center">
 
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-50 text-purple-500">
@@ -413,11 +502,13 @@ function BarPage() {
             </div>
 
             <h3 className="mt-4 text-base font-bold text-slate-800">
-              No drink orders
+              {activeTab === "all" ? "No drink orders" : `No ${activeTab} drink orders`}
             </h3>
 
             <p className="mt-1 text-sm text-slate-500">
-              New drink orders from the POS will appear here.
+              {activeTab === "all"
+                ? "New drink orders from the POS will appear here."
+                : `There are currently no orders with status "${activeTab}".`}
             </p>
 
           </div>
@@ -428,10 +519,10 @@ function BarPage() {
             ORDER LIST
         ==================================================== */}
 
-        {orders.length > 0 && (
+        {displayedOrders.length > 0 && (
           <div className="divide-y divide-slate-200">
 
-            {orders.map((order) => {
+            {displayedOrders.map((order) => {
 
               const displayStatus =
                 getDisplayStatus(order.status);
@@ -439,10 +530,23 @@ function BarPage() {
               const isUpdating =
                 updatingOrder === order.id;
 
+              const minutesAgo = order.created_at
+                ? Math.max(0, Math.floor((new Date() - new Date(order.created_at)) / (1000 * 60)))
+                : 0;
+
+              const isDelayed =
+                minutesAgo >= 7 &&
+                (order.status === "pending" ||
+                  order.status === "confirmed" ||
+                  order.status === "new" ||
+                  order.status === "preparing");
+
               return (
                 <div
                   key={order.id}
-                  className="p-5 transition hover:bg-slate-50"
+                  className={`p-5 transition hover:bg-slate-50 ${
+                    isDelayed ? "border-l-4 border-l-red-500 bg-red-50/20" : ""
+                  }`}
                 >
 
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -470,6 +574,12 @@ function BarPage() {
                           status={displayStatus}
                         />
 
+                        {isDelayed && (
+                          <span className="flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-700 animate-pulse">
+                            <AlertTriangle className="h-3 w-3" /> Delayed ({minutesAgo}m)
+                          </span>
+                        )}
+
                       </div>
 
 
@@ -482,9 +592,9 @@ function BarPage() {
 
                       {/* TIME */}
 
-                      <p className="mt-1 text-xs text-slate-400">
-                        Ordered{" "}
-                        {formatTime(order.created_at)}
+                      <p className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span>Ordered {formatTime(order.created_at)} ({minutesAgo} mins ago)</span>
                       </p>
 
                     </div>
@@ -496,7 +606,27 @@ function BarPage() {
 
                     <div className="flex shrink-0 items-center gap-3">
 
-                      {/* NEW */}
+                      {/* NEW / PENDING */}
+
+                      {(order.status === "pending" ||
+                        order.status === "confirmed" ||
+                        order.status === "new") && (
+                        <button
+                          type="button"
+                          disabled={isUpdating}
+                          onClick={() =>
+                            updateOrderStatus(order.id, "preparing")
+                          }
+                          className="flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-purple-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isUpdating ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                          Start Preparing
+                        </button>
+                      )}
 
 
 

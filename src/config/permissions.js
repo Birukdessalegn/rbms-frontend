@@ -36,13 +36,11 @@ export const ROLE_PERMISSIONS = {
     "cashier.reconcile",
   ],
 
-  // Waiter and Cashier/POS share the POS dashboard
+  // Waiter permissions
   [ROLES.WAITER]: [
     "dashboard.view",
-    "pos.view",
     "orders.view",
     "orders.create",
-    "tables.view",
     "customers.view",
   ],
 
@@ -54,6 +52,8 @@ export const ROLE_PERMISSIONS = {
     "payments.view",
     "payments.create",
     "customers.view",
+    "attendance.view",
+    "attendance.manage",
   ],
 
   [ROLES.CHEF]: [

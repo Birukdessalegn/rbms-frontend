@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRestaurant } from "../../../context/RestaurantContext";
+import { useAuth } from "../../../context/AuthContext";
 import TableSelector from "../components/TableSelector";
 import CategoryTabs from "../components/CategoryTabs";
 import ProductGrid from "../components/ProductGrid";
@@ -9,10 +10,12 @@ import ActiveOrders from "../components/ActiveOrders";
 
 
 function POSPage() {
+  const { user } = useAuth();
   const {
     tables,
     loadingTables,
     fetchTables,
+    fetchKitchenOrders,
   } = useRestaurant();
 
   const [orderItems, setOrderItems] = useState([]);
@@ -60,9 +63,12 @@ if (orderType === "Dine In" && !selectedTable) {
 
         tableId,
 
-        waiterId: 1,
+        waiterId: user?.employee_id || user?.employeeId || user?.id || 1,
+        waiter_id: user?.employee_id || user?.employeeId || user?.id || 1,
+        waiterName: user?.username || user?.name || null,
+        waiter_name: user?.username || user?.name || null,
 
-      items: orderItems.map((item) => ({
+        items: orderItems.map((item) => ({
         productId: item.id,
         product_id: item.id,
         name: item.name,
@@ -96,9 +102,12 @@ if (orderType === "Dine In" && !selectedTable) {
     setOrderItems([]);
     setSelectedTable(null);
 
-    // Instantly refresh table status to Occupied on POS and Restaurant Context
+    // Instantly refresh table status and active orders in Restaurant Context
     if (fetchTables) {
       fetchTables();
+    }
+    if (fetchKitchenOrders) {
+      fetchKitchenOrders();
     }
 
     alert("Order sent to kitchen successfully!");

@@ -72,20 +72,15 @@ const emptyForm = {
   employeeCode: "",
   firstName: "",
   lastName: "",
-
   username: "",
   password: "",
   email: "",
-
   phone: "",
-
   roleId: "",
   departmentId: "",
-
   shift: "",
   hireDate: "",
   salary: "",
-
   status: "active",
   attendance: "Present",
 };
@@ -96,13 +91,10 @@ const emptyForm = {
 
 function formatDate(date) {
   if (!date) return "-";
-
   const parsed = new Date(`${date}T00:00:00`);
-
   if (Number.isNaN(parsed.getTime())) {
     return "-";
   }
-
   return parsed.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -115,37 +107,18 @@ function formatDate(date) {
 // =====================================================
 
 function EmployeesPage() {
-  // ===================================================
-  // DATA
-  // ===================================================
-
   const [employeeList, setEmployeeList] = useState([]);
-
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState("");
-
   const [search, setSearch] = useState("");
-
   const [showForm, setShowForm] = useState(false);
-
   const [editingEmployee, setEditingEmployee] = useState(null);
-
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-
   const [form, setForm] = useState(emptyForm);
-
   const [saving, setSaving] = useState(false);
-
   const [deleting, setDeleting] = useState(false);
-
   const [showRejectBox, setShowRejectBox] = useState(false);
-
   const [rejectReason, setRejectReason] = useState("");
-
-  // ===================================================
-  // TOAST / POPUP
-  // ===================================================
 
   const [toast, setToast] = useState({
     show: false,
@@ -165,12 +138,17 @@ function EmployeesPage() {
     }, 3000);
   };
 
-
   const fetchEmployees = async () => {
     try {
       setLoading(true);
       const data = await api("/employees");
-      setEmployeeList(Array.isArray(data) ? data : data.employees || []);
+      const list =
+        (Array.isArray(data) ? data : null) ||
+        (Array.isArray(data?.employees) ? data.employees : null) ||
+        (Array.isArray(data?.data?.employees) ? data.data.employees : null) ||
+        (Array.isArray(data?.data) ? data.data : null) ||
+        [];
+      setEmployeeList(list);
     } catch (err) {
       console.error(err);
       setError("Failed to fetch employees.");
@@ -185,21 +163,25 @@ function EmployeesPage() {
 
   const filteredEmployees = useMemo(() => {
     return (Array.isArray(employeeList) ? employeeList : []).filter((emp) => {
+      if (!search.trim()) return true;
       const searchLower = search.toLowerCase();
+      const firstName = emp.first_name || emp.firstName || "";
+      const lastName = emp.last_name || emp.lastName || "";
+      const fullName = emp.name || `${firstName} ${lastName}`.trim();
+      const code = emp.employee_code || emp.employeeCode || emp.code || "";
+      const username = emp.username || "";
+
       return (
-        emp.first_name?.toLowerCase().includes(searchLower) ||
-        emp.last_name?.toLowerCase().includes(searchLower) ||
-        emp.employee_code?.toLowerCase().includes(searchLower)
+        firstName.toLowerCase().includes(searchLower) ||
+        lastName.toLowerCase().includes(searchLower) ||
+        fullName.toLowerCase().includes(searchLower) ||
+        code.toLowerCase().includes(searchLower) ||
+        username.toLowerCase().includes(searchLower)
       );
     });
   }, [employeeList, search]);
 
-  // ===================================================
-  // STATS
-  // ===================================================
-
   const safeEmployees = Array.isArray(employeeList) ? employeeList : [];
-
   const totalEmployees = safeEmployees.length;
 
   const activeToday = safeEmployees.filter(
@@ -218,10 +200,6 @@ function EmployeesPage() {
     (employee) => employee.attendance === "Absent"
   ).length;
 
-  // ===================================================
-  // OPEN CREATE FORM
-  // ===================================================
-
   const openCreateForm = () => {
     setEditingEmployee(null);
     setForm(emptyForm);
@@ -229,41 +207,22 @@ function EmployeesPage() {
     setShowForm(true);
   };
 
-  // ===================================================
-  // OPEN EDIT FORM
-  // ===================================================
-
   const openEditForm = (employee) => {
     setEditingEmployee(employee);
 
     setForm({
-      employeeCode: employee.employee_code || "",
-      firstName: employee.first_name || "",
-      lastName: employee.last_name || "",
-
+      employeeCode: employee.employee_code || employee.employeeCode || employee.code || "",
+      firstName: employee.first_name || employee.firstName || "",
+      lastName: employee.last_name || employee.lastName || "",
       username: employee.username || "",
       password: "",
       email: employee.user_email || employee.email || "",
-
       phone: employee.phone || "",
-
-      roleId: employee.role_id
-        ? String(employee.role_id)
-        : "",
-
-      departmentId: employee.department_id
-        ? String(employee.department_id)
-        : "",
-
+      roleId: employee.role_id || employee.roleId ? String(employee.role_id || employee.roleId) : "",
+      departmentId: employee.department_id || employee.departmentId ? String(employee.department_id || employee.departmentId) : "",
       shift: employee.shift || "",
-      hireDate: employee.hire_date || "",
-
-      salary:
-        employee.salary !== null &&
-        employee.salary !== undefined
-          ? String(employee.salary)
-          : "",
-
+      hireDate: employee.hire_date || employee.hireDate || "",
+      salary: employee.salary !== null && employee.salary !== undefined ? String(employee.salary) : "",
       status: employee.status || "active",
       attendance: employee.attendance || "Present",
     });
@@ -271,10 +230,6 @@ function EmployeesPage() {
     setError("");
     setShowForm(true);
   };
-
-  // ===================================================
-  // FORM CHANGE
-  // ===================================================
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -285,20 +240,12 @@ function EmployeesPage() {
     }));
   };
 
-  // ===================================================
-  // SAVE EMPLOYEE
-  // ===================================================
-
   const handleSaveEmployee = async (e) => {
     e?.preventDefault();
 
     try {
       setSaving(true);
       setError("");
-
-      // -----------------------------------------------
-      // VALIDATION
-      // -----------------------------------------------
 
       if (!form.employeeCode.trim()) {
         setError("Employee ID is required.");
@@ -325,8 +272,6 @@ function EmployeesPage() {
         return;
       }
 
-      // Username and password are required only
-      // when creating a new employee.
       if (!editingEmployee && !form.username.trim()) {
         setError("Username is required.");
         return;
@@ -337,20 +282,18 @@ function EmployeesPage() {
         return;
       }
 
-      // -----------------------------------------------
-      // PAYLOAD
-      // -----------------------------------------------
-
       const payload = {
         employeeCode: form.employeeCode.trim(),
+        employee_code: form.employeeCode.trim(),
 
         firstName: form.firstName.trim(),
+        first_name: form.firstName.trim(),
 
         lastName: form.lastName.trim(),
+        last_name: form.lastName.trim(),
 
         username: form.username.trim(),
 
-        // Backend should hash this password.
         password: form.password,
 
         email: form.email.trim() || null,
@@ -358,47 +301,34 @@ function EmployeesPage() {
         phone: form.phone.trim() || null,
 
         roleId: Number(form.roleId),
+        role_id: Number(form.roleId),
 
         departmentId: Number(form.departmentId),
+        department_id: Number(form.departmentId),
 
         shift: form.shift.trim() || null,
 
         hireDate: form.hireDate || null,
+        hire_date: form.hireDate || null,
 
-        salary: form.salary
-          ? Number(form.salary)
-          : 0,
+        salary: form.salary ? Number(form.salary) : 0,
 
         status: form.status,
       };
 
       console.log("Employee payload:", payload);
 
-      // -----------------------------------------------
-      // CREATE
-      // -----------------------------------------------
-
       if (!editingEmployee) {
         await api("/employees", {
           method: "POST",
           body: JSON.stringify(payload),
         });
-      }
-
-      // -----------------------------------------------
-      // UPDATE
-      // -----------------------------------------------
-
-      else {
+      } else {
         await api(`/employees/${editingEmployee.id}`, {
           method: "PUT",
           body: JSON.stringify(payload),
         });
       }
-
-      // -----------------------------------------------
-      // REFRESH
-      // -----------------------------------------------
 
       await fetchEmployees();
 
@@ -412,54 +342,18 @@ function EmployeesPage() {
       );
 
       setEditingEmployee(null);
-
       setForm(emptyForm);
-
     } catch (error) {
       console.error("Failed to save employee:", error);
 
-      const errorMessage =
-        error.message || "Failed to save employee";
+      const errorMessage = error.message || "Failed to save employee";
 
-      // -----------------------------------------------
-      // USERNAME ALREADY EXISTS
-      // -----------------------------------------------
-
-      if (
-        errorMessage
-          .toLowerCase()
-          .includes("username already exists")
-      ) {
-        showToast(
-          "error",
-          "Username already registered."
-        );
-      }
-
-      // -----------------------------------------------
-      // EMAIL ALREADY EXISTS
-      // -----------------------------------------------
-
-      else if (
-        errorMessage
-          .toLowerCase()
-          .includes("email already exists")
-      ) {
-        showToast(
-          "error",
-          "Email already registered."
-        );
-      }
-
-      // -----------------------------------------------
-      // OTHER ERRORS
-      // -----------------------------------------------
-
-      else {
-        showToast(
-          "error",
-          errorMessage
-        );
+      if (errorMessage.toLowerCase().includes("username already exists")) {
+        showToast("error", "Username already registered.");
+      } else if (errorMessage.toLowerCase().includes("email already exists")) {
+        showToast("error", "Email already registered.");
+      } else {
+        showToast("error", errorMessage);
       }
 
       setError("");
@@ -467,10 +361,6 @@ function EmployeesPage() {
       setSaving(false);
     }
   };
-
-  // ===================================================
-  // DELETE EMPLOYEE
-  // ===================================================
 
   const handleDeleteEmployee = async (employee) => {
     const employeeName =
@@ -743,13 +633,16 @@ function EmployeesPage() {
   // ===================================================
 
   const getEmployeeName = (employee) => {
+    if (!employee) return "Unnamed Employee";
     if (employee.name) {
       return employee.name;
     }
 
-    return `${employee.first_name || ""} ${
-      employee.last_name || ""
-    }`.trim() || "Unnamed Employee";
+    const firstName = employee.first_name || employee.firstName || "";
+    const lastName = employee.last_name || employee.lastName || "";
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    return fullName || "Unnamed Employee";
   };
 
   // ===================================================
@@ -1041,8 +934,10 @@ function EmployeesPage() {
                               {employeeName}
                             </p>
 
-                            <p className="text-xs text-gray-500">
+                             <p className="text-xs text-gray-500">
                               {employee.employee_code ||
+                                employee.employeeCode ||
+                                employee.code ||
                                 `EMP-${String(
                                   employee.id
                                 ).padStart(3, "0")}`}
@@ -1076,7 +971,20 @@ function EmployeesPage() {
                       <td className="px-5 py-4">
 
                         <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium capitalize text-blue-700">
-                          {employee.role || "-"}
+                          {employee.role?.name ||
+                            employee.role_name ||
+                            employee.roleName ||
+                            (typeof employee.role === "string"
+                              ? employee.role
+                              : null) ||
+                            roles.find(
+                              (r) =>
+                                r.id ===
+                                Number(
+                                  employee.role_id || employee.roleId
+                                )
+                            )?.name ||
+                            "-"}
                         </span>
 
                       </td>
@@ -1085,7 +993,21 @@ function EmployeesPage() {
 
                       <td className="px-5 py-4 text-sm text-gray-700">
 
-                        {employee.department || "-"}
+                        {employee.department?.name ||
+                          employee.department_name ||
+                          employee.departmentName ||
+                          (typeof employee.department === "string"
+                            ? employee.department
+                            : null) ||
+                          departments.find(
+                            (d) =>
+                              d.id ===
+                              Number(
+                                employee.department_id ||
+                                  employee.departmentId
+                              )
+                          )?.name ||
+                          "-"}
 
                       </td>
 

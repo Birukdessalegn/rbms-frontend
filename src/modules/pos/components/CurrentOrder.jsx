@@ -16,9 +16,7 @@ function CurrentOrder({
     0
   );
 
-  const serviceCharge = subtotal * 0.1; 
-  const tax = subtotal * 0.05;
-  const total = subtotal + serviceCharge + tax;
+  const total = subtotal;
 
     return (
       <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white">
@@ -78,14 +76,9 @@ function CurrentOrder({
               <span>{subtotal.toLocaleString()} ETB</span>
             </div>
 
-            <div className="flex justify-between text-gray-600">
-              <span>Service Charge (10%)</span>
-              <span>{serviceCharge.toLocaleString()} ETB</span>
-            </div>
-
-            <div className="flex justify-between text-gray-600">
-              <span>Tax (5%)</span>
-              <span>{tax.toLocaleString()} ETB</span>
+            <div className="flex justify-between text-emerald-600 text-xs font-semibold">
+              <span>VAT / Tax</span>
+              <span>Included in Price</span>
             </div>
 
             <div className="border-t border-gray-200 pt-3">

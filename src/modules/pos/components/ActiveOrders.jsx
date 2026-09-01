@@ -1,15 +1,20 @@
 import { useEffect, useState } from "react";
 import { useRestaurant } from "../../../context/RestaurantContext";
+import { useAuth } from "../../../context/AuthContext";
 import PaymentModal from "./PaymentModal";
+import PaymentProofModal from "./PaymentProofModal";
 import api from "../../../services/api";
+import { User, Eye, ShieldCheck, UserCheck } from "lucide-react";
 
 function ActiveOrders() {
   const [paymentOrder, setPaymentOrder] = useState(null);
+  const [selectedProofOrder, setSelectedProofOrder] = useState(null);
   const [barOrders, setBarOrders] = useState([]);
   const [loadingBarOrders, setLoadingBarOrders] = useState(false);
   const [paidOrderIds, setPaidOrderIds] = useState(new Set());
 
   const {
+    tables = [],
     kitchenOrders,
     updateKitchenOrderStatus,
     fetchTables,
@@ -105,7 +110,7 @@ function ActiveOrders() {
     }
 
     const tNum = kOrder.table_number || kOrder.table_id;
-    const tableGroupKey = tNum ? `TBL_${tNum}` : `ORD_${mainOrderId}`;
+    const tableGroupKey = mainOrderId ? `ORD_${mainOrderId}` : (tNum ? `TBL_${tNum}` : `K_ORD_${Math.random()}`);
 
     const kItems = parseRawItems(kOrder.items || kOrder.order_items);
     const posMeta = posOrderPaymentStatusMap.get(String(mainOrderId));
@@ -132,9 +137,13 @@ function ActiveOrders() {
         kitchen_order_id: kOrder.id,
         items: kItems,
         barOrder: null,
+        waiter_id: kOrder.waiter_id || kOrder.waiterId || kOrder.user_id || kOrder.userId,
+        waiter_name: kOrder.waiter_name || kOrder.waiterName || kOrder.server_name || kOrder.user_name,
       });
     } else {
       const existing = tableOrderGroupMap.get(tableGroupKey);
+      if (!existing.waiter_id) existing.waiter_id = kOrder.waiter_id || kOrder.waiterId || kOrder.user_id;
+      if (!existing.waiter_name) existing.waiter_name = kOrder.waiter_name || kOrder.waiterName || kOrder.server_name;
       if (isPaid) {
         existing.payment_status = "paid";
         existing.status = "completed";
@@ -160,7 +169,7 @@ function ActiveOrders() {
     }
 
     const tNum = bOrder.table_number || bOrder.table_id;
-    const tableGroupKey = tNum ? `TBL_${tNum}` : `B_ORD_${orderIdRef || bIdx}`;
+    const tableGroupKey = orderIdRef ? `ORD_${orderIdRef}` : (tNum ? `TBL_${tNum}` : `B_ORD_${bIdx}`);
 
     const bItems = parseRawItems(bOrder.items).map((i) => ({
       ...i,
@@ -178,6 +187,8 @@ function ActiveOrders() {
     if (tableOrderGroupMap.has(tableGroupKey)) {
       const existing = tableOrderGroupMap.get(tableGroupKey);
       existing.barOrder = bOrder;
+      if (!existing.waiter_id) existing.waiter_id = bOrder.waiter_id || bOrder.waiterId || bOrder.user_id;
+      if (!existing.waiter_name) existing.waiter_name = bOrder.waiter_name || bOrder.waiterName;
       if (isPaid) {
         existing.payment_status = "paid";
         existing.status = "completed";
@@ -207,13 +218,149 @@ function ActiveOrders() {
         items: bItems,
         barOrder: bOrder,
         isBarOnly: true,
+        waiter_id: bOrder.waiter_id || bOrder.waiterId || bOrder.user_id,
+        waiter_name: bOrder.waiter_name || bOrder.waiterName,
       });
     }
   });
 
+  // Also include direct POS Orders so new orders render immediately
+  posOrders.forEach((pOrder, pIdx) => {
+    const mainOrderId = pOrder.id || pOrder.order_id;
+    if (pOrder.status === "cancelled") return;
+
+    const tNum = pOrder.table_number || pOrder.table_id;
+    const tableGroupKey = mainOrderId ? `ORD_${mainOrderId}` : (tNum ? `TBL_${tNum}` : `POS_ORD_${pIdx}`);
+
+    const pItems = parseRawItems(pOrder.items || pOrder.order_items);
+    const isPaid =
+      pOrder.payment_status === "paid" ||
+      pOrder.status === "completed" ||
+      paidOrderIds.has(String(mainOrderId));
+
+    if (!tableOrderGroupMap.has(tableGroupKey)) {
+      tableOrderGroupMap.set(tableGroupKey, {
+        uniqueKey: tableGroupKey,
+        id: mainOrderId,
+        order_id: mainOrderId,
+        order_number: pOrder.order_number || `#${mainOrderId}`,
+        table_id: pOrder.table_id,
+        table_number: pOrder.table_number,
+        status: isPaid ? "completed" : pOrder.status,
+        payment_status: isPaid ? "paid" : (pOrder.payment_status || "unpaid"),
+        created_at: pOrder.created_at,
+        items: pItems,
+        paid_amount: pOrder.paid_amount || pOrder.paidAmount || 0,
+        payments: pOrder.payments || [],
+        receipt_image: pOrder.receipt_image || pOrder.receiptImage,
+        waiter_id: pOrder.waiter_id || pOrder.waiterId || pOrder.user_id,
+        waiter_name: pOrder.waiter_name || pOrder.waiterName || pOrder.server_name || pOrder.waiter?.name,
+      });
+    } else {
+      const existing = tableOrderGroupMap.get(tableGroupKey);
+      if (pOrder.paid_amount) existing.paid_amount = pOrder.paid_amount;
+      if (pOrder.payments && pOrder.payments.length > 0) existing.payments = pOrder.payments;
+      if (pOrder.receipt_image || pOrder.receiptImage) existing.receipt_image = pOrder.receipt_image || pOrder.receiptImage;
+      if (!existing.waiter_id) existing.waiter_id = pOrder.waiter_id || pOrder.waiterId || pOrder.user_id;
+      if (!existing.waiter_name) existing.waiter_name = pOrder.waiter_name || pOrder.waiterName || pOrder.server_name;
+      pItems.forEach((newItem) => {
+        const hasItem = existing.items.some(
+          (e) => (e.id && e.id === newItem.id) || (e.product_name || e.name) === (newItem.product_name || newItem.name)
+        );
+        if (!hasItem) existing.items.push(newItem);
+      });
+    }
+  });
+
+  const { user } = useAuth();
+
   const activeOrders = Array.from(tableOrderGroupMap.values()).filter(
-    (o) => o.status !== "cancelled"
+    (o) => o.status !== "cancelled" && !(o.status === "completed" && o.payment_status === "paid")
   );
+
+  /* Role-Based Order Scoping: Waiters (roleId 5) only see their own assigned tickets */
+  const isWaiter =
+    String(user?.role || "").toLowerCase() === "waiter" ||
+    Number(user?.roleId || user?.role_id) === 5 ||
+    user?.role === 5 ||
+    user?.role === "5";
+
+  const userIdStr = String(user?.id || user?.user_id || user?.userId || "");
+  const employeeIdStr = String(user?.employee_id || user?.employeeId || "");
+  const userNameLower = (user?.username || user?.name || "").toLowerCase();
+
+  const visibleOrders = isWaiter
+    ? activeOrders.filter((order) => {
+        const orderWaiterId = String(
+          order.waiter_id ||
+          order.waiterId ||
+          order.user_id ||
+          order.userId ||
+          order.kitchenOrder?.waiter_id ||
+          order.kitchenOrder?.waiterId ||
+          order.kitchenOrder?.user_id ||
+          order.barOrder?.waiter_id ||
+          ""
+        );
+
+        const orderWaiterName = (
+          order.waiter_name ||
+          order.waiterName ||
+          order.server_name ||
+          order.user_name ||
+          order.kitchenOrder?.waiter_name ||
+          order.kitchenOrder?.waiterName ||
+          order.barOrder?.waiter_name ||
+          ""
+        ).toLowerCase();
+
+        const orderTableId = String(
+          order.table_id || order.tableId || order.table_number || order.tableNumber || ""
+        )
+          .toLowerCase()
+          .replace(/^t/, "");
+
+        const matchedTable = tables.find((t) => {
+          const tId = String(t.id || "").toLowerCase();
+          const tNum = String(t.table_number || "").toLowerCase().replace(/^t/, "");
+          return (orderTableId && tId && orderTableId === tId) || (orderTableId && tNum && orderTableId === tNum);
+        });
+
+        const tableWaiterName = (
+          matchedTable?.current_waiter_name ||
+          matchedTable?.waiter_first_name ||
+          matchedTable?.waiter_name ||
+          ""
+        ).toLowerCase();
+
+        const isTableOwnedByMe =
+          matchedTable &&
+          ((matchedTable.current_waiter_id &&
+            (String(matchedTable.current_waiter_id) === userIdStr ||
+              String(matchedTable.current_waiter_id) === employeeIdStr)) ||
+            (tableWaiterName.length > 0 &&
+              userNameLower.length > 0 &&
+              (tableWaiterName.includes(userNameLower) || userNameLower.includes(tableWaiterName))));
+
+        // Explicit Exclusion: If table is occupied on floor by another waiter, hide order from current waiter
+        if (matchedTable && matchedTable.status === "occupied" && !isTableOwnedByMe) {
+          return false;
+        }
+
+        const matchesId =
+          (userIdStr.length > 0 && orderWaiterId === userIdStr) ||
+          (employeeIdStr.length > 0 && orderWaiterId === employeeIdStr);
+
+        const matchesName =
+          userNameLower.length > 0 &&
+          orderWaiterName.length > 0 &&
+          (orderWaiterName.includes(userNameLower) || userNameLower.includes(orderWaiterName));
+
+        const isUnassigned = !orderWaiterId && !orderWaiterName;
+
+        return isTableOwnedByMe || matchesId || matchesName || isUnassigned;
+      })
+    : activeOrders;
 
   // ============================================================
   // FIND BAR ORDER FOR RESTAURANT ORDER
@@ -506,16 +653,31 @@ function ActiveOrders() {
           <div className="flex items-center justify-between">
 
             <div>
-              <h2 className="font-semibold text-gray-900">
-                Active Orders
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-semibold text-gray-900">
+                  Active Orders
+                </h2>
+                {isWaiter ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700 border border-blue-200/80">
+                    <UserCheck className="h-3 w-3" />
+                    Waiter View ({user?.username || user?.name || "Assigned Tickets"})
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-bold text-purple-700 border border-purple-200/80">
+                    <ShieldCheck className="h-3 w-3" />
+                    Master POS Terminal (All Tables)
+                  </span>
+                )}
+              </div>
 
               <p className="mt-1 text-sm text-gray-500">
-                Monitor kitchen and bar orders and serve customers.
+                {isWaiter
+                  ? "Showing only your active assigned table tickets."
+                  : "Monitor kitchen and bar orders and process customer payments."}
               </p>
             </div>
 
-            {activeOrders.some(
+            {visibleOrders.some(
               (order) => {
                 const barOrder = getBarOrder(order);
 
@@ -538,10 +700,12 @@ function ActiveOrders() {
             EMPTY STATE
         ==================================================== */}
 
-        {activeOrders.length === 0 ? (
+        {visibleOrders.length === 0 ? (
 
-          <div className="flex h-32 items-center justify-center text-sm text-gray-400">
-            No active orders.
+          <div className="flex flex-col items-center justify-center h-40 text-sm text-gray-400">
+            <User className="h-8 w-8 text-gray-300 mb-2" />
+            <p className="font-semibold text-gray-600">No active orders assigned to you.</p>
+            <p className="text-xs text-gray-400 mt-0.5">New orders created for your tables will appear here.</p>
           </div>
 
         ) : (
@@ -576,7 +740,7 @@ function ActiveOrders() {
 
               <tbody className="divide-y divide-gray-100">
 
-                {activeOrders.map((order, orderIdx) => {
+                {visibleOrders.map((order, orderIdx) => {
 
                   const barOrder =
                     getBarOrder(order);
@@ -598,7 +762,7 @@ function ActiveOrders() {
                     >
 
                       {/* TABLE & ORDER */}
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4 min-w-[200px]">
                         <div className="flex flex-col">
                           <span className="text-base font-extrabold text-slate-900">
                             {order.table_number || order.table_id
@@ -608,6 +772,82 @@ function ActiveOrders() {
                           <span className="text-xs font-bold text-slate-500">
                             #{order.order_number || order.id}
                           </span>
+                          {(() => {
+                            const orderTableId = String(
+                              order.table_id || order.tableId || order.table_number || order.tableNumber || ""
+                            )
+                              .toLowerCase()
+                              .replace(/^t/, "");
+
+                            const matchedTable = tables.find((t) => {
+                              const tId = String(t.id || "").toLowerCase();
+                              const tNum = String(t.table_number || "").toLowerCase().replace(/^t/, "");
+                              return (orderTableId && tId && orderTableId === tId) || (orderTableId && tNum && orderTableId === tNum);
+                            });
+
+                            const waiterDisplayName =
+                              order.waiter_name ||
+                              order.waiterName ||
+                              order.waiter?.name ||
+                              order.user_name ||
+                              order.server_name ||
+                              matchedTable?.current_waiter_name ||
+                              matchedTable?.waiter_first_name ||
+                              (user?.username || user?.name || "Staff / Waiter");
+
+                            return (
+                              <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 w-fit">
+                                <User size={12} />
+                                <span>{waiterDisplayName}</span>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Total Amount & Paid Balance Breakdown */}
+                          {(() => {
+                            const paidAmount = Number(order.paid_amount || order.paidAmount || 0);
+                            const remainingBalance = Math.max(0, totalBirr - paidAmount);
+
+                            return (
+                              <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="font-semibold text-slate-500">Total:</span>
+                                  <span className="font-black text-slate-900">{totalBirr.toFixed(2)} ETB</span>
+                                </div>
+                                {paidAmount > 0 && (
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="font-semibold text-emerald-600">Paid:</span>
+                                    <span className="font-bold text-emerald-700">{paidAmount.toFixed(2)} ETB</span>
+                                  </div>
+                                )}
+                                {remainingBalance > 0 && paidAmount > 0 && (
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="font-semibold text-amber-700">Remaining:</span>
+                                    <span className="font-extrabold text-amber-800">{remainingBalance.toFixed(2)} ETB</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Payments History List */}
+                          {Array.isArray(order.payments) && order.payments.length > 0 && (
+                            <div className="mt-2 rounded-xl bg-slate-50 border border-slate-200/80 p-2 space-y-1 text-xs">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                                Payments Received ({order.payments.length})
+                              </span>
+                              {order.payments.map((p, pIdx) => (
+                                <div key={p.id || pIdx} className="flex items-center justify-between text-[11px]">
+                                  <span className="font-bold text-slate-800">
+                                    {String(p.payment_method || p.method || "Cash").toUpperCase()}
+                                  </span>
+                                  <span className="font-bold text-emerald-700">
+                                    {Number(p.amount || 0).toFixed(2)} ETB
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -720,9 +960,18 @@ function ActiveOrders() {
                         paidOrderIds.has(String(order.uniqueKey)) ||
                         order.payment_status === "paid" ||
                         order.status === "completed" ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-md whitespace-nowrap">
-                            ✓ Paid
-                          </span>
+                          <div className="flex flex-col items-end justify-center gap-1.5">
+                            <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white shadow-md whitespace-nowrap">
+                              ✓ Paid
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProofOrder(order)}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 px-2.5 py-1 rounded-lg transition shadow-2xs whitespace-nowrap"
+                            >
+                              <Eye size={12} /> View Proof Image
+                            </button>
+                          </div>
                         ) : (
                           <div className="flex flex-wrap items-center justify-end gap-2">
 
@@ -747,6 +996,23 @@ function ActiveOrders() {
                                 🍔 Mark Food Served
                               </button>
                             )}
+
+                            {/* PROOF IMAGE BUTTON IF AVAILABLE */}
+                             {(order.receipt_image ||
+                               order.receiptImage ||
+                               order.proof_image ||
+                               order.proofImage ||
+                               order.image_url ||
+                               order.imageUrl ||
+                               (Array.isArray(order.payments) && order.payments.some((p) => p.receipt_image || p.receiptImage || p.image_url || p.imageUrl || p.image))) && (
+                               <button
+                                 type="button"
+                                 onClick={() => setSelectedProofOrder(order)}
+                                 className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 px-2.5 py-1.5 rounded-xl transition shadow-2xs whitespace-nowrap"
+                               >
+                                 <Eye size={13} /> Proof Image
+                               </button>
+                             )}
 
                             {/* COMPLETE PAYMENT BUTTON */}
                             <button
@@ -806,6 +1072,17 @@ function ActiveOrders() {
           }
         />
 
+      )}
+
+      {/* ============================================================
+          PAYMENT PROOF CROSS-CHECK MODAL
+      ============================================================ */}
+
+      {selectedProofOrder && (
+        <PaymentProofModal
+          order={selectedProofOrder}
+          onClose={() => setSelectedProofOrder(null)}
+        />
       )}
 
     </>

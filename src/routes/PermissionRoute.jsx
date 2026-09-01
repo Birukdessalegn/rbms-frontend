@@ -22,7 +22,7 @@ const rolePermissions = {
   ],
 
   WAITER: ["pos"],
-  CASHIER: ["pos"],
+  CASHIER: ["pos", "finance"],
   CHEF: ["kitchen"],
   BARTENDER: ["bar"],
   STOREKEEPER: ["inventory", "products"],

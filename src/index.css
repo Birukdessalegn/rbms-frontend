@@ -36,66 +36,60 @@ code {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 12mm 10mm 15mm 10mm;
+    margin: 8mm;
   }
 
-  body {
-    background-color: #ffffff !important;
-    color: #0f172a !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  /* Hide interactive application UI elements */
-  aside, nav, header, button, .print\:hidden, input, select {
+  /* Hide navigation sidebar, top app bar, and buttons */
+  aside,
+  nav,
+  header,
+  button,
+  .print\:hidden {
     display: none !important;
   }
 
-  /* Reset layout constraints for print */
-  #root, main, .space-y-6, .grid {
+  /* Unhide print headers & footers */
+  .print\:block {
+    display: block !important;
+  }
+
+  /* Force reset margins, padding, and left offsets on all containers */
+  html,
+  body,
+  #root,
+  main,
+  div,
+  .flex,
+  .flex-1 {
     margin: 0 !important;
+    margin-left: 0 !important;
     padding: 0 !important;
+    position: static !important;
+    float: none !important;
     width: 100% !important;
     max-width: 100% !important;
-    background: transparent !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    color: #000000 !important;
   }
 
-  /* Ensure card borders & white backgrounds render clearly */
-  .rounded-2xl, .rounded-xl, .border {
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 8px !important;
-    background-color: #ffffff !important;
-    box-shadow: none !important;
-  }
-
-  /* High contrast text formatting */
-  h1, h2, h3, h4, p, span, td, th {
-    color: #0f172a !important;
-  }
-
-  /* Table styles for PDF */
+  /* Clean high contrast table borders */
   table {
     width: 100% !important;
     border-collapse: collapse !important;
     margin-top: 10px !important;
   }
 
+  th, td {
+    border: 1px solid #000000 !important;
+    padding: 6px 10px !important;
+    color: #000000 !important;
+    font-size: 11px !important;
+  }
+
   th {
     background-color: #f1f5f9 !important;
-    color: #0f172a !important;
-    font-weight: 700 !important;
-    border-bottom: 2px solid #64748b !important;
-    padding: 8px 12px !important;
-  }
-
-  td {
-    border-bottom: 1px solid #e2e8f0 !important;
-    padding: 8px 12px !important;
-  }
-
-  tr {
-    page-break-inside: avoid !important;
+    font-weight: bold !important;
   }
 }

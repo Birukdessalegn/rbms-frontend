@@ -44,7 +44,7 @@ export default function DashboardPage() {
 
       if (response.success) {
         const statsData = response.stats || response.data || response;
-        
+
         let topProds = response.top_products || statsData.top_products || response.topProducts || [];
 
         // If top_products is empty or missing quantity_sold, fetch catalog & real sold orders
@@ -389,11 +389,10 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-              autoRefresh
+            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${autoRefresh
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                 : "border-slate-200 bg-slate-50 text-slate-600"
-            }`}
+              }`}
           >
             <Radio className={`h-3.5 w-3.5 ${autoRefresh ? "animate-pulse text-emerald-600" : ""}`} />
             {autoRefresh ? "Live 10s Active" : "Live Paused"}
@@ -405,9 +404,8 @@ export default function DashboardPage() {
             className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw
-              className={`h-4 w-4 ${
-                loading || isRefreshing ? "animate-spin text-indigo-600" : ""
-              }`}
+              className={`h-4 w-4 ${loading || isRefreshing ? "animate-spin text-indigo-600" : ""
+                }`}
             />
             {isRefreshing ? "Updating..." : "Refresh"}
           </button>
@@ -543,11 +541,10 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setChartTimeframe("week")}
-                className={`rounded-lg px-3 py-1.5 transition ${
-                  chartTimeframe === "week"
+                className={`rounded-lg px-3 py-1.5 transition ${chartTimeframe === "week"
                     ? "bg-white text-indigo-600 shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Weekly
               </button>
@@ -555,11 +552,10 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setChartTimeframe("month")}
-                className={`rounded-lg px-3 py-1.5 transition ${
-                  chartTimeframe === "month"
+                className={`rounded-lg px-3 py-1.5 transition ${chartTimeframe === "month"
                     ? "bg-white text-indigo-600 shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Monthly
               </button>
@@ -567,11 +563,10 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setChartTimeframe("category")}
-                className={`rounded-lg px-3 py-1.5 transition ${
-                  chartTimeframe === "category"
+                className={`rounded-lg px-3 py-1.5 transition ${chartTimeframe === "category"
                     ? "bg-white text-indigo-600 shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Category
               </button>
@@ -621,13 +616,12 @@ export default function DashboardPage() {
                     {/* Bar Pillar with Gradient */}
                     <div
                       style={{ height: `${heightPercent}%` }}
-                      className={`w-full max-w-[48px] rounded-t-xl transition-all duration-300 relative overflow-hidden ${
-                        item.isPeak
+                      className={`w-full max-w-[48px] rounded-t-xl transition-all duration-300 relative overflow-hidden ${item.isPeak
                           ? "bg-gradient-to-t from-indigo-600 via-blue-500 to-indigo-400 shadow-md shadow-indigo-500/30"
                           : isHovered
-                          ? "bg-gradient-to-t from-indigo-700 to-blue-500 shadow-lg shadow-indigo-500/40 scale-105"
-                          : "bg-gradient-to-t from-slate-700 via-indigo-600 to-blue-500 opacity-90 group-hover:opacity-100"
-                      }`}
+                            ? "bg-gradient-to-t from-indigo-700 to-blue-500 shadow-lg shadow-indigo-500/40 scale-105"
+                            : "bg-gradient-to-t from-slate-700 via-indigo-600 to-blue-500 opacity-90 group-hover:opacity-100"
+                        }`}
                     >
                       {/* Top Bar Glow Line */}
                       <div className="h-1 w-full bg-white/40" />
@@ -635,11 +629,10 @@ export default function DashboardPage() {
 
                     {/* X-Axis Label */}
                     <span
-                      className={`mt-3 text-xs font-semibold transition ${
-                        isHovered
+                      className={`mt-3 text-xs font-semibold transition ${isHovered
                           ? "text-indigo-600 font-bold"
                           : "text-slate-500"
-                      }`}
+                        }`}
                     >
                       {item.label}
                     </span>
@@ -844,11 +837,10 @@ function ItemizedRevenueSection({ dashboard, formatMoney }) {
           <button
             type="button"
             onClick={() => setCategoryFilter("all")}
-            className={`rounded-lg px-3.5 py-1.5 transition ${
-              categoryFilter === "all"
+            className={`rounded-lg px-3.5 py-1.5 transition ${categoryFilter === "all"
                 ? "bg-white text-emerald-700 shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
-            }`}
+              }`}
           >
             All Items
           </button>
@@ -856,11 +848,10 @@ function ItemizedRevenueSection({ dashboard, formatMoney }) {
           <button
             type="button"
             onClick={() => setCategoryFilter("food")}
-            className={`flex items-center gap-1 rounded-lg px-3.5 py-1.5 transition ${
-              categoryFilter === "food"
+            className={`flex items-center gap-1 rounded-lg px-3.5 py-1.5 transition ${categoryFilter === "food"
                 ? "bg-white text-emerald-700 shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
-            }`}
+              }`}
           >
             <Utensils className="h-3.5 w-3.5" />
             Food Items
@@ -869,11 +860,10 @@ function ItemizedRevenueSection({ dashboard, formatMoney }) {
           <button
             type="button"
             onClick={() => setCategoryFilter("bar")}
-            className={`flex items-center gap-1 rounded-lg px-3.5 py-1.5 transition ${
-              categoryFilter === "bar"
+            className={`flex items-center gap-1 rounded-lg px-3.5 py-1.5 transition ${categoryFilter === "bar"
                 ? "bg-white text-emerald-700 shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
-            }`}
+              }`}
           >
             <Wine className="h-3.5 w-3.5" />
             Bar & Drinks
@@ -892,74 +882,72 @@ function ItemizedRevenueSection({ dashboard, formatMoney }) {
         </div>
       ) : (
         <div className="mt-6 divide-y divide-slate-100">
-        {filteredProducts.map((item, index) => {
-          const sharePercent = Math.round((item.revenue / maxRevenue) * 100);
+          {filteredProducts.map((item, index) => {
+            const sharePercent = Math.round((item.revenue / maxRevenue) * 100);
 
-          return (
-            <div
-              key={item.id || item.name}
-              className="group flex flex-col gap-3 py-4 transition hover:bg-slate-50/80 px-3 rounded-xl"
-            >
-              <div className="flex items-center justify-between gap-4">
-                {/* Rank & Item Info */}
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${
-                      index === 0
-                        ? "bg-amber-100 text-amber-800 ring-2 ring-amber-300"
-                        : index === 1
-                        ? "bg-slate-200 text-slate-800"
-                        : index === 2
-                        ? "bg-orange-100 text-orange-800"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    #{index + 1}
-                  </div>
+            return (
+              <div
+                key={item.id || item.name}
+                className="group flex flex-col gap-3 py-4 transition hover:bg-slate-50/80 px-3 rounded-xl"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  {/* Rank & Item Info */}
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${index === 0
+                          ? "bg-amber-100 text-amber-800 ring-2 ring-amber-300"
+                          : index === 1
+                            ? "bg-slate-200 text-slate-800"
+                            : index === 2
+                              ? "bg-orange-100 text-orange-800"
+                              : "bg-slate-100 text-slate-600"
+                        }`}
+                    >
+                      #{index + 1}
+                    </div>
 
-                  <div className="min-w-0">
-                    <p className="font-bold text-slate-900 text-base truncate">
-                      {item.name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                        {item.category}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        {item.quantity.toLocaleString()} units served
-                      </span>
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900 text-base truncate">
+                        {item.name}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                          {item.category}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {item.quantity.toLocaleString()} units served
+                        </span>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Individual Item Revenue (Total Money Obtained by Serving) */}
+                  <div className="shrink-0 text-right">
+                    <p className="text-lg font-extrabold text-emerald-700">
+                      {formatMoney(item.revenue)}
+                    </p>
+                    <span className="text-[11px] font-medium text-slate-400">
+                      {item.quantity > 0 && sharePercent > 0
+                        ? `${sharePercent}% of top item`
+                        : "Total Item Revenue"}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Individual Item Revenue (Total Money Obtained by Serving) */}
-                <div className="shrink-0 text-right">
-                  <p className="text-lg font-extrabold text-emerald-700">
-                    {formatMoney(item.revenue)}
-                  </p>
-                  <span className="text-[11px] font-medium text-slate-400">
-                    {item.quantity > 0 && sharePercent > 0
-                      ? `${sharePercent}% of top item`
-                      : "Total Item Revenue"}
-                  </span>
+                {/* Revenue Share Visual Progress Bar */}
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    style={{ width: `${sharePercent}%` }}
+                    className={`h-full rounded-full transition-all duration-500 ${index === 0
+                        ? "bg-gradient-to-r from-emerald-500 to-teal-600"
+                        : "bg-gradient-to-r from-blue-500 to-indigo-600"
+                      }`}
+                  />
                 </div>
               </div>
-
-              {/* Revenue Share Visual Progress Bar */}
-              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  style={{ width: `${sharePercent}%` }}
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    index === 0
-                      ? "bg-gradient-to-r from-emerald-500 to-teal-600"
-                      : "bg-gradient-to-r from-blue-500 to-indigo-600"
-                  }`}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -1000,4 +988,4 @@ function SummaryCard({
   );
 }
 
-
+

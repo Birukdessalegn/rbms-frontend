@@ -27,12 +27,25 @@ import FinanceLayout from "../layouts/FinanceLayout";
 
 // Pages
 import DashboardPage from "../modules/dashboard/pages/DashboardPage";
+import AdminDashboardPage from "../modules/dashboard/pages/AdminDashboardPage";
+import { useAuth } from "../context/AuthContext";
+
+function DashboardRoleSwitch() {
+  const { user } = useAuth();
+  const normalizedRole = user?.role ? String(user.role).toUpperCase() : "";
+
+  if (normalizedRole === "ADMIN") {
+    return <AdminDashboardPage />;
+  }
+  return <DashboardPage />;
+}
 
 import KitchenPage from "../modules/kitchen/pages/KitchenPage";
 import KitchenReportsPage from "../modules/kitchen/pages/KitchenReportsPage";
 
 import POSPage from "../modules/pos/pages/POSPage";
 import POSReportsPage from "../modules/pos/pages/POSReportsPage";
+import TodaySalesAuditPage from "../modules/pos/pages/TodaySalesAuditPage";
 
 import BarPage from "../modules/bar/pages/BarPage";
 
@@ -102,7 +115,7 @@ function AppRoutes() {
             >
               <Route
                 path="/dashboard"
-                element={<DashboardPage />}
+                element={<DashboardRoleSwitch />}
               />
             </Route>
 
@@ -120,6 +133,10 @@ function AppRoutes() {
               <Route
                 path="/pos"
                 element={<POSPage />}
+              />
+              <Route
+                path="/pos/sales-audit"
+                element={<TodaySalesAuditPage />}
               />
               <Route
                 path="/pos/tables"
@@ -194,17 +211,17 @@ function AppRoutes() {
 
                 <Route
                     path="/bar/new"
-                    element={<h1>New Drink Orders</h1>}
+                    element={<BarPage />}
                 />
 
                 <Route
                     path="/bar/preparing"
-                    element={<h1>Preparing Drinks</h1>}
+                    element={<BarPage />}
                 />
 
                 <Route
                     path="/bar/ready"
-                    element={<h1>Ready Drinks</h1>}
+                    element={<BarPage />}
                 />
 
                 <Route
@@ -490,22 +507,22 @@ function AppRoutes() {
 
               <Route
                 path="/bartender/bar/new"
-                element={<h1>New Drink Orders</h1>}
+                element={<BarPage />}
               />
 
               <Route
                 path="/bartender/bar/preparing"
-                element={<h1>Preparing Drinks</h1>}
+                element={<BarPage />}
               />
 
               <Route
                 path="/bartender/bar/ready"
-                element={<h1>Ready Drinks</h1>}
+                element={<BarPage />}
               />
 
               <Route
                 path="/bartender/bar/reports"
-                element={<h1>Bar Reports</h1>}
+                element={<BarReportsPage />}
               />
 
             </Route>

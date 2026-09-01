@@ -15,9 +15,28 @@ import {
   UserCheck,
   Sparkles,
   BookOpen,
+  Upload,
+  Image as ImageIcon,
 } from "lucide-react";
 
 import api from "../../services/api";
+
+// Helper to format food/drink image URLs
+export const formatImageUrl = (url) => {
+  if (!url) return null;
+  if (
+    url.startsWith("http://") ||
+    url.startsWith("https://") ||
+    url.startsWith("data:") ||
+    url.startsWith("blob:")
+  ) {
+    return url;
+  }
+  const baseUrl = import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "")
+    : "http://localhost:5000";
+  return `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+};
 
 function ProductsPage() {
   const [products, setProducts] = useState([]);
@@ -30,12 +49,16 @@ function ProductsPage() {
   const [success, setSuccess] = useState("");
 
   const [showModal, setShowModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
   const [activeTab, setActiveTab] = useState("catalog"); // "catalog" | "menu"
   const [menuAudienceFilter, setMenuAudienceFilter] = useState("all"); // "all" | "customer" | "employee"
+
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
 
   const [form, setForm] = useState({
     productCode: "",
@@ -127,9 +150,34 @@ function ProductsPage() {
   // OPEN MODAL
   // ============================================================
 
+  // ============================================================
+  // FILE CHANGE & IMAGE PREVIEW
+  // ============================================================
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const removeSelectedImage = () => {
+    setImageFile(null);
+    setImagePreview("");
+    setForm((prev) => ({ ...prev, imageUrl: "" }));
+  };
+
+  // ============================================================
+  // OPEN MODAL
+  // ============================================================
+
   const openCreateModal = () => {
     setError("");
     setSuccess("");
+    setEditingProduct(null);
+    setImageFile(null);
+    setImagePreview("");
 
     setForm({
       productCode: "",
@@ -150,6 +198,32 @@ function ProductsPage() {
     setShowModal(true);
   };
 
+  const openEditModal = (prod) => {
+    setError("");
+    setSuccess("");
+    setEditingProduct(prod);
+    setImageFile(null);
+    setImagePreview(prod.image_url || prod.imageUrl || "");
+
+    setForm({
+      productCode: prod.product_code || prod.productCode || "",
+      name: prod.name || "",
+      categoryId: prod.category_id || prod.categoryId || "",
+      description: prod.description || "",
+      price: prod.price || "",
+      costPrice: prod.cost_price || prod.costPrice || "",
+      staffPrice: prod.staff_price || prod.staffPrice || "",
+      unit: prod.unit || "pcs",
+      imageUrl: prod.image_url || prod.imageUrl || "",
+      isAvailable: prod.is_available ?? prod.isAvailable ?? true,
+      isActive: prod.is_active ?? prod.isActive ?? true,
+      menuType: prod.menu_type || prod.menuType || "both",
+      isTodaysSpecial: prod.is_todays_special ?? prod.isTodaysSpecial ?? false,
+    });
+
+    setShowModal(true);
+  };
+
   // ============================================================
   // CLOSE MODAL
   // ============================================================
@@ -161,7 +235,7 @@ function ProductsPage() {
   };
 
   // ============================================================
-  // CREATE PRODUCT
+  // CREATE / EDIT PRODUCT (MULTIPART FORM-DATA)
   // ============================================================
 
   const handleCreateProduct = async (e) => {
@@ -184,70 +258,48 @@ function ProductsPage() {
         throw new Error("Selling price cannot be negative");
       }
 
-      const response = await api("/products", {
-        method: "POST",
-        body: JSON.stringify({
-          productCode:
-            form.productCode.trim() || null,
+      // Build FormData payload for multipart image upload
+      const formData = new FormData();
+      if (form.productCode.trim()) formData.append("productCode", form.productCode.trim());
+      formData.append("name", form.name.trim());
+      if (form.categoryId) formData.append("categoryId", String(form.categoryId));
+      if (form.description.trim()) formData.append("description", form.description.trim());
+      formData.append("price", String(form.price));
+      formData.append("costPrice", String(form.costPrice === "" ? 0 : form.costPrice));
+      formData.append("staffPrice", String(form.staffPrice === "" ? 0 : form.staffPrice));
+      formData.append("unit", form.unit);
+      formData.append("menuType", form.menuType || "both");
+      formData.append("isAvailable", String(form.isAvailable));
+      formData.append("isActive", String(form.isActive));
+      formData.append("isTodaysSpecial", String(form.isTodaysSpecial));
+      if (form.imageUrl.trim()) formData.append("imageUrl", form.imageUrl.trim());
 
-          name: form.name.trim(),
+      // Attach file if selected from gallery
+      if (imageFile) {
+        formData.append("image", imageFile);
+      }
 
-          categoryId:
-            form.categoryId
-              ? Number(form.categoryId)
-              : null,
+      const endpoint = editingProduct ? `/products/${editingProduct.id}` : "/products";
+      const method = editingProduct ? "PUT" : "POST";
 
-          description:
-            form.description.trim() || null,
-
-          price: Number(form.price),
-
-          costPrice:
-            form.costPrice === ""
-              ? 0
-              : Number(form.costPrice),
-
-          staffPrice:
-            form.staffPrice === ""
-              ? 0
-              : Number(form.staffPrice),
-
-          unit: form.unit,
-
-          imageUrl:
-            form.imageUrl.trim() || null,
-
-          isAvailable: form.isAvailable,
-
-          isActive: form.isActive,
-
-          menuType: form.menuType || "both",
-
-          isTodaysSpecial: form.isTodaysSpecial,
-        }),
+      await api(endpoint, {
+        method,
+        body: formData,
       });
 
-      setProducts((previous) => [
-        response.product,
-        ...previous,
-      ]);
-
-      setSuccess("Product created successfully.");
-
+      setSuccess(editingProduct ? "Product updated successfully." : "Product created successfully.");
       setShowModal(false);
-
-      // Refresh from database
       await fetchProducts();
 
     } catch (error) {
       console.error(
-        "Create product error:",
+        "Save product error:",
         error
       );
 
       setError(
         error.message ||
-          "Failed to create product"
+          "Failed to save product"
       );
     } finally {
       setSaving(false);
@@ -697,9 +749,17 @@ function ProductsPage() {
 
                           <div className="flex items-center gap-3">
 
-                            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 overflow-hidden">
 
-                              <CategoryIcon className="h-5 w-5" />
+                              {(product.image_url || product.imageUrl) ? (
+                                <img
+                                  src={formatImageUrl(product.image_url || product.imageUrl)}
+                                  alt={product.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <CategoryIcon className="h-5 w-5" />
+                              )}
 
                               {product.is_todays_special && (
                                 <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-white shadow">
@@ -998,7 +1058,7 @@ function ProductsPage() {
 
                 </FormField>
 
-                <FormField label="Unit">
+                <FormField label="Portion / Unit">
 
                   <select
                     name="unit"
@@ -1008,27 +1068,35 @@ function ProductsPage() {
                   >
 
                     <option value="pcs">
-                      Pieces
+                      Pieces (pcs)
                     </option>
 
-                    <option value="plate">
-                      Plate
+                    <option value="shot">
+                      Shot / Shoot Glass (shot)
                     </option>
 
                     <option value="glass">
                       Glass
                     </option>
 
-                    <option value="bottle">
-                      Bottle
+                    <option value="half_bottle">
+                      Half Bottle
                     </option>
 
-                    <option value="kg">
-                      Kilogram
+                    <option value="bottle">
+                      Full Bottle
+                    </option>
+
+                    <option value="plate">
+                      Plate
                     </option>
 
                     <option value="liter">
-                      Liter
+                      Liter (l)
+                    </option>
+
+                    <option value="kg">
+                      Kilogram (kg)
                     </option>
 
                   </select>
@@ -1162,17 +1230,90 @@ function ProductsPage() {
 
               </FormField>
 
-              {/* Image */}
+              {/* Image Upload & URL */}
 
-              <FormField label="Image URL">
+              <FormField label="Product Image (Upload from Local Storage or Paste URL)">
 
-                <input
-                  name="imageUrl"
-                  value={form.imageUrl}
-                  onChange={handleChange}
-                  placeholder="https://..."
-                  className={inputClass}
-                />
+                <div className="space-y-3">
+
+                  {/* Image Preview Thumbnail */}
+
+                  {imagePreview ? (
+                    <div className="relative flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+
+                      <img
+                        src={formatImageUrl(imagePreview)}
+                        alt="Product Preview"
+                        className="h-16 w-16 rounded-lg object-cover shadow-sm"
+                      />
+
+                      <div className="flex-1 min-w-0">
+
+                        <p className="truncate text-xs font-semibold text-slate-800">
+                          {imageFile ? imageFile.name : "Uploaded Image"}
+                        </p>
+
+                        <p className="text-[11px] text-slate-500">
+                          {imageFile ? `${(imageFile.size / 1024).toFixed(1)} KB` : "Image attached"}
+                        </p>
+
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={removeSelectedImage}
+                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                        title="Remove Image"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+
+                    </div>
+                  ) : null}
+
+                  {/* File Input Upload Button */}
+
+                  <div className="relative">
+
+                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4 transition hover:border-blue-500 hover:bg-blue-50/30">
+
+                      <Upload className="h-4 w-4 text-blue-600" />
+
+                      <span className="text-xs font-semibold text-slate-700">
+                        {imageFile ? "Change Image File" : "Choose Image from Computer / Gallery"}
+                      </span>
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+
+                    </label>
+
+                  </div>
+
+                  {/* Optional Image URL Input */}
+
+                  <div className="relative">
+
+                    <input
+                      name="imageUrl"
+                      value={form.imageUrl}
+                      onChange={(e) => {
+                        handleChange(e);
+                        if (e.target.value) {
+                          setImagePreview(e.target.value);
+                        }
+                      }}
+                      placeholder="Or paste image URL (https://...)"
+                      className={inputClass}
+                    />
+
+                  </div>
+
+                </div>
 
               </FormField>
 

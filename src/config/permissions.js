@@ -42,7 +42,6 @@ export const ROLE_PERMISSIONS = {
     "pos.view",
     "orders.view",
     "orders.create",
-    "customers.view",
   ],
 
   [ROLES.CASHIER]: [
@@ -52,7 +51,6 @@ export const ROLE_PERMISSIONS = {
     "orders.create",
     "payments.view",
     "payments.create",
-    "customers.view",
     "attendance.view",
     "attendance.manage",
   ],

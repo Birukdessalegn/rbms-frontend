@@ -297,16 +297,24 @@ function ActiveOrders() {
 
   const visibleOrders = isWaiter
     ? activeOrders.filter((order) => {
-
         const orderWaiterId = String(
           order.waiter_id ||
           order.waiterId ||
           order.user_id ||
           order.userId ||
+          order.created_by ||
+          order.createdBy ||
+          order.waiter?.id ||
+          order.user?.id ||
           order.kitchenOrder?.waiter_id ||
           order.kitchenOrder?.waiterId ||
           order.kitchenOrder?.user_id ||
+          order.kitchenOrder?.created_by ||
+          order.kitchenOrder?.waiter?.id ||
           order.barOrder?.waiter_id ||
+          order.barOrder?.waiterId ||
+          order.barOrder?.user_id ||
+          order.barOrder?.waiter?.id ||
           ""
         );
 
@@ -315,9 +323,16 @@ function ActiveOrders() {
           order.waiterName ||
           order.server_name ||
           order.user_name ||
+          order.waiter?.username ||
+          order.waiter?.name ||
+          order.user?.username ||
+          order.user?.name ||
           order.kitchenOrder?.waiter_name ||
           order.kitchenOrder?.waiterName ||
+          order.kitchenOrder?.waiter?.username ||
           order.barOrder?.waiter_name ||
+          order.barOrder?.waiterName ||
+          order.barOrder?.waiter?.username ||
           ""
         ).toLowerCase();
 
@@ -361,10 +376,16 @@ function ActiveOrders() {
         const isMyOrder = isTableOwnedByMe || matchesId || matchesName;
         const isUnassigned = !orderWaiterId && !orderWaiterName;
 
-        // Explicit Exclusion: If table is explicitly occupied on floor by another waiter and not my order, hide it
+        // Exclude ONLY if table is explicitly assigned to a DIFFERENT waiter
         if (matchedTable && matchedTable.status === "occupied" && !isMyOrder) {
-          const otherWaiterId = String(matchedTable.current_waiter_id || "");
-          if (otherWaiterId && otherWaiterId !== userIdStr && otherWaiterId !== employeeIdStr) {
+          const otherId = String(matchedTable.current_waiter_id || matchedTable.waiter_id || "");
+          const otherName = (matchedTable.current_waiter_name || matchedTable.waiter_name || "").toLowerCase();
+
+          const isExplicitlyOtherWaiter =
+            (otherId && otherId !== userIdStr && otherId !== employeeIdStr) ||
+            (otherName && userNameLower && !otherName.includes(userNameLower) && !userNameLower.includes(otherName));
+
+          if (isExplicitlyOtherWaiter) {
             return false;
           }
         }

@@ -318,7 +318,13 @@ function ActiveOrders() {
           ""
         );
 
+        const waiterFullName = [
+          order.waiter_first_name || order.kitchenOrder?.waiter_first_name || order.barOrder?.waiter_first_name || "",
+          order.waiter_last_name || order.kitchenOrder?.waiter_last_name || order.barOrder?.waiter_last_name || "",
+        ].filter(Boolean).join(" ");
+
         const orderWaiterName = (
+          waiterFullName ||
           order.waiter_name ||
           order.waiterName ||
           order.server_name ||
@@ -355,6 +361,10 @@ function ActiveOrders() {
           ""
         ).toLowerCase();
 
+        const userFirstName = (user?.first_name || user?.firstName || "").toLowerCase();
+        const userLastName = (user?.last_name || user?.lastName || "").toLowerCase();
+        const userFullName = `${userFirstName} ${userLastName}`.trim();
+
         const isTableOwnedByMe =
           matchedTable &&
           ((matchedTable.current_waiter_id &&
@@ -369,28 +379,35 @@ function ActiveOrders() {
           (employeeIdStr.length > 0 && orderWaiterId === employeeIdStr);
 
         const matchesName =
-          userNameLower.length > 0 &&
-          orderWaiterName.length > 0 &&
-          (orderWaiterName.includes(userNameLower) || userNameLower.includes(orderWaiterName));
+          (userNameLower.length > 0 && orderWaiterName.length > 0 && (orderWaiterName.includes(userNameLower) || userNameLower.includes(orderWaiterName))) ||
+          (userFirstName.length > 0 && orderWaiterName.length > 0 && orderWaiterName.includes(userFirstName)) ||
+          (userFullName.length > 0 && orderWaiterName.length > 0 && (orderWaiterName.includes(userFullName) || userFullName.includes(orderWaiterName)));
 
         const isMyOrder = isTableOwnedByMe || matchesId || matchesName;
-        const isUnassigned = !orderWaiterId && !orderWaiterName;
 
-        // Exclude ONLY if table is explicitly assigned to a DIFFERENT waiter
-        if (matchedTable && matchedTable.status === "occupied" && !isMyOrder) {
-          const otherId = String(matchedTable.current_waiter_id || matchedTable.waiter_id || "");
-          const otherName = (matchedTable.current_waiter_name || matchedTable.waiter_name || "").toLowerCase();
+        // Exclude ONLY if order/table is explicitly assigned to a DIFFERENT waiter
+        const hasOtherId = orderWaiterId && orderWaiterId !== userIdStr && orderWaiterId !== employeeIdStr;
+        const hasOtherName =
+          orderWaiterName &&
+          userNameLower &&
+          !orderWaiterName.includes(userNameLower) &&
+          !userNameLower.includes(orderWaiterName) &&
+          (!userFirstName || !orderWaiterName.includes(userFirstName)) &&
+          (!userFullName || !orderWaiterName.includes(userFullName));
 
-          const isExplicitlyOtherWaiter =
-            (otherId && otherId !== userIdStr && otherId !== employeeIdStr) ||
-            (otherName && userNameLower && !otherName.includes(userNameLower) && !userNameLower.includes(otherName));
+        const isExplicitlyOtherWaiterOrder = hasOtherId && hasOtherName;
 
-          if (isExplicitlyOtherWaiter) {
-            return false;
-          }
+        const tableOtherId = String(matchedTable?.current_waiter_id || matchedTable?.waiter_id || "");
+        const tableOtherName = (matchedTable?.current_waiter_name || matchedTable?.waiter_name || "").toLowerCase();
+        const isExplicitlyOtherWaiterTable =
+          (tableOtherId && tableOtherId !== userIdStr && tableOtherId !== employeeIdStr) &&
+          (tableOtherName && userNameLower && !tableOtherName.includes(userNameLower) && !userNameLower.includes(tableOtherName));
+
+        if ((isExplicitlyOtherWaiterOrder || isExplicitlyOtherWaiterTable) && !isMyOrder) {
+          return false;
         }
 
-        return isMyOrder || isUnassigned;
+        return true;
       })
     : activeOrders;
 

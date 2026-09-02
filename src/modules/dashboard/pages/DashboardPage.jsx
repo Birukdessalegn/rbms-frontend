@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { Link } from "react-router-dom";
 import {
   Users,
   ShoppingCart,
@@ -674,7 +675,10 @@ export default function DashboardPage() {
           <div className="space-y-3 p-5">
             {/* New Order */}
 
-            <button className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-3.5 text-left transition hover:border-blue-300 hover:bg-blue-50/50">
+            <Link
+              to="/pos"
+              className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-3.5 text-left transition hover:border-blue-300 hover:bg-blue-50/50"
+            >
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
                   <ShoppingCart className="h-5 w-5" />
@@ -689,11 +693,14 @@ export default function DashboardPage() {
                 </div>
               </div>
               <ArrowUpRight className="h-4 w-4 text-gray-400" />
-            </button>
+            </Link>
 
             {/* Tables */}
 
-            <button className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-3.5 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50">
+            <Link
+              to="/tables"
+              className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-3.5 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50"
+            >
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
                   <Utensils className="h-5 w-5" />
@@ -708,30 +715,36 @@ export default function DashboardPage() {
                 </div>
               </div>
               <ArrowUpRight className="h-4 w-4 text-gray-400" />
-            </button>
+            </Link>
 
             {/* Customers */}
 
-            <button className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-3.5 text-left transition hover:border-purple-300 hover:bg-purple-50/50">
+            <Link
+              to="/customers"
+              className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-3.5 text-left transition hover:border-purple-300 hover:bg-purple-50/50"
+            >
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
                   <Users className="h-5 w-5" />
                 </div>
                 <div>
                   <p className="text-sm font-bold text-gray-900">
-                    Customers
+                    VIP & Customers
                   </p>
                   <p className="text-xs text-gray-500">
-                    Manage customer base
+                    VIP credit limits & ledger
                   </p>
                 </div>
               </div>
               <ArrowUpRight className="h-4 w-4 text-gray-400" />
-            </button>
+            </Link>
 
             {/* Bar */}
 
-            <button className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-3.5 text-left transition hover:border-pink-300 hover:bg-pink-50/50">
+            <Link
+              to="/bar"
+              className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-3.5 text-left transition hover:border-pink-300 hover:bg-pink-50/50"
+            >
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-pink-100 text-pink-600">
                   <Wine className="h-5 w-5" />
@@ -746,7 +759,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <ArrowUpRight className="h-4 w-4 text-gray-400" />
-            </button>
+            </Link>
           </div>
         </div>
       </div>

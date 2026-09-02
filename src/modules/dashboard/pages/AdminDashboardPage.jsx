@@ -306,6 +306,14 @@ export default function AdminDashboardPage() {
 
         {/* Live Refresh & Timeframe Selector Switch */}
         <div className="flex flex-wrap items-center gap-3">
+          <Link
+            to="/customers"
+            className="flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-2 text-xs font-extrabold transition shadow-xs cursor-pointer"
+          >
+            <Users className="h-4 w-4" />
+            VIP Customers & Ledger
+          </Link>
+
           <div className="flex items-center gap-1 rounded-xl bg-white p-1 border border-slate-200 text-xs font-extrabold shadow-xs">
             <button
               type="button"

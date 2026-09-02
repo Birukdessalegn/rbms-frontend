@@ -78,7 +78,8 @@ const emptyForm = {
   phone: "",
   roleId: "",
   departmentId: "",
-  shift: "",
+  shiftStartTime: "18:00",
+  shiftEndTime: "07:00",
   hireDate: "",
   salary: "",
   status: "active",
@@ -100,6 +101,57 @@ function formatDate(date) {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatTimeTo12Hour(timeStr) {
+  if (!timeStr) return "";
+  const parts = timeStr.split(":");
+  if (parts.length < 2) return timeStr;
+  let hour = parseInt(parts[0], 10);
+  if (isNaN(hour)) return timeStr;
+  const minutes = parts[1] || "00";
+  const ampm = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12;
+  if (hour === 0) hour = 12;
+  return `${hour}:${minutes}${ampm}`;
+}
+
+function parseShiftStringToTimes(shiftStr) {
+  if (!shiftStr) return { startTime: "18:00", endTime: "07:00" };
+
+  const parseSingleTime = (str) => {
+    if (!str) return null;
+    const clean = str.trim().toUpperCase();
+    
+    const match12 = clean.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+    if (match12) {
+      let h = parseInt(match12[1], 10);
+      const m = match12[2];
+      const period = match12[3];
+      if (period === "PM" && h < 12) h += 12;
+      if (period === "AM" && h === 12) h = 0;
+      return `${String(h).padStart(2, "0")}:${m}`;
+    }
+
+    const match24 = clean.match(/^(\d{1,2}):(\d{2})$/);
+    if (match24) {
+      const h = String(parseInt(match24[1], 10)).padStart(2, "0");
+      const m = match24[2];
+      return `${h}:${m}`;
+    }
+    return null;
+  };
+
+  const parts = shiftStr.split(/[-–—to]/i);
+  if (parts.length >= 2) {
+    const start = parseSingleTime(parts[0]);
+    const end = parseSingleTime(parts[1]);
+    if (start && end) {
+      return { startTime: start, endTime: end };
+    }
+  }
+
+  return { startTime: "18:00", endTime: "07:00" };
 }
 
 // =====================================================
@@ -210,6 +262,8 @@ function EmployeesPage() {
   const openEditForm = (employee) => {
     setEditingEmployee(employee);
 
+    const parsedShift = parseShiftStringToTimes(employee.shift);
+
     setForm({
       employeeCode: employee.employee_code || employee.employeeCode || employee.code || "",
       firstName: employee.first_name || employee.firstName || "",
@@ -220,7 +274,8 @@ function EmployeesPage() {
       phone: employee.phone || "",
       roleId: employee.role_id || employee.roleId ? String(employee.role_id || employee.roleId) : "",
       departmentId: employee.department_id || employee.departmentId ? String(employee.department_id || employee.departmentId) : "",
-      shift: employee.shift || "",
+      shiftStartTime: parsedShift.startTime,
+      shiftEndTime: parsedShift.endTime,
       hireDate: employee.hire_date || employee.hireDate || "",
       salary: employee.salary !== null && employee.salary !== undefined ? String(employee.salary) : "",
       status: employee.status || "active",
@@ -306,7 +361,9 @@ function EmployeesPage() {
         departmentId: Number(form.departmentId),
         department_id: Number(form.departmentId),
 
-        shift: form.shift.trim() || null,
+        shift: form.shiftStartTime && form.shiftEndTime
+          ? `${formatTimeTo12Hour(form.shiftStartTime)} - ${formatTimeTo12Hour(form.shiftEndTime)}`
+          : "6:00PM - 7:00AM",
 
         hireDate: form.hireDate || null,
         hire_date: form.hireDate || null,
@@ -1532,13 +1589,84 @@ function EmployeesPage() {
 
                   </div>
 
-                  <FormInput
-                    label="Shift"
-                    name="shift"
-                    value={form.shift}
-                    onChange={handleFormChange}
-                    placeholder="08:00 - 17:00"
-                  />
+                  {/* SHIFT TIME INTERVAL SELECTOR */}
+                  <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-gray-800 uppercase tracking-wider">
+                        <Clock size={15} className="text-blue-600" />
+                        Shift Working Hours (Time Interval)
+                      </label>
+                      <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-100">
+                        {formatTimeTo12Hour(form.shiftStartTime)} - {formatTimeTo12Hour(form.shiftEndTime)}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">
+                          Shift Start Time
+                        </label>
+                        <input
+                          type="time"
+                          name="shiftStartTime"
+                          value={form.shiftStartTime}
+                          onChange={handleFormChange}
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">
+                          Shift End Time
+                        </label>
+                        <input
+                          type="time"
+                          name="shiftEndTime"
+                          value={form.shiftEndTime}
+                          onChange={handleFormChange}
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick Shift Preset Options */}
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-200/60 pt-2.5">
+                      <span className="text-[11px] font-semibold text-gray-500">Quick Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, shiftStartTime: "18:00", shiftEndTime: "07:00" }))}
+                        className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${
+                          form.shiftStartTime === "18:00" && form.shiftEndTime === "07:00"
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+                        }`}
+                      >
+                        🌙 Night (6:00PM - 7:00AM)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, shiftStartTime: "07:00", shiftEndTime: "18:00" }))}
+                        className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${
+                          form.shiftStartTime === "07:00" && form.shiftEndTime === "18:00"
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+                        }`}
+                      >
+                        ☀️ Day (7:00AM - 6:00PM)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, shiftStartTime: "16:00", shiftEndTime: "01:00" }))}
+                        className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${
+                          form.shiftStartTime === "16:00" && form.shiftEndTime === "01:00"
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+                        }`}
+                      >
+                        🌇 Evening (4:00PM - 1:00AM)
+                      </button>
+                    </div>
+                  </div>
 
                   <FormInput
                     label="Salary"

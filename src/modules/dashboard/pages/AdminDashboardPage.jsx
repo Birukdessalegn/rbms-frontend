@@ -42,10 +42,12 @@ export default function AdminDashboardPage() {
   const [products, setProducts] = useState([]);
   const [kitchenOrders, setKitchenOrders] = useState([]);
   const [barOrders, setBarOrders] = useState([]);
+  const [expenses, setExpenses] = useState([]);
 
   // Table Radar Filter & Work Journey Timeframe
   const [tableFilter, setTableFilter] = useState("all"); // "all" | "occupied" | "unpaid" | "available"
   const [timeframe, setTimeframe] = useState("today"); // "today" | "lifetime"
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   // ============================================================
   // FETCH ALL ADMIN LIVE COMMAND DATA
@@ -56,7 +58,7 @@ export default function AdminDashboardPage() {
       else setIsRefreshing(true);
       setError("");
 
-      const [dashRes, tablesRes, ordersRes, empRes, prodRes, kitchenRes, barRes] = await Promise.all([
+      const [dashRes, tablesRes, ordersRes, empRes, prodRes, kitchenRes, barRes, expRes] = await Promise.all([
         api("/dashboard").catch(() => ({})),
         api("/tables").catch(() => api("/pos/tables").catch(() => ({}))),
         api("/orders").catch(() => api("/pos/orders").catch(() => ({}))),
@@ -64,6 +66,7 @@ export default function AdminDashboardPage() {
         api("/products").catch(() => ({})),
         api("/kitchen").catch(() => api("/kitchen/orders").catch(() => [])),
         api("/bar/orders").catch(() => []),
+        api("/expenses").catch(() => []),
       ]);
 
       if (dashRes && (dashRes.success || dashRes.stats || dashRes.data)) {
@@ -76,6 +79,7 @@ export default function AdminDashboardPage() {
       setProducts(prodRes.products || prodRes.data || (Array.isArray(prodRes) ? prodRes : []));
       setKitchenOrders(Array.isArray(kitchenRes) ? kitchenRes : kitchenRes.orders || []);
       setBarOrders(Array.isArray(barRes) ? barRes : barRes.orders || []);
+      setExpenses(Array.isArray(expRes) ? expRes : expRes.expenses || expRes.data || []);
       setLastUpdated(new Date());
     } catch (err) {
       console.error("Failed to fetch admin live data:", err);
@@ -194,14 +198,17 @@ export default function AdminDashboardPage() {
     const completedOrders = Number(dashboardStats?.today_orders || dashboardStats?.total_orders || orders.length || 0);
     const activeStaffCount = employees.filter((e) => e.is_active || e.status === "active").length || employees.length;
 
+    // Operating expenses sum
+    const totalExpenses = (expenses || []).reduce((sum, e) => sum + Number(e.amount || e.total || 0), 0);
+
     // Financial Tax & Net Earnings Calculation
     const totalVatTax = Math.round(activeGrossRevenue * 0.15 * 100) / 100;
     const totalServiceCharge = Math.round(activeGrossRevenue * 0.10 * 100) / 100;
-    const netRevenue = Math.max(activeGrossRevenue - totalVatTax - totalServiceCharge, 0);
+    const netRevenue = Math.max(activeGrossRevenue - totalVatTax - totalServiceCharge - totalExpenses, 0);
 
     const lifetimeVatTax = Math.round(lifetimeGrossRevenue * 0.15 * 100) / 100;
     const lifetimeServiceCharge = Math.round(lifetimeGrossRevenue * 0.10 * 100) / 100;
-    const lifetimeNetRevenue = Math.max(lifetimeGrossRevenue - lifetimeVatTax - lifetimeServiceCharge, 0);
+    const lifetimeNetRevenue = Math.max(lifetimeGrossRevenue - lifetimeVatTax - lifetimeServiceCharge - totalExpenses, 0);
 
     return {
       totalTablesCount,
@@ -213,12 +220,13 @@ export default function AdminDashboardPage() {
       lifetimeGrossRevenue,
       totalVatTax,
       totalServiceCharge,
+      totalExpenses,
       netRevenue,
       lifetimeNetRevenue,
       completedOrders,
       activeStaffCount,
     };
-  }, [tableRadarData, dashboardStats, orders, employees, timeframe]);
+  }, [tableRadarData, dashboardStats, orders, employees, expenses, timeframe]);
 
   // Filtered Table Radar List
   const filteredRadarTables = useMemo(() => {
@@ -229,6 +237,35 @@ export default function AdminDashboardPage() {
       return true;
     });
   }, [tableRadarData, tableFilter]);
+
+  // Products Leaderboard Calculation
+  const rawProducts = useMemo(() => {
+    if (!Array.isArray(products) || products.length === 0) return [];
+    return products.map((p) => {
+      const qty = Number(p.quantity_sold || p.stock_quantity || 10);
+      const unitPrice = Number(p.price || p.unit_price || 0);
+      const rev = Number(p.revenue || (qty * unitPrice));
+      return {
+        id: p.id,
+        name: p.name,
+        category: p.category_name || (p.category_type === "bar" ? "Bar & Drinks" : "Kitchen Food"),
+        categoryType: p.category_type || (p.category_name?.toLowerCase().includes("bar") || p.category_name?.toLowerCase().includes("drink") ? "bar" : "food"),
+        quantity: qty,
+        unit: p.unit || "pcs",
+        imageUrl: p.image_url || p.imageUrl || p.image,
+        revenue: rev,
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    return rawProducts.filter((item) => {
+      if (categoryFilter === "all") return true;
+      if (categoryFilter === "food") return item.categoryType === "food" || item.category.toLowerCase().includes("food");
+      if (categoryFilter === "bar") return item.categoryType === "bar" || item.category.toLowerCase().includes("bar") || item.category.toLowerCase().includes("drink");
+      return true;
+    });
+  }, [rawProducts, categoryFilter]);
 
   const formatMoney = (val) => `${Number(val || 0).toLocaleString()} ETB`;
 
@@ -249,7 +286,7 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-200 pb-6">
         <div>
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200 shadow-sm">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200 shadow-xs">
               <Radio className="h-3.5 w-3.5 animate-pulse text-emerald-600" />
               LIVE CLUB RADAR ACTIVE
             </span>
@@ -259,7 +296,7 @@ export default function AdminDashboardPage() {
             </span>
           </div>
 
-          <h1 className="mt-2 text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+          <h1 className="mt-2 text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
             👑 Owner Executive Command Center
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -269,8 +306,7 @@ export default function AdminDashboardPage() {
 
         {/* Live Refresh & Timeframe Selector Switch */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* TIMEFRAME SELECTOR */}
-          <div className="flex items-center gap-1 rounded-xl bg-white p-1 border border-slate-200 text-xs font-extrabold shadow-sm">
+          <div className="flex items-center gap-1 rounded-xl bg-white p-1 border border-slate-200 text-xs font-extrabold shadow-xs">
             <button
               type="button"
               onClick={() => setTimeframe("today")}
@@ -296,12 +332,12 @@ export default function AdminDashboardPage() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl bg-white p-1.5 border border-slate-200 text-xs shadow-sm">
+          <div className="flex items-center gap-2 rounded-xl bg-white p-1.5 border border-slate-200 text-xs shadow-xs">
             <button
               type="button"
               onClick={() => setAutoRefresh(!autoRefresh)}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition ${
-                autoRefresh ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                autoRefresh ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
               <Radio className={`h-3 w-3 ${autoRefresh ? "animate-pulse" : ""}`} />
@@ -331,254 +367,133 @@ export default function AdminDashboardPage() {
       )}
 
       {/* ============================================================
-          EXECUTIVE FINANCIAL PULSE & METRICS CARDS
+          TOP SECTION: REAL-TIME LIVE TABLE FLOOR RADAR & ORDERS MONITOR
       ============================================================ */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {/* Gross Revenue (Today / Active) */}
-        <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-              {timeframe === "lifetime" ? "All-Time Journey Revenue" : "Total Revenue Today"}
-            </p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 font-bold">
-              <DollarSign className="h-5 w-5" />
-            </div>
-          </div>
-          <p className="mt-3 text-2xl sm:text-3xl font-black text-slate-900">
-            {formatMoney(metrics.grossRevenue)}
-          </p>
-          <div className="mt-2 flex items-center justify-between text-xs text-emerald-700 font-medium">
-            <span>{timeframe === "lifetime" ? "Cumulative Revenue" : "Settled Payments"}</span>
-            <span className="font-bold flex items-center gap-1">
-              <TrendingUp className="h-3.5 w-3.5" /> Live
-            </span>
-          </div>
-        </div>
-
-        {/* All-Time Club Work Journey Card */}
-        <div className="relative overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50/50 p-5 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-extrabold uppercase tracking-wider text-amber-900 flex items-center gap-1">
-              <Sparkles className="h-3.5 w-3.5 text-amber-600" />
-              Club Work Journey (All-Time)
-            </p>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-white font-black shadow-xs text-sm">
-              👑
-            </div>
-          </div>
-          <p className="mt-3 text-2xl sm:text-3xl font-black text-amber-950">
-            {formatMoney(metrics.lifetimeGrossRevenue)}
-          </p>
-          <div className="mt-2 flex items-center justify-between text-xs text-amber-900 font-bold">
-            <span>Net Profit: {formatMoney(metrics.lifetimeNetRevenue)}</span>
-            <span className="text-amber-700 font-extrabold">Lifetime Total</span>
-          </div>
-        </div>
-
-        {/* Live Open Pending Tabs */}
-        <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white p-5 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wider text-amber-700">
-              Unpaid Pending Tabs
-            </p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-600 font-bold">
-              <Receipt className="h-5 w-5" />
-            </div>
-          </div>
-          <p className="mt-3 text-2xl sm:text-3xl font-black text-amber-600">
-            {formatMoney(metrics.totalUnpaidPendingMoney)}
-          </p>
-          <div className="mt-2 flex items-center justify-between text-xs text-amber-700 font-bold">
-            <span>{metrics.openUnpaidTabsCount} Open Unpaid Tables</span>
-            <span>Pending Cashier Pay</span>
-          </div>
-        </div>
-
-        {/* Floor Occupancy Radar */}
-        <div className="relative overflow-hidden rounded-2xl border border-blue-200 bg-white p-5 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-700">
-              Floor Table Occupancy
-            </p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600 font-bold">
-              <Grid className="h-5 w-5" />
-            </div>
-          </div>
-          <p className="mt-3 text-2xl sm:text-3xl font-black text-slate-900">
-            {metrics.occupiedTablesCount} <span className="text-sm font-normal text-slate-500">/ {metrics.totalTablesCount} Tables</span>
-          </p>
-          <div className="mt-2 flex items-center justify-between text-xs text-slate-600 font-medium">
-            <span>
-              {metrics.totalTablesCount > 0
-                ? `${Math.round((metrics.occupiedTablesCount / metrics.totalTablesCount) * 100)}% Capacity`
-                : "0% Capacity"}
-            </span>
-            <span className="text-emerald-700 font-bold">
-              {metrics.totalTablesCount - metrics.occupiedTablesCount} Free
-            </span>
-          </div>
-        </div>
-
-        {/* Active Staff Shift */}
-        <div className="relative overflow-hidden rounded-2xl border border-purple-200 bg-white p-5 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wider text-purple-700">
-              Active Shift Staff
-            </p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600 font-bold">
-              <UserCheck className="h-5 w-5" />
-            </div>
-          </div>
-          <p className="mt-3 text-2xl sm:text-3xl font-black text-slate-900">
-            {metrics.activeStaffCount} <span className="text-sm font-normal text-slate-500">Staff Duty</span>
-          </p>
-          <div className="mt-2 flex items-center justify-between text-xs text-purple-700 font-semibold">
-            <span>Waiters & Bartenders</span>
-            <span className="font-semibold">On Floor</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ============================================================
-          REAL-TIME LIVE TABLE FLOOR RADAR & ORDERS MONITOR
-      ============================================================ */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-100 pb-4">
           <div>
-            <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <Grid className="h-5 w-5 text-blue-600" />
               Live Club Floor Radar & Table Tab Monitor
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Instant breakdown of occupied tables, assigned waiters, served items, and unpaid tab balances.
+              Live floor visualizer: Occupied tables, unpaid open tabs, waiter assignments & live order counts.
             </p>
           </div>
 
-          {/* Table Radar Filters */}
-          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-100 p-1 text-xs font-bold">
+          {/* Table Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter Radar:</span>
             <button
               type="button"
               onClick={() => setTableFilter("all")}
-              className={`rounded-lg px-3 py-1.5 transition ${
-                tableFilter === "all" ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                tableFilter === "all"
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
-              All Tables ({tableRadarData.length})
+              All Tables ({metrics.totalTablesCount})
             </button>
             <button
               type="button"
               onClick={() => setTableFilter("occupied")}
-              className={`rounded-lg px-3 py-1.5 transition ${
-                tableFilter === "occupied" ? "bg-amber-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                tableFilter === "occupied"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "bg-blue-50 text-blue-700 hover:bg-blue-100"
               }`}
             >
-              Occupied ({tableRadarData.filter((t) => t.isOccupied).length})
+              Occupied ({metrics.occupiedTablesCount})
             </button>
             <button
               type="button"
               onClick={() => setTableFilter("unpaid")}
-              className={`rounded-lg px-3 py-1.5 transition ${
-                tableFilter === "unpaid" ? "bg-rose-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                tableFilter === "unpaid"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "bg-amber-50 text-amber-700 hover:bg-amber-100"
               }`}
             >
-              Unpaid Pending Tabs ({tableRadarData.filter((t) => t.isUnpaid).length})
+              ⚠️ Unpaid Tabs ({metrics.openUnpaidTabsCount})
             </button>
             <button
               type="button"
               onClick={() => setTableFilter("available")}
-              className={`rounded-lg px-3 py-1.5 transition ${
-                tableFilter === "available" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                tableFilter === "available"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
               }`}
             >
-              Available ({tableRadarData.filter((t) => !t.isOccupied).length})
+              Free / Available ({metrics.totalTablesCount - metrics.occupiedTablesCount})
             </button>
           </div>
         </div>
 
-        {/* Radar Table Grid */}
+        {/* RADAR TABLES GRID */}
         {filteredRadarTables.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
-            <Building2 className="h-10 w-10 mb-2 text-slate-300" />
-            <p className="text-sm font-bold text-slate-700">No tables match the selected filter</p>
-            <p className="text-xs text-slate-400 mt-1">
-              Select "All Tables" or check the POS to assign orders to tables.
-            </p>
+          <div className="py-12 text-center text-xs text-slate-400">
+            No tables match the selected radar filter criteria.
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredRadarTables.map((tbl) => (
               <div
-                key={tbl.id}
-                className={`relative rounded-2xl border p-4 transition-all hover:shadow-md ${
+                key={tbl.id || tbl.number}
+                className={`relative overflow-hidden rounded-2xl border p-4 transition-all ${
                   tbl.isUnpaid
-                    ? "border-rose-300 bg-rose-50/70"
+                    ? "border-amber-300 bg-amber-50/40 shadow-xs"
                     : tbl.isOccupied
-                    ? "border-amber-300 bg-amber-50/70"
-                    : "border-slate-200 bg-slate-50/50 hover:border-slate-300"
+                    ? "border-blue-200 bg-blue-50/30"
+                    : "border-slate-200 bg-slate-50/50 opacity-80"
                 }`}
               >
-                {/* Table Header */}
-                <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
+                <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
                   <div className="flex items-center gap-2">
-                    <div
-                      className={`flex h-9 w-9 items-center justify-center rounded-xl font-black text-sm ${
-                        tbl.isUnpaid
-                          ? "bg-rose-100 text-rose-700 border border-rose-300"
-                          : tbl.isOccupied
-                          ? "bg-amber-100 text-amber-800 border border-amber-300"
-                          : "bg-slate-200 text-slate-600"
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        tbl.isOccupied ? (tbl.isUnpaid ? "bg-amber-500 animate-ping" : "bg-blue-500") : "bg-emerald-500"
                       }`}
-                    >
-                      T-{tbl.number}
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-900 text-sm">{tbl.name}</p>
-                      <p className="text-[11px] text-slate-500 font-medium">{tbl.section}</p>
-                    </div>
+                    />
+                    <h3 className="font-extrabold text-slate-900 text-sm">
+                      {tbl.name}
+                    </h3>
                   </div>
 
-                  {/* Status Badge */}
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase ${
+                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
                       tbl.isUnpaid
-                        ? "bg-rose-100 text-rose-700 border border-rose-300 animate-pulse"
+                        ? "bg-amber-200 text-amber-900"
                         : tbl.isOccupied
-                        ? "bg-amber-100 text-amber-800 border border-amber-300"
-                        : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                        ? "bg-blue-200 text-blue-900"
+                        : "bg-emerald-100 text-emerald-800"
                     }`}
                   >
-                    {tbl.isUnpaid ? "🔴 UNPAID TAB" : tbl.isOccupied ? "🟡 OCCUPIED" : "🟢 FREE"}
+                    {tbl.isUnpaid ? "Open Tab Unpaid" : tbl.isOccupied ? "Occupied" : "Free"}
                   </span>
                 </div>
 
-                {/* Table Info & Waiter */}
-                <div className="mt-3 space-y-2 text-xs">
-                  <div className="flex items-center justify-between text-slate-700">
-                    <span className="text-slate-500 font-medium">Assigned Waiter:</span>
-                    <span className="font-bold text-blue-600 flex items-center gap-1">
-                      <UserCheck className="h-3 w-3" /> {tbl.waiterName}
-                    </span>
+                <div className="mt-3 space-y-1.5 text-xs text-slate-600">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Section:</span>
+                    <span className="font-bold text-slate-700">{tbl.section}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Waiter Assigned:</span>
+                    <span className="font-bold text-slate-800">{tbl.waiterName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Active Items Ordered:</span>
+                    <span className="font-bold text-slate-900">{tbl.itemCount} Items ({tbl.activeOrdersCount} Tickets)</span>
+                  </div>
+                </div>
 
-                  {tbl.isOccupied ? (
-                    <>
-                      <div className="flex items-center justify-between text-slate-700">
-                        <span className="text-slate-500 font-medium">Active Orders:</span>
-                        <span className="font-bold text-slate-900">{tbl.activeOrdersCount} Order(s) ({tbl.itemCount} items)</span>
-                      </div>
-
-                      <div className="flex items-center justify-between border-t border-slate-200/80 pt-2 text-sm">
-                        <span className="text-slate-500 font-medium">Total Bill:</span>
-                        <span className={`font-black ${tbl.isUnpaid ? "text-rose-600" : "text-emerald-700"}`}>
-                          {formatMoney(tbl.totalAmount)}
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="py-2 text-center text-slate-400 text-xs font-medium">
-                      Table ready for guests
-                    </div>
-                  )}
+                <div className="mt-4 flex items-center justify-between border-t border-slate-200/60 pt-3">
+                  <span className="text-[11px] font-bold text-slate-500">Current Tab Total:</span>
+                  <span className={`text-base font-black ${tbl.isUnpaid ? "text-amber-700" : "text-slate-900"}`}>
+                    {formatMoney(tbl.totalAmount)}
+                  </span>
                 </div>
               </div>
             ))}
@@ -587,422 +502,198 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* ============================================================
-          EXECUTIVE FINANCIAL TAX & NET EARNINGS BREAKDOWN BAR
+          MIDDLE SECTION: PORTION SALES LEADERBOARD
       ============================================================ */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-              <CreditCard className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-extrabold text-slate-900">
-                Owner Financial Tax & Net Earnings Breakdown
-              </h2>
-              <p className="text-xs text-slate-500">
-                Automated 15% VAT Tax, 10% Service Charge, and Net Earnings calculation.
-              </p>
-            </div>
-          </div>
-          <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 border border-blue-200">
-            Real-Time Tax Ledger
-          </span>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          {/* 15% VAT */}
-          <div className="rounded-2xl border border-rose-200 bg-rose-50/50 p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-rose-700">
-              15% VAT Tax Collected
-            </p>
-            <p className="mt-2 text-xl font-black text-slate-900">
-              {formatMoney(metrics.totalVatTax)}
-            </p>
-            <p className="mt-1 text-[11px] text-slate-500">
-              Computed 15% VAT on sales
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+          <div>
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-500" />
+              Itemized Food & Drink Portion Sales Leaderboard
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Live sales performance for food plates, beverage shots, glasses, and bottle items.
             </p>
           </div>
 
-          {/* 10% Service Charge */}
-          <div className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">
-              10% Service Charge
-            </p>
-            <p className="mt-2 text-xl font-black text-slate-900">
-              {formatMoney(metrics.totalServiceCharge)}
-            </p>
-            <p className="mt-1 text-[11px] text-slate-500">
-              Staff & facility fee allocation
-            </p>
+          <div className="flex items-center rounded-xl bg-slate-100 p-1 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("all")}
+              className={`rounded-lg px-3 py-1.5 transition ${
+                categoryFilter === "all" ? "bg-amber-500 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              All Items
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("food")}
+              className={`rounded-lg px-3 py-1.5 transition ${
+                categoryFilter === "food" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Kitchen Food
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("bar")}
+              className={`rounded-lg px-3 py-1.5 transition ${
+                categoryFilter === "bar" ? "bg-purple-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Bar & Drinks
+            </button>
           </div>
+        </div>
 
-          {/* Net Earnings */}
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-              Owner Net Earnings
-            </p>
-            <p className="mt-2 text-xl font-black text-emerald-700">
-              {formatMoney(metrics.netRevenue)}
-            </p>
-            <p className="mt-1 text-[11px] text-slate-600 font-medium">
-              Gross Revenue minus Tax & Fees
-            </p>
+        {filteredProducts.length === 0 ? (
+          <div className="py-12 text-center text-xs text-slate-400">
+            No itemized sales records found. As sales occur at the POS, portion unit earnings will populate live here!
           </div>
-        </div>
-      </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+            {filteredProducts.map((prod, idx) => {
+              const rank = idx + 1;
 
-      {/* ============================================================
-          ITEMIZED FOOD & DRINK PORTION LEADERBOARD
-      ============================================================ */}
-      <ItemizedPortionLeaderboard
-        dashboardStats={dashboardStats}
-        orders={orders}
-        kitchenOrders={kitchenOrders}
-        barOrders={barOrders}
-        products={products}
-        formatMoney={formatMoney}
-      />
-
-      {/* ============================================================
-          OWNER QUICK COMMAND ACTION CENTER
-      ============================================================ */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
-          <Sliders className="h-4 w-4 text-blue-600" />
-          Owner Quick Command Shortcuts
-        </h3>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Link
-            to="/pos/sales-audit"
-            className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition hover:bg-white hover:border-blue-400 hover:shadow-sm group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                <Receipt className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="font-bold text-slate-900 text-sm">Daily Sales Audit</p>
-                <p className="text-[11px] text-slate-500">View real-time cashier shift sales</p>
-              </div>
-            </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-blue-600 transition" />
-          </Link>
-
-          <Link
-            to="/pos/reports"
-            className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition hover:bg-white hover:border-emerald-400 hover:shadow-sm group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="font-bold text-slate-900 text-sm">POS Reports</p>
-                <p className="text-[11px] text-slate-500">Detailed sales & category analytics</p>
-              </div>
-            </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-600 transition" />
-          </Link>
-
-          <Link
-            to="/employees/attendance"
-            className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition hover:bg-white hover:border-purple-400 hover:shadow-sm group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
-                <UserCheck className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="font-bold text-slate-900 text-sm">Attendance Terminal</p>
-                <p className="text-[11px] text-slate-500">Check-in / check-out shift logs</p>
-              </div>
-            </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-purple-600 transition" />
-          </Link>
-
-          <Link
-            to="/products"
-            className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition hover:bg-white hover:border-amber-400 hover:shadow-sm group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
-                <Utensils className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="font-bold text-slate-900 text-sm">Products Catalog</p>
-                <p className="text-[11px] text-slate-500">Manage food & drink images</p>
-              </div>
-            </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-amber-600 transition" />
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// ITEMIZED FOOD & DRINK PORTION LEADERBOARD COMPONENT
-// ============================================================
-
-function ItemizedPortionLeaderboard({ dashboardStats, orders, kitchenOrders = [], barOrders = [], products, formatMoney }) {
-  const [categoryFilter, setCategoryFilter] = useState("all");
-
-  const parseRawItems = (itemsInput) => {
-    if (!itemsInput) return [];
-    if (typeof itemsInput === "string") {
-      try {
-        return JSON.parse(itemsInput);
-      } catch (e) {
-        return [];
-      }
-    }
-    return Array.isArray(itemsInput) ? itemsInput : [];
-  };
-
-  const rawProducts = useMemo(() => {
-    // 1. Build real-time sales map from POS, Kitchen, and Bar orders
-    const salesMap = {};
-    const allOrdersList = [
-      ...(Array.isArray(orders) ? orders : []),
-      ...(Array.isArray(kitchenOrders) ? kitchenOrders : []),
-      ...(Array.isArray(barOrders) ? barOrders : []),
-    ];
-
-    allOrdersList.forEach((ord) => {
-      if (ord.status !== "cancelled") {
-        const itemsList = parseRawItems(ord.items || ord.order_items);
-        itemsList.forEach((item) => {
-          const pid = String(item.product_id || item.id || "");
-          const pName = String(item.product_name || item.name || "").toLowerCase().trim();
-          const qty = Number(item.quantity || item.qty || 1);
-          const price = Number(item.unit_price || item.price || 0);
-          const tot = Number(item.total || qty * price);
-
-          if (pid) {
-            if (!salesMap[pid]) salesMap[pid] = { quantity: 0, revenue: 0 };
-            salesMap[pid].quantity += qty;
-            salesMap[pid].revenue += tot;
-          }
-          if (pName) {
-            if (!salesMap[pName]) salesMap[pName] = { quantity: 0, revenue: 0 };
-            salesMap[pName].quantity += qty;
-            salesMap[pName].revenue += tot;
-          }
-        });
-      }
-    });
-
-    // 2. Map from registered products list if available
-    if (Array.isArray(products) && products.length > 0) {
-      return products.map((p) => {
-        const pidKey = String(p.id);
-        const nameKey = String(p.name || "").toLowerCase().trim();
-        const realSales = salesMap[pidKey] || salesMap[nameKey] || {};
-
-        const qty = Number(realSales.quantity || p.quantity_sold || p.quantity || 0);
-        const unitPrice = Number(p.price || p.unit_price || p.cost_price || 0);
-        const rev = Number(realSales.revenue || p.revenue || p.total_revenue || (qty * unitPrice));
-
-        return {
-          id: p.id,
-          name: p.name,
-          category: p.category_name || (p.category_type === "bar" ? "Bar & Drinks" : "Kitchen Food"),
-          categoryType: p.category_type || (p.category_name?.toLowerCase().includes("bar") || p.category_name?.toLowerCase().includes("drink") ? "bar" : "food"),
-          quantity: qty,
-          unit: p.unit || "pcs",
-          imageUrl: p.image_url || p.imageUrl || p.image || p.image_path || p.product_image || p.picture || p.photo || p.filepath,
-          revenue: rev,
-        };
-      }).sort((a, b) => b.revenue - a.revenue || b.quantity - a.quantity);
-    }
-
-    // 3. Fallback to top_products
-    const topProds = dashboardStats?.top_products || dashboardStats?.topProducts || [];
-    if (!Array.isArray(topProds) || topProds.length === 0) return [];
-
-    return topProds.map((p) => {
-      const qty = Number(p.quantity_sold || p.quantity || 0);
-      const unitPrice = Number(p.price || p.unit_price || p.cost_price || 0);
-      const rev = Number(p.revenue || p.total_revenue || (qty * unitPrice));
-
-      return {
-        id: p.id,
-        name: p.name,
-        category: p.category_name || (p.category_type === "bar" ? "Bar & Drinks" : "Kitchen Food"),
-        categoryType: p.category_type || "food",
-        quantity: qty,
-        unit: p.unit || "pcs",
-        imageUrl: p.image_url || p.imageUrl || p.image || p.image_path || p.product_image || p.picture || p.photo || p.filepath,
-        revenue: rev,
-      };
-    });
-  }, [products, orders, kitchenOrders, barOrders, dashboardStats]);
-
-  const filteredProducts = useMemo(() => {
-    return rawProducts.filter((item) => {
-      if (categoryFilter === "all") return true;
-      if (categoryFilter === "food") return item.categoryType === "food" || item.category.toLowerCase().includes("food") || item.category.toLowerCase().includes("kitchen");
-      if (categoryFilter === "bar") return item.categoryType === "bar" || item.category.toLowerCase().includes("bar") || item.category.toLowerCase().includes("cocktail") || item.category.toLowerCase().includes("drink");
-      return true;
-    });
-  }, [rawProducts, categoryFilter]);
-
-  const formatPortionLabel = (unit, qty = 1) => {
-    const u = String(unit || "pcs").toLowerCase().trim();
-    if (u === "shot" || u === "shots") return `${qty} ${qty === 1 ? "Shot" : "Shots"}`;
-    if (u === "glass" || u === "glasses") return `${qty} ${qty === 1 ? "Glass" : "Glasses"}`;
-    if (u === "half_bottle" || u === "half_bottles") return `${qty} ${qty === 1 ? "Half Bottle" : "Half Bottles"}`;
-    if (u === "bottle" || u === "bottles") return `${qty} ${qty === 1 ? "Full Bottle" : "Full Bottles"}`;
-    if (u === "plate" || u === "plates") return `${qty} ${qty === 1 ? "Plate" : "Plates"}`;
-    if (u === "kg") return `${qty} kg`;
-    if (u === "liter" || u === "l") return `${qty} l`;
-    return `${qty} ${qty === 1 ? "Pcs" : "Pcs"}`;
-  };
-
-  const formatImageUrl = (url) => {
-    if (!url || typeof url !== "string") return null;
-    const cleanUrl = url.trim();
-    if (!cleanUrl) return null;
-    if (cleanUrl.startsWith("blob:") || cleanUrl.startsWith("data:")) return cleanUrl;
-    if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) return cleanUrl;
-
-    const baseUrl = (import.meta.env?.VITE_API_URL || "http://localhost:5000").replace(/\/api\/?$/, "");
-    return `${baseUrl}${cleanUrl.startsWith("/") ? "" : "/"}${cleanUrl}`;
-  };
-
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
-        <div>
-          <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-amber-500" />
-            Itemized Food & Drink Portion Sales Leaderboard
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Card view showing item images, portion measurement units (Shots, Glasses, Bottles, Plates), and revenue.
-          </p>
-        </div>
-
-        <div className="flex items-center rounded-xl bg-slate-100 p-1 text-xs font-bold">
-          <button
-            type="button"
-            onClick={() => setCategoryFilter("all")}
-            className={`rounded-lg px-3 py-1.5 transition ${
-              categoryFilter === "all" ? "bg-amber-500 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            All Items
-          </button>
-          <button
-            type="button"
-            onClick={() => setCategoryFilter("food")}
-            className={`rounded-lg px-3 py-1.5 transition ${
-              categoryFilter === "food" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Kitchen Food
-          </button>
-          <button
-            type="button"
-            onClick={() => setCategoryFilter("bar")}
-            className={`rounded-lg px-3 py-1.5 transition ${
-              categoryFilter === "bar" ? "bg-purple-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Bar & Drinks
-          </button>
-        </div>
-      </div>
-
-      {filteredProducts.length === 0 ? (
-        <div className="py-12 text-center text-xs text-slate-400">
-          No itemized sales records found. As sales occur at the POS, portion unit earnings will populate live here!
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-          {filteredProducts.map((prod, idx) => {
-            const formattedImg = formatImageUrl(prod.imageUrl);
-            const rank = idx + 1;
-
-            return (
-              <div
-                key={prod.id || prod.name}
-                className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 transition-all hover:border-amber-400 hover:shadow-md"
-              >
-                {/* Top Header: Rank + Category */}
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <span
-                    className={`inline-flex h-6 w-6 items-center justify-center rounded-lg text-xs font-black shadow-sm ${
-                      rank === 1
-                        ? "bg-amber-400 text-slate-950 ring-2 ring-amber-400/40"
-                        : rank === 2
-                        ? "bg-slate-200 text-slate-800"
-                        : rank === 3
-                        ? "bg-amber-700 text-white"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    #{rank}
-                  </span>
-
-                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-600 truncate max-w-[120px]">
-                    {prod.category}
-                  </span>
-                </div>
-
-                {/* Main Content: Thumbnail Photo + Title */}
-                <div className="flex items-center gap-3">
-                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm">
-                    {formattedImg ? (
-                      <img
-                        src={formattedImg}
-                        alt={prod.name}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.style.display = "none";
-                          if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
-                        }}
-                      />
-                    ) : null}
-
-                    <div
-                      className={`h-full w-full items-center justify-center bg-slate-100 text-slate-400 ${
-                        formattedImg ? "hidden" : "flex"
+              return (
+                <div
+                  key={prod.id || prod.name}
+                  className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 transition-all hover:border-amber-400 hover:shadow-md"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span
+                      className={`inline-flex h-6 w-6 items-center justify-center rounded-lg text-xs font-black shadow-xs ${
+                        rank === 1
+                          ? "bg-amber-400 text-slate-950"
+                          : rank === 2
+                          ? "bg-slate-200 text-slate-800"
+                          : rank === 3
+                          ? "bg-amber-700 text-white"
+                          : "bg-slate-100 text-slate-600"
                       }`}
                     >
-                      {prod.categoryType === "bar" || prod.category?.toLowerCase().includes("drink") ? (
+                      #{rank}
+                    </span>
+
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-600 truncate max-w-[120px]">
+                      {prod.category}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 font-bold border border-slate-200">
+                      {prod.categoryType === "bar" ? (
                         <Wine className="h-6 w-6 text-purple-600" />
                       ) : (
                         <Utensils className="h-6 w-6 text-amber-600" />
                       )}
                     </div>
-                  </div>
 
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-slate-900 text-sm truncate group-hover:text-amber-600 transition">
-                      {prod.name}
-                    </h3>
-                    <div className="mt-1 inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-0.5 text-xs font-extrabold text-amber-700 border border-amber-200">
-                      <span>{formatPortionLabel(prod.unit, prod.quantity)}</span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-slate-900 text-sm truncate">
+                        {prod.name}
+                      </h3>
+                      <div className="mt-1 inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-0.5 text-xs font-extrabold text-amber-700 border border-amber-200">
+                        <span>{prod.quantity} {prod.unit} Sold</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Card Footer: Revenue */}
-                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                  <span className="text-[11px] text-slate-500 font-medium">Total Sales</span>
-                  <span className="font-black text-emerald-700 text-base">
-                    {formatMoney(prod.revenue)}
-                  </span>
+                  <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                    <span className="text-[11px] text-slate-500 font-medium">Total Revenue</span>
+                    <span className="font-black text-emerald-700 text-base">
+                      {formatMoney(prod.revenue)}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================
+          BOTTOM SECTION: OWNER FINANCIAL TAX & NET EARNINGS BREAKDOWN
+      ============================================================ */}
+      <div className="rounded-3xl border border-emerald-300 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 p-6 sm:p-8 text-white shadow-xl space-y-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-5">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-black text-emerald-400 border border-emerald-500/30">
+                👑 OWNER FINANCIAL STATEMENT
+              </span>
+              <span className="text-xs text-slate-400 font-semibold">Government Tax & Take-Home Profit Breakdown</span>
+            </div>
+            <h2 className="mt-2 text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
+              <DollarSign className="h-7 w-7 text-emerald-400" />
+              Owner Financial Tax & Net Earnings Breakdown
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+              Final executive statement: Gross sales, 15% VAT government tax, 10% staff service charge allocation, operating costs, and net owner profit.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 bg-slate-800/80 p-1.5 rounded-2xl border border-slate-700">
+            <button
+              type="button"
+              onClick={() => setTimeframe("today")}
+              className={`rounded-xl px-4 py-2 text-xs font-extrabold transition ${
+                timeframe === "today" ? "bg-emerald-500 text-slate-950 shadow-md" : "text-slate-300 hover:text-white"
+              }`}
+            >
+              Today's Statement
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeframe("lifetime")}
+              className={`rounded-xl px-4 py-2 text-xs font-extrabold transition ${
+                timeframe === "lifetime" ? "bg-amber-400 text-slate-950 shadow-md" : "text-slate-300 hover:text-white"
+              }`}
+            >
+              👑 All-Time Journey
+            </button>
+          </div>
         </div>
-      )}
+
+        {/* 5 FINANCIAL BREAKDOWN CARDS */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {/* Gross Revenue */}
+          <div className="rounded-2xl bg-slate-900/90 p-4 border border-slate-800 space-y-1">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Gross Business Revenue</p>
+            <p className="text-2xl font-black text-white">{formatMoney(metrics.grossRevenue)}</p>
+            <p className="text-[11px] text-emerald-400 font-semibold">Total POS Cash & Digital</p>
+          </div>
+
+          {/* 15% VAT Tax */}
+          <div className="rounded-2xl bg-slate-900/90 p-4 border border-red-900/40 space-y-1">
+            <p className="text-xs font-bold text-red-400 uppercase tracking-wider">Gov VAT Tax (15%)</p>
+            <p className="text-2xl font-black text-red-300">-{formatMoney(metrics.totalVatTax)}</p>
+            <p className="text-[11px] text-slate-400">Government Tax Deduction</p>
+          </div>
+
+          {/* 10% Service Charge */}
+          <div className="rounded-2xl bg-slate-900/90 p-4 border border-amber-900/40 space-y-1">
+            <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">Staff Service (10%)</p>
+            <p className="text-2xl font-black text-amber-300">-{formatMoney(metrics.totalServiceCharge)}</p>
+            <p className="text-[11px] text-slate-400">Tip & Staff Allocation</p>
+          </div>
+
+          {/* Operating Costs */}
+          <div className="rounded-2xl bg-slate-900/90 p-4 border border-purple-900/40 space-y-1">
+            <p className="text-xs font-bold text-purple-400 uppercase tracking-wider">Operating & Stock Costs</p>
+            <p className="text-2xl font-black text-purple-300">-{formatMoney(metrics.totalExpenses || 0)}</p>
+            <p className="text-[11px] text-slate-400">Expenses & Stock POs</p>
+          </div>
+
+          {/* Net Owner Take-Home Profit */}
+          <div className="rounded-2xl bg-emerald-950 p-4 border-2 border-emerald-400 space-y-1 shadow-lg">
+            <p className="text-xs font-extrabold text-emerald-300 uppercase tracking-wider">👑 Owner Net Take-Home</p>
+            <p className="text-2xl font-black text-emerald-400">{formatMoney(metrics.netRevenue)}</p>
+            <p className="text-[11px] text-emerald-300 font-bold">Pure Net Profit</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

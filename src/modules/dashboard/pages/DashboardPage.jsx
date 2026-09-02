@@ -55,8 +55,8 @@ export default function DashboardPage() {
           // Also fetch real orders list to aggregate actual sold quantities
           let ordersList = [];
           try {
-            const ordersRes = await api("/orders");
-            ordersList = ordersRes.orders || ordersRes.data || [];
+            const ordersRes = await api("/pos/orders").catch(() => api("/orders").catch(() => ({})));
+            ordersList = ordersRes.orders || ordersRes.data || (Array.isArray(ordersRes) ? ordersRes : []);
           } catch (oe) {
             console.log("Orders fetch check:", oe);
           }

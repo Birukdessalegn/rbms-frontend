@@ -15,6 +15,7 @@ import ExpensesPage from "../modules/expense/pages/ExpensesPage";
 
 import EmployeesPage from "../modules/employees/pages/EmployeesPage";
 import BarReportsPage from "../modules/bar/pages/BarReportsPage";
+import FinanceReportsPage from "../modules/finance/pages/FinanceReportsPage";
 import AttendancePage from "../modules/employees/pages/AttendancePage";
 
 import LoginPage from "../modules/auth/pages/LoginPage";
@@ -406,7 +407,7 @@ function AppRoutes() {
               />
               <Route
                 path="/finance/reports"
-                element={<h1>Financial Reports</h1>}
+                element={<FinanceReportsPage />}
               />
             </Route>
 

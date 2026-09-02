@@ -33,6 +33,7 @@ function PurchasingPage() {
   const [loadingProducts, setLoadingProducts] = useState(false);
 
   const [error, setError] = useState("");
+  const [deptFilter, setDeptFilter] = useState("all"); // "all" | "kitchen" | "bar" | "general"
 
   /* Purchase modal */
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
@@ -827,6 +828,127 @@ function PurchasingPage() {
         />
 
       </div>
+
+      {/* DEPARTMENTAL ITEM USAGE / STOCK AUDIT FOR TODAY */}
+      {(() => {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const kitchenItemsMap = new Map();
+        const barItemsMap = new Map();
+        const otherItemsMap = new Map();
+
+        orders.forEach((order) => {
+          const rawD = order.created_at || order.createdAt || order.date;
+          const orderDateStr = rawD ? String(rawD).split(/[T ]/)[0] : todayStr;
+
+          if (orderDateStr === todayStr || !rawD) {
+            const items = Array.isArray(order.items) ? order.items : [];
+
+            items.forEach((item) => {
+              const q = Number(item.quantity || item.qty || 1);
+              const unit = item.unit || "pcs";
+              const cat = String(item.category || item.category_name || item.type || "").toLowerCase();
+              const rawName = item.name || item.product_name || `Item #${item.productId || item.product_id || ""}`;
+              const name = String(rawName).trim();
+              if (!name) return;
+
+              const nameLower = name.toLowerCase();
+              const isBar = cat.includes("bar") || cat.includes("drink") || nameLower.includes("beer") || nameLower.includes("wine") || nameLower.includes("whiskey") || nameLower.includes("drink") || nameLower.includes("soda") || nameLower.includes("water");
+              const isKitchen = cat.includes("food") || cat.includes("kitchen") || cat.includes("meat") || nameLower.includes("doro") || nameLower.includes("burger") || nameLower.includes("pizza") || nameLower.includes("steak") || nameLower.includes("oil") || nameLower.includes("onion") || nameLower.includes("spice");
+
+              const targetMap = isBar ? barItemsMap : isKitchen ? kitchenItemsMap : otherItemsMap;
+              const prev = targetMap.get(name) || { qty: 0, unit };
+              targetMap.set(name, { qty: prev.qty + q, unit: prev.unit || unit });
+            });
+          }
+        });
+
+        const kitchenItems = Array.from(kitchenItemsMap.entries());
+        const barItems = Array.from(barItemsMap.entries());
+        const otherItems = Array.from(otherItemsMap.entries());
+
+        return (
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                  <PackageCheck className="h-4 w-4 text-indigo-600" />
+                  Today's Departmental Stock & Items Audit (Kitchen vs Bar)
+                </h3>
+                <p className="text-xs text-slate-500">Live itemized inventory items used & received today (Quantities only)</p>
+              </div>
+              <span className="text-xs font-bold text-slate-400">Date: {todayStr}</span>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              {/* Kitchen Items Card */}
+              <div className="rounded-xl bg-amber-50/80 p-4 border border-amber-200/80 flex flex-col justify-between space-y-2">
+                <div className="flex items-center justify-between text-xs font-extrabold text-amber-900 border-b border-amber-200/60 pb-2">
+                  <span>🍲 Kitchen Stock Items ({kitchenItems.length})</span>
+                  <span className="rounded-md bg-amber-200/80 px-2 py-0.5 text-[11px] font-black text-amber-900">Kitchen</span>
+                </div>
+                {kitchenItems.length === 0 ? (
+                  <p className="text-xs text-amber-700 italic py-2">No kitchen items logged today.</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {kitchenItems.map(([name, data]) => (
+                      <div key={name} className="flex items-center justify-between text-xs bg-white/80 p-2 rounded-lg border border-amber-200/50">
+                        <span className="font-bold text-slate-800">{name}</span>
+                        <span className="font-black text-amber-900 bg-amber-100 px-2 py-0.5 rounded text-[11px]">
+                          {data.qty} {data.unit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Bar Items Card */}
+              <div className="rounded-xl bg-purple-50/80 p-4 border border-purple-200/80 flex flex-col justify-between space-y-2">
+                <div className="flex items-center justify-between text-xs font-extrabold text-purple-900 border-b border-purple-200/60 pb-2">
+                  <span>🍸 Bar Stock Items ({barItems.length})</span>
+                  <span className="rounded-md bg-purple-200/80 px-2 py-0.5 text-[11px] font-black text-purple-900">Bar</span>
+                </div>
+                {barItems.length === 0 ? (
+                  <p className="text-xs text-purple-700 italic py-2">No bar items logged today.</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {barItems.map(([name, data]) => (
+                      <div key={name} className="flex items-center justify-between text-xs bg-white/80 p-2 rounded-lg border border-purple-200/50">
+                        <span className="font-bold text-slate-800">{name}</span>
+                        <span className="font-black text-purple-900 bg-purple-100 px-2 py-0.5 rounded text-[11px]">
+                          {data.qty} {data.unit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Store & Other Items Card */}
+              <div className="rounded-xl bg-sky-50/80 p-4 border border-sky-200/80 flex flex-col justify-between space-y-2">
+                <div className="flex items-center justify-between text-xs font-extrabold text-sky-900 border-b border-sky-200/60 pb-2">
+                  <span>📦 Store / General Items ({otherItems.length})</span>
+                  <span className="rounded-md bg-sky-200/80 px-2 py-0.5 text-[11px] font-black text-sky-900">General</span>
+                </div>
+                {otherItems.length === 0 ? (
+                  <p className="text-xs text-sky-700 italic py-2">No general store items logged today.</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {otherItems.map(([name, data]) => (
+                      <div key={name} className="flex items-center justify-between text-xs bg-white/80 p-2 rounded-lg border border-sky-200/50">
+                        <span className="font-bold text-slate-800">{name}</span>
+                        <span className="font-black text-sky-900 bg-sky-100 px-2 py-0.5 rounded text-[11px]">
+                          {data.qty} {data.unit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* PURCHASE ORDERS */}
 

@@ -94,11 +94,6 @@ const navigationGroups = [
             icon: Receipt,
           },
           {
-            name: "Table Map",
-            path: "/pos/tables",
-            icon: UtensilsCrossed,
-          },
-          {
             name: "Cashier Reconciliation",
             path: "/finance/cashier-reconciliation",
             icon: CreditCard,
@@ -174,9 +169,9 @@ const navigationGroups = [
             icon: CreditCard,
           },
           {
-            name: "Finance Overview",
-            path: "/finance",
-            icon: Wallet,
+            name: "Purchases Audit",
+            path: "/finance/purchases",
+            icon: ShoppingBag,
           },
           {
             name: "Expenses",
@@ -556,11 +551,14 @@ function DashboardLayout() {
             }
 
             /*
-              Dashboard is available for ADMIN, MANAGER, CASHIER, and WAITER.
+              Dashboard is strictly for ADMIN and MANAGER only.
             */
 
             if (item.path === "/dashboard") {
-              return true;
+              return (
+                normalizedRole === "ADMIN" ||
+                normalizedRole === "MANAGER"
+              );
             }
 
             /*

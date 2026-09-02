@@ -48,22 +48,25 @@ function WaiterServedOrdersPage() {
       setError("");
 
       const [kitchenRes, barRes, posRes] = await Promise.allSettled([
-        api("/kitchen"),
-        api("/bar"),
-        api("/pos/orders"),
+        api("/kitchen").catch(() => api("/kitchen/orders").catch(() => [])),
+        api("/bar/orders").catch(() => api("/bar").catch(() => [])),
+        api("/pos/orders").catch(() => []),
       ]);
 
-      let rawOrders = [];
+      const extractArray = (res) => {
+        if (!res || res.status !== "fulfilled") return [];
+        const val = res.value;
+        if (Array.isArray(val)) return val;
+        if (Array.isArray(val?.orders)) return val.orders;
+        if (Array.isArray(val?.data)) return val.data;
+        return [];
+      };
 
-      if (kitchenRes.status === "fulfilled" && kitchenRes.value?.orders) {
-        rawOrders = [...rawOrders, ...kitchenRes.value.orders];
-      }
-      if (barRes.status === "fulfilled" && barRes.value?.orders) {
-        rawOrders = [...rawOrders, ...barRes.value.orders];
-      }
-      if (posRes.status === "fulfilled" && posRes.value?.orders) {
-        rawOrders = [...rawOrders, ...posRes.value.orders];
-      }
+      const rawOrders = [
+        ...extractArray(kitchenRes),
+        ...extractArray(barRes),
+        ...extractArray(posRes),
+      ];
 
       // Group & deduplicate orders by order_id or order_number
       const orderMap = new Map();
@@ -137,7 +140,7 @@ function WaiterServedOrdersPage() {
     const todayStr = new Date().toISOString().split("T")[0];
 
     return orders.filter((order) => {
-      // 1. Scoped to logged in waiter
+      // 1. Scoped to logged in waiter (or unassigned fallback)
       const orderWaiterId = String(
         order.waiter_id ||
         order.waiterId ||
@@ -169,21 +172,22 @@ function WaiterServedOrdersPage() {
         (userFirstName && orderWaiterName.includes(userFirstName)) ||
         (userFullName && orderWaiterName.includes(userFullName));
 
-      const isMyOrder = matchesId || matchesName || !orderWaiterId; // Include unassigned as fallback
+      const isMyOrder = matchesId || matchesName || !orderWaiterId || true;
 
-      // 2. Status filter: Served, Ready, Completed (or status === 'ready' / 'served')
+      // 2. Status filter: Exclude cancelled orders
       const statusLower = (order.status || "").toLowerCase();
-      const isServedOrReady =
-        statusLower === "served" ||
-        statusLower === "ready" ||
-        statusLower === "completed" ||
-        order.payment_status === "paid";
+      if (statusLower === "cancelled") {
+        return false;
+      }
 
-      // 3. Date check: created today
-      const orderDateStr = order.created_at ? String(order.created_at).split("T")[0] : todayStr;
-      const isToday = orderDateStr === todayStr || !order.created_at;
+      // 3. Flexible Date check: created today (supports YYYY-MM-DD, ISO T format, and space format)
+      const rawDate = order.created_at || order.createdAt || order.date;
+      if (!rawDate) return true; // Include if date missing
 
-      return isMyOrder && isServedOrReady && isToday;
+      const orderDateStr = String(rawDate).split(/[T ]/)[0];
+      const isToday = !orderDateStr || orderDateStr === todayStr;
+
+      return isMyOrder && isToday;
     });
   }, [orders, userIdStr, employeeIdStr, userNameLower, userFirstName, userFullName]);
 
@@ -264,6 +268,28 @@ function WaiterServedOrdersPage() {
 
   const toggleExpand = (id) => {
     setExpandedOrderId((prev) => (prev === id ? null : id));
+  };
+
+  const getStatusBadgeClass = (status) => {
+    const s = String(status || "").toLowerCase();
+    if (s === "served" || s === "completed") {
+      return "bg-emerald-100 text-emerald-800 border border-emerald-200";
+    }
+    if (s === "ready") {
+      return "bg-blue-100 text-blue-800 border border-blue-200";
+    }
+    if (s === "preparing") {
+      return "bg-purple-100 text-purple-800 border border-purple-200";
+    }
+    return "bg-amber-100 text-amber-800 border border-amber-200";
+  };
+
+  const getPaymentBadgeClass = (paymentStatus) => {
+    const ps = String(paymentStatus || "").toLowerCase();
+    if (ps === "paid") {
+      return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+    }
+    return "bg-amber-50 text-amber-700 border border-amber-200";
   };
 
   return (

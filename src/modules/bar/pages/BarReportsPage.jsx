@@ -4,32 +4,33 @@ import {
   TrendingUp,
   Clock3,
   CheckCircle2,
-  ClipboardList,
   Printer,
   Search,
   RefreshCw,
+  CalendarDays,
+  Filter,
+  Receipt,
 } from "lucide-react";
 import api from "../../../services/api";
 
-function ReportCard({ title, value, description, icon: Icon }) {
+function ReportStatCard({ title, value, description, icon: Icon, colorClass, bgClass }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition hover:shadow-md">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase text-slate-400">
+          <p className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
             {title}
           </p>
-
-          <h3 className="mt-2 text-2xl font-bold text-slate-900">
+          <h3 className="mt-2 text-2xl font-black text-slate-900">
             {value}
           </h3>
-
-          <p className="mt-1 text-xs text-slate-500">
-            {description}
-          </p>
+          {description && (
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              {description}
+            </p>
+          )}
         </div>
-
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${bgClass} ${colorClass}`}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -44,28 +45,7 @@ function BarReportsPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-
-  const fetchBarOrders = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await api("/bar/orders");
-      console.log("BAR REPORTS FETCH:", res);
-      const list = res.orders || res.data || (Array.isArray(res) ? res : []);
-      setBarOrdersList(list);
-    } catch (err) {
-      console.error("Failed to fetch bar reports:", err);
-      setError(err.message || "Failed to load bar orders");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchBarOrders();
-  }, []);
+  const [reportDate, setReportDate] = useState(new Date().toISOString().split("T")[0]);
 
   const parseRawItems = (itemsInput) => {
     if (!itemsInput) return [];
@@ -79,329 +59,371 @@ function BarReportsPage() {
     return Array.isArray(itemsInput) ? itemsInput : [];
   };
 
+  const fetchBarOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Multi-endpoint API fetch strategy like POSReportsPage
+      const [barRes, posRes, empRes] = await Promise.all([
+        api("/bar/orders").catch(() => api("/bar").catch(() => [])),
+        api("/pos/orders").catch(() => ({ orders: [] })),
+        api("/employees").catch(() => []),
+      ]);
+
+      const barList = Array.isArray(barRes) ? barRes : barRes.orders || barRes.data || [];
+      const posList = posRes.orders || posRes.data || (Array.isArray(posRes) ? posRes : []);
+      const empList = Array.isArray(empRes) ? empRes : empRes.employees || empRes.data || [];
+
+      // Create Employee ID -> Name map
+      const empMap = new Map();
+      empList.forEach((emp) => {
+        const idKey = String(emp.id);
+        const fullName = `${emp.first_name || emp.firstName || ""} ${emp.last_name || emp.lastName || ""}`.trim() || emp.name || emp.username;
+        if (idKey && fullName) empMap.set(idKey, fullName);
+      });
+
+      // Merge and deduplicate bar orders
+      const combinedMap = new Map();
+      barList.forEach((item) => {
+        const key = String(item.id || item.order_id || Math.random());
+        combinedMap.set(key, item);
+      });
+
+      // If bar specific endpoint empty, extract drink items from POS orders
+      if (combinedMap.size === 0 && posList.length > 0) {
+        posList.forEach((posOrder) => {
+          const items = parseRawItems(posOrder.items);
+          const drinkItems = items.filter((i) => {
+            const cat = String(i.category || i.category_name || i.type || "").toLowerCase();
+            const name = String(i.product_name || i.name || "").toLowerCase();
+            return cat.includes("bar") || cat.includes("drink") || name.includes("beer") || name.includes("wine") || name.includes("whiskey") || name.includes("drink") || name.includes("soda") || name.includes("water");
+          });
+
+          if (drinkItems.length > 0) {
+            combinedMap.set(String(posOrder.id), {
+              ...posOrder,
+              items: drinkItems,
+            });
+          }
+        });
+      }
+
+      const finalOrders = Array.from(combinedMap.values()).map((b) => {
+        const empId = String(b.waiter_id || b.waiterId || b.created_by_id || b.user_id || "");
+        const waiterName = empMap.get(empId) || b.waiter_name || b.waiterName || b.waiter || b.bartender || "Bar Staff";
+
+        return {
+          ...b,
+          waiter_name: waiterName,
+        };
+      });
+
+      setBarOrdersList(finalOrders);
+    } catch (err) {
+      console.error("Failed to fetch bar reports:", err);
+      setError(err.message || "Failed to load bar orders");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBarOrders();
+  }, []);
+
   const formattedOrders = useMemo(() => {
     return barOrdersList.map((b) => {
       const itemsArr = parseRawItems(b.items);
       const itemsSummary = itemsArr.length > 0
-        ? itemsArr.map((i) => `${i.quantity || i.qty || 1} ${i.product_name || i.name || "Drink"}`).join(", ")
-        : "Drinks Order";
+        ? itemsArr.map((i) => `${i.quantity || i.qty || 1}x ${i.product_name || i.name || "Drink"}`).join(", ")
+        : "Bar Beverage Order";
 
-      const createdAtStr = b.created_at || "";
-      const dateStr = createdAtStr ? createdAtStr.split("T")[0] : "";
-      const timeStr = createdAtStr ? new Date(createdAtStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+      const createdAtStr = b.created_at || b.createdAt || "";
+      const dateStr = createdAtStr ? createdAtStr.split(/[T ]/)[0] : "";
+      const timeStr = createdAtStr ? new Date(createdAtStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-";
 
-      let statusFormatted = "New";
+      let statusFormatted = "Ready";
       if (b.status === "ready" || b.status === "served" || b.status === "completed") {
         statusFormatted = "Ready";
-      } else if (b.status === "preparing" || b.status === "in_progress") {
+      } else if (b.status === "preparing" || b.status === "in_progress" || b.status === "pending") {
         statusFormatted = "Preparing";
+      } else if (b.status === "cancelled") {
+        statusFormatted = "Cancelled";
       }
 
       return {
-        id: b.order_number || `#B-${b.id}`,
-        table: b.table_number ? `Table ${b.table_number}` : (b.table_id ? `Table ${b.table_id}` : "Bar Counter"),
+        id: `#B-${b.id || b.order_id}`,
+        table: b.table_name || b.table_number || `Table ${b.table_id || 1}`,
         items: itemsSummary,
-        bartender: b.waiter_first_name || b.bartender || "Bartender",
+        itemsRaw: itemsArr,
+        bartender: b.waiter_name || b.bartender || "Bar Staff",
         status: statusFormatted,
-        total: Number(b.total || b.total_amount || b.subtotal || 0),
         date: dateStr,
         time: timeStr,
-        raw: b,
+        total: Number(b.total || b.total_amount || b.amount || 0),
       };
     });
   }, [barOrdersList]);
 
   const filteredOrders = useMemo(() => {
     return formattedOrders.filter((order) => {
-      const searchValue = search.toLowerCase().trim();
-
+      const query = search.toLowerCase().trim();
       const matchesSearch =
-        !searchValue ||
-        order.id.toLowerCase().includes(searchValue) ||
-        order.table.toLowerCase().includes(searchValue) ||
-        order.items.toLowerCase().includes(searchValue) ||
-        order.bartender.toLowerCase().includes(searchValue);
+        !query ||
+        String(order.id).toLowerCase().includes(query) ||
+        String(order.table).toLowerCase().includes(query) ||
+        String(order.items).toLowerCase().includes(query) ||
+        String(order.bartender).toLowerCase().includes(query);
 
       const matchesStatus =
-        statusFilter === "All" ||
-        order.status.toLowerCase() === statusFilter.toLowerCase();
+        statusFilter === "All" || order.status === statusFilter;
 
-      const matchesFromDate =
-        !fromDate || order.date >= fromDate;
+      const matchesDate = !reportDate || !order.date || order.date === reportDate;
 
-      const matchesToDate =
-        !toDate || order.date <= toDate;
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesFromDate &&
-        matchesToDate
-      );
+      return matchesSearch && matchesStatus && matchesDate;
     });
-  }, [formattedOrders, search, statusFilter, fromDate, toDate]);
+  }, [formattedOrders, search, statusFilter, reportDate]);
 
-  const totalOrders = filteredOrders.length;
-  const newOrders = filteredOrders.filter((o) => o.status === "New").length;
+  const totalOrdersCount = filteredOrders.length;
   const readyOrders = filteredOrders.filter((o) => o.status === "Ready").length;
   const preparingOrders = filteredOrders.filter((o) => o.status === "Preparing").length;
+  const totalSales = filteredOrders.reduce((sum, o) => sum + o.total, 0);
 
-  const totalSales = filteredOrders.reduce(
-    (sum, order) => sum + order.total,
-    0
-  );
+  // Top Drinks Prepared
+  const topDrinks = useMemo(() => {
+    const drinkMap = new Map();
+    filteredOrders.forEach((o) => {
+      o.itemsRaw.forEach((i) => {
+        const name = i.product_name || i.name || "Beverage Drink";
+        const q = Number(i.quantity || i.qty || 1);
+        drinkMap.set(name, (drinkMap.get(name) || 0) + q);
+      });
+    });
 
-  const resetFilters = () => {
-    setSearch("");
-    setStatusFilter("All");
-    setFromDate("");
-    setToDate("");
-  };
+    return Array.from(drinkMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [filteredOrders]);
 
   const handlePrint = () => {
     window.print();
   };
 
   return (
-    <div className="bar-report-page space-y-6">
-      {/* HEADER */}
+    <div className="space-y-6">
+      {/* SCREEN HEADER */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
             <Wine className="h-6 w-6" />
           </div>
-
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              Bar Reports
+            <h1 className="text-2xl font-black text-slate-900">
+              Bar Department Audit Report
             </h1>
-            <p className="text-sm text-slate-500">
-              Monitor bar drink orders, preparation status, and sales live from database.
+            <p className="text-sm font-medium text-slate-500">
+              Live multi-endpoint database audit for beverage sales & drinks served.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
-            type="button"
             onClick={fetchBarOrders}
-            className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
           <button
-            type="button"
             onClick={handlePrint}
-            className="flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-purple-700"
           >
             <Printer className="h-4 w-4" />
-            Print Report
+            Print Audit Report
           </button>
         </div>
       </div>
 
-      {/* FILTERS */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:hidden">
-        <div className="mb-4">
-          <h2 className="text-sm font-bold text-slate-900">
-            Filter Bar Report
-          </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Filter bar orders by date, status, or keyword.
-          </p>
+      {/* KPI SUMMARY CARDS */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ReportStatCard
+          title="Total Bar Orders"
+          value={loading ? "..." : totalOrdersCount}
+          description="Beverage tickets received"
+          icon={Wine}
+          colorClass="text-purple-600"
+          bgClass="bg-purple-50"
+        />
+        <ReportStatCard
+          title="Drinks Ready / Served"
+          value={loading ? "..." : readyOrders}
+          description="Dispatched by bartender"
+          icon={CheckCircle2}
+          colorClass="text-emerald-600"
+          bgClass="bg-emerald-50"
+        />
+        <ReportStatCard
+          title="Orders Preparing"
+          value={loading ? "..." : preparingOrders}
+          description="Currently at counter"
+          icon={Clock3}
+          colorClass="text-amber-600"
+          bgClass="bg-amber-50"
+        />
+        <ReportStatCard
+          title="Total Drink Sales"
+          value={loading ? "..." : `${totalSales.toLocaleString()} ETB`}
+          description="Gross bar sales value"
+          icon={TrendingUp}
+          colorClass="text-indigo-600"
+          bgClass="bg-indigo-50"
+        />
+      </div>
+
+      {/* FILTER & TOOLBAR */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between print:hidden">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search drink, order ID, table #, staff..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-sm outline-none transition focus:border-purple-500 focus:bg-white"
+          />
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-5">
-          {/* SEARCH */}
-          <div className="lg:col-span-2">
-            <label className="mb-1.5 block text-xs font-semibold text-slate-600">
-              Search
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Order, table, drink name..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-purple-500 focus:bg-white"
-              />
-            </div>
-          </div>
-
-          {/* FROM DATE */}
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-600">
-              From Date
-            </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-slate-400" />
             <input
               type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-purple-500"
+              value={reportDate}
+              onChange={(e) => setReportDate(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-purple-500"
             />
           </div>
 
-          {/* TO DATE */}
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-600">
-              To Date
-            </label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-purple-500"
-            />
-          </div>
-
-          {/* STATUS */}
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-600">
-              Status
-            </label>
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-slate-400" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-purple-500"
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-purple-500"
             >
               <option value="All">All Statuses</option>
-              <option value="New">New</option>
+              <option value="Ready">Ready / Served</option>
               <option value="Preparing">Preparing</option>
-              <option value="Ready">Ready</option>
+              <option value="Cancelled">Cancelled</option>
             </select>
           </div>
         </div>
+      </div>
 
-        {/* FILTER FOOTER */}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-          <div className="text-xs text-slate-500">
-            Showing <span className="font-semibold text-slate-700">{filteredOrders.length}</span> orders
+      {/* PRINTABLE AUDIT REPORT */}
+      <div id="printable-report" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
+        {/* REPORT HEADER */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-5">
+          <div>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">THE OAK CLUB</h2>
+            <p className="text-xs font-bold text-slate-500 uppercase">Bar & Beverage Sales Audit Report</p>
           </div>
-
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-          >
-            Reset Filters
-          </button>
-        </div>
-      </div>
-
-      {/* STAT CARDS */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <ReportCard
-          title="Total Orders"
-          value={loading ? "..." : totalOrders}
-          description="Bar orders in period"
-          icon={ClipboardList}
-        />
-        <ReportCard
-          title="Ready / Served"
-          value={loading ? "..." : readyOrders}
-          description="Completed drink orders"
-          icon={CheckCircle2}
-        />
-        <ReportCard
-          title="Preparing"
-          value={loading ? "..." : preparingOrders}
-          description="Currently at bar"
-          icon={Clock3}
-        />
-        <ReportCard
-          title="Total Drink Sales"
-          value={loading ? "..." : `${totalSales.toLocaleString()} ETB`}
-          description="Gross bar sales"
-          icon={TrendingUp}
-        />
-      </div>
-
-      {/* REPORT TABLE */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-5 py-4">
-          <h2 className="font-bold text-slate-900">Bar Drink Orders Log</h2>
+          <div className="text-right">
+            <p className="text-xs font-bold text-slate-500">Audit Date: <span className="text-slate-900">{reportDate || "All Time"}</span></p>
+            <p className="text-xs text-slate-400">Total Bar Orders: {filteredOrders.length}</p>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
-            <thead className="bg-slate-50">
-              <tr className="border-b border-slate-200">
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">
-                  Order
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">
-                  Table
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">
-                  Items
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">
-                  Bartender
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">
-                  Status
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">
-                  Date & Time
-                </th>
-                <th className="px-5 py-3 text-right text-xs font-semibold uppercase text-slate-500">
-                  Total
-                </th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan="7" className="px-5 py-12 text-center text-sm text-slate-400">
-                    Loading live bar orders...
-                  </td>
-                </tr>
-              ) : filteredOrders.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="px-5 py-12 text-center text-sm text-slate-400">
-                    No bar orders found for selected filters.
-                  </td>
-                </tr>
-              ) : (
-                filteredOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-slate-50">
-                    <td className="px-5 py-4 text-sm font-bold text-slate-900">
-                      {order.id}
-                    </td>
-                    <td className="px-5 py-4 text-sm text-slate-600">
-                      {order.table}
-                    </td>
-                    <td className="px-5 py-4 text-sm text-slate-600">
-                      {order.items}
-                    </td>
-                    <td className="px-5 py-4 text-sm text-slate-600">
-                      {order.bartender}
-                    </td>
-                    <td className="px-5 py-4 text-sm">
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                        order.status === "Ready"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : order.status === "Preparing"
-                          ? "bg-purple-100 text-purple-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-xs text-slate-500">
-                      {order.date} {order.time}
-                    </td>
-                    <td className="px-5 py-4 text-right text-sm font-bold text-slate-900">
-                      {order.total.toLocaleString()} ETB
-                    </td>
+        {/* TOP DRINKS SERVED */}
+        {topDrinks.length > 0 && (
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-900 mb-3 flex items-center gap-2">
+              <Wine className="h-4 w-4 text-purple-600" />
+              Beverage Items & Drinks Served Breakdown
+            </h3>
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 font-extrabold text-slate-600 uppercase border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3">#</th>
+                    <th className="px-4 py-3">Beverage Drink Name</th>
+                    <th className="px-4 py-3 text-right">Total Units Served</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-semibold text-slate-800">
+                  {topDrinks.map((drink, idx) => (
+                    <tr key={drink.name} className="hover:bg-slate-50/80">
+                      <td className="px-4 py-2.5 font-mono text-slate-400">{idx + 1}</td>
+                      <td className="px-4 py-2.5 font-bold text-slate-900">{drink.name}</td>
+                      <td className="px-4 py-2.5 text-right font-black text-purple-700 bg-purple-50/50">
+                        {drink.count} Bottle(s) / Can(s)
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ITEMIZED TABLE */}
+        <div>
+          <h3 className="text-sm font-extrabold text-slate-900 mb-3 flex items-center gap-2">
+            <Receipt className="h-4 w-4 text-slate-700" />
+            Itemized Bar Orders Audit Table
+          </h3>
+
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="w-full text-left text-xs min-w-[700px]">
+              <thead className="bg-slate-50 font-extrabold text-slate-600 uppercase border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-3">Ticket</th>
+                  <th className="px-4 py-3">Table</th>
+                  <th className="px-4 py-3">Items</th>
+                  <th className="px-4 py-3">Staff</th>
+                  <th className="px-4 py-3 text-center">Status</th>
+                  <th className="px-4 py-3 text-right">Time</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                {loading ? (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-6 text-center text-slate-400">Loading bar orders...</td>
+                  </tr>
+                ) : filteredOrders.length > 0 ? (
+                  filteredOrders.map((order) => (
+                    <tr key={order.id} className="hover:bg-slate-50/80">
+                      <td className="px-4 py-3 font-mono font-bold text-slate-900">{order.id}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-800">{order.table}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-900">{order.items}</td>
+                      <td className="px-4 py-3 text-slate-600">{order.bartender}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-black ${
+                          order.status === "Ready"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : order.status === "Preparing"
+                            ? "bg-purple-100 text-purple-800"
+                            : "bg-red-100 text-red-800"
+                        }`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-500">{order.time}</td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-900">{order.total.toLocaleString()} ETB</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-6 text-center text-slate-400 italic">No bar orders found for selected criteria.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

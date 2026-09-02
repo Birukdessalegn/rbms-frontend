@@ -42,7 +42,7 @@ function CashierReconciliationPage() {
       // If backend cashier shifts list is empty, dynamically aggregate real paid orders!
       if (!fetchedShifts || fetchedShifts.length === 0) {
         try {
-          const ordersRes = await api("/orders");
+          const ordersRes = await api("/pos/orders").catch(() => api("/orders").catch(() => ({})));
           const ordersList = ordersRes.orders || ordersRes.data || (Array.isArray(ordersRes) ? ordersRes : []);
 
           const paidOrders = ordersList.filter(
@@ -87,7 +87,7 @@ function CashierReconciliationPage() {
 
       // Fetch Orders to filter Credit / VIP Tab requests
       try {
-        const ordersRes = await api("/orders");
+        const ordersRes = await api("/pos/orders").catch(() => api("/orders").catch(() => ({})));
         const ordersList = ordersRes.orders || ordersRes.data || (Array.isArray(ordersRes) ? ordersRes : []);
         
         const creditList = ordersList.filter(

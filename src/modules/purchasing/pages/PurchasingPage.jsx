@@ -2180,45 +2180,62 @@ function formatDate(date) {
 }
 
 function getOrderItems(order) {
-  return (
+  if (!order) return [];
+  const raw =
     order.items ||
     order.purchase_items ||
     order.purchaseItems ||
-    []
-  );
+    order.order_items ||
+    order.orderItems ||
+    order.details ||
+    order.products;
+
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 function getOrderItemsCount(order) {
-  const items =
-    getOrderItems(order);
+  if (!order) return 0;
+  const items = getOrderItems(order);
 
-  if (Array.isArray(items)) {
-    return items.reduce(
+  if (Array.isArray(items) && items.length > 0) {
+    const totalQty = items.reduce(
       (total, item) =>
         total +
         Number(
-          item.quantity || 0
+          item.quantity || item.qty || item.count || item.amount || 1
         ),
       0
     );
+    return totalQty || items.length;
   }
 
   return Number(
     order.items_count ||
       order.itemsCount ||
+      order.item_count ||
+      order.total_items ||
+      order.totalItems ||
       0
   );
 }
 
 function getOrderItemsText(order) {
-  const items =
-    getOrderItems(order);
+  if (!order) return "-";
+  const items = getOrderItems(order);
 
-  if (!Array.isArray(items)) {
-    return "-";
-  }
-
-  if (items.length === 0) {
+  if (!Array.isArray(items) || items.length === 0) {
+    if (order.item_name || order.product_name) {
+      return order.item_name || order.product_name;
+    }
     return "-";
   }
 
@@ -2228,11 +2245,11 @@ function getOrderItemsText(order) {
         item.product_name ||
         item.productName ||
         item.name ||
-        `Product ${
-          item.product_id || ""
-        }`;
+        item.item_name ||
+        (item.product_id ? `Product #${item.product_id}` : "Item");
 
-      return `${name} × ${item.quantity}`;
+      const qty = item.quantity || item.qty || item.count || 1;
+      return `${name} × ${qty}`;
     })
     .join(", ");
 }

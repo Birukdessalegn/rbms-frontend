@@ -738,21 +738,62 @@ export default function AdminDashboardPage() {
 // ============================================================
 
 function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics = {}, formatMoney }) {
-  const [activeMonthIdx, setActiveMonthIdx] = useState(5); // Default to Jun
+  const [chartTimeframe, setChartTimeframe] = useState("monthly"); // "daily" | "weekly" | "monthly"
+  const [activeIdx, setActiveIdx] = useState(5);
 
   const baseRevenue = metrics?.grossRevenue > 0 ? metrics.grossRevenue : 134789;
   const baseExpenses = metrics?.totalExpenses > 0 ? metrics.totalExpenses : 120678;
   const baseProfit = metrics?.netRevenue > 0 ? metrics.netRevenue : 245600;
 
-  // Real Backend Data Aggregation
-  const monthsData = useMemo(() => {
-    const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"];
-    const monthMap = {};
-    monthLabels.forEach((m) => { monthMap[m] = 0; });
+  // Dynamic Trend Data Processing based on Selected Timeframe (Daily / Weekly / Monthly)
+  const trendData = useMemo(() => {
+    let points = [];
+    let factors = [];
+    let getPeriodKey = (d) => "";
 
+    if (chartTimeframe === "daily") {
+      points = [
+        { label: "Mon", x: 40 },
+        { label: "Tue", x: 126 },
+        { label: "Wed", x: 213 },
+        { label: "Thu", x: 300 },
+        { label: "Fri", x: 386 },
+        { label: "Sat", x: 473 },
+        { label: "Sun", x: 560 },
+      ];
+      factors = [0.45, 0.65, 0.58, 0.82, 0.70, 1.00, 0.88];
+      getPeriodKey = (d) => d.toLocaleDateString("en-US", { weekday: "short" });
+    } else if (chartTimeframe === "weekly") {
+      points = [
+        { label: "Wk 1", x: 40 },
+        { label: "Wk 2", x: 213 },
+        { label: "Wk 3", x: 386 },
+        { label: "Wk 4", x: 560 },
+      ];
+      factors = [0.60, 0.82, 0.75, 1.00];
+      getPeriodKey = (d) => `Wk ${Math.min(Math.ceil(d.getDate() / 7), 4)}`;
+    } else {
+      // Monthly (Default)
+      points = [
+        { label: "Jan", x: 40 },
+        { label: "Feb", x: 105 },
+        { label: "Mar", x: 170 },
+        { label: "Apr", x: 235 },
+        { label: "May", x: 300 },
+        { label: "Jun", x: 365 },
+        { label: "Jul", x: 430 },
+        { label: "Aug", x: 495 },
+        { label: "Sep", x: 560 },
+      ];
+      factors = [0.55, 0.72, 0.60, 0.85, 0.68, 1.00, 0.78, 0.92, 0.81];
+      getPeriodKey = (d) => d.toLocaleDateString("en-US", { month: "short" });
+    }
+
+    const valMap = {};
+    points.forEach((p) => { valMap[p.label] = 0; });
     let hasRealData = false;
 
-    // 1. Map real POS orders from backend database
+    // 1. Group real orders
     if (Array.isArray(orders) && orders.length > 0) {
       orders.forEach((ord) => {
         const isPaid =
@@ -766,10 +807,10 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
           if (dateStr) {
             const d = new Date(dateStr);
             if (!isNaN(d.getTime())) {
-              const mName = d.toLocaleDateString("en-US", { month: "short" });
+              const key = getPeriodKey(d);
               const amt = Number(ord.total_amount || ord.total || ord.grand_total || 0);
-              if (monthMap[mName] !== undefined) {
-                monthMap[mName] += amt;
+              if (valMap[key] !== undefined) {
+                valMap[key] += amt;
                 if (amt > 0) hasRealData = true;
               }
             }
@@ -778,49 +819,39 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
       });
     }
 
-    // 2. Map real dashboardStats sales_chart / monthly_sales
+    // 2. Or fallback to dashboardStats sales_chart
     if (!hasRealData && dashboardStats) {
       const chartList =
-        dashboardStats.monthly_sales ||
         dashboardStats.sales_chart ||
+        dashboardStats.monthly_sales ||
         dashboardStats.salesChart ||
         [];
 
       if (Array.isArray(chartList) && chartList.length > 0) {
         chartList.forEach((item) => {
-          const mName = item.month || (item.date ? new Date(item.date).toLocaleDateString("en-US", { month: "short" }) : null);
+          let key = item.label || item.day || item.month;
+          if (!key && item.date) {
+            const d = new Date(item.date);
+            if (!isNaN(d.getTime())) key = getPeriodKey(d);
+          }
           const amt = Number(item.sales || item.revenue || item.total || 0);
-          if (mName && monthMap[mName] !== undefined) {
-            monthMap[mName] += amt;
+          if (key && valMap[key] !== undefined) {
+            valMap[key] += amt;
             if (amt > 0) hasRealData = true;
           }
         });
       }
     }
 
-    // Coordinates mapping for SVG (viewBox 0 0 600 160)
-    const points = [
-      { month: "Jan", x: 40 },
-      { month: "Feb", x: 105 },
-      { month: "Mar", x: 170 },
-      { month: "Apr", x: 235 },
-      { month: "May", x: 300 },
-      { month: "Jun", x: 365 },
-      { month: "Jul", x: 430 },
-      { month: "Aug", x: 495 },
-      { month: "Sep", x: 560 },
-    ];
-
     const baseGross = baseRevenue;
-    const revenues = points.map((p) => monthMap[p.month] || 0);
+    const revenues = points.map((p) => valMap[p.label] || 0);
     const maxRev = Math.max(...revenues, baseGross, 1000);
 
-    // Compute dynamic Y coordinates for SVG Bezier curve (y between 38 and 110)
     return points.map((p, idx) => {
-      const rev = monthMap[p.month] || 0;
+      const rev = valMap[p.label] || 0;
       const displayRev = hasRealData
         ? rev
-        : Math.round(baseGross * [0.55, 0.72, 0.60, 0.85, 0.68, 1.00, 0.78, 0.92, 0.81][idx]);
+        : Math.round(baseGross * factors[idx % factors.length]);
 
       const ratio = maxRev > 0 ? displayRev / maxRev : 0.5;
       const y = Math.round(110 - ratio * 72);
@@ -831,39 +862,82 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
         y,
       };
     });
-  }, [orders, dashboardStats, baseRevenue]);
+  }, [orders, dashboardStats, baseRevenue, chartTimeframe]);
 
-  const activePoint = monthsData[activeMonthIdx] || monthsData[5];
+  const activePoint = trendData[activeIdx] || trendData[Math.min(activeIdx, trendData.length - 1)] || trendData[0];
 
   // Dynamic Bezier Spline Path Generator
   const pathD = useMemo(() => {
-    if (!monthsData || monthsData.length === 0) return "";
-    let d = `M ${monthsData[0].x},${monthsData[0].y}`;
-    for (let i = 0; i < monthsData.length - 1; i++) {
-      const curr = monthsData[i];
-      const next = monthsData[i + 1];
+    if (!trendData || trendData.length === 0) return "";
+    let d = `M ${trendData[0].x},${trendData[0].y}`;
+    for (let i = 0; i < trendData.length - 1; i++) {
+      const curr = trendData[i];
+      const next = trendData[i + 1];
       const cpX = Math.round((curr.x + next.x) / 2);
       d += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
     }
     return d;
-  }, [monthsData]);
+  }, [trendData]);
 
   const fillD = useMemo(() => {
-    return `${pathD} L 560,135 L 40,135 Z`;
-  }, [pathD]);
+    if (!trendData || trendData.length === 0) return "";
+    const lastX = trendData[trendData.length - 1].x;
+    return `${pathD} L ${lastX},135 L ${trendData[0].x},135 Z`;
+  }, [pathD, trendData]);
 
   return (
     <div className="rounded-3xl border border-amber-200/70 bg-gradient-to-b from-amber-50/40 via-white to-white p-4 sm:p-6 shadow-xs space-y-4">
       {/* Top Header */}
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-b border-amber-100 pb-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-amber-100 pb-3">
         <div>
           <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-amber-600" />
-            Monthly Revenue Trend
+            {chartTimeframe === "daily"
+              ? "Daily Sales & Revenue Trend"
+              : chartTimeframe === "weekly"
+              ? "Weekly Sales & Revenue Trend"
+              : "Monthly Revenue Trend"}
           </h2>
           <p className="text-xs text-slate-500">
-            Interactive smooth curve revenue analytics & monthly comparison
+            Interactive smooth curve revenue analytics & period comparison
           </p>
+        </div>
+
+        {/* Timeframe Selector Buttons (Daily / Weekly / Monthly) */}
+        <div className="flex items-center rounded-xl bg-amber-100/60 p-1 text-xs font-bold border border-amber-200/80 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => { setChartTimeframe("daily"); setActiveIdx(5); }}
+            className={`rounded-lg px-3 py-1 transition ${
+              chartTimeframe === "daily"
+                ? "bg-amber-500 text-white shadow-xs"
+                : "text-amber-900 hover:text-slate-900 hover:bg-amber-200/50"
+            }`}
+          >
+            Daily
+          </button>
+          <button
+            type="button"
+            onClick={() => { setChartTimeframe("weekly"); setActiveIdx(3); }}
+            className={`rounded-lg px-3 py-1 transition ${
+              chartTimeframe === "weekly"
+                ? "bg-amber-500 text-white shadow-xs"
+                : "text-amber-900 hover:text-slate-900 hover:bg-amber-200/50"
+            }`}
+          >
+            Weekly
+          </button>
+          <button
+            type="button"
+            onClick={() => { setChartTimeframe("monthly"); setActiveIdx(5); }}
+            className={`rounded-lg px-3 py-1 transition ${
+              chartTimeframe === "monthly"
+                ? "bg-amber-500 text-white shadow-xs"
+                : "text-amber-900 hover:text-slate-900 hover:bg-amber-200/50"
+            }`}
+          >
+            Monthly
+          </button>
         </div>
       </div>
 
@@ -873,7 +947,11 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
         <div className="flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-amber-200/60 pb-4 lg:pb-0 lg:pr-6 lg:w-1/3 space-y-3">
           <div>
             <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">
-              Average Monthly Income
+              {chartTimeframe === "daily"
+                ? "Average Daily Income"
+                : chartTimeframe === "weekly"
+                ? "Average Weekly Income"
+                : "Average Monthly Income"}
             </p>
             <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
               {formatMoney(baseRevenue)}
@@ -882,12 +960,12 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
             <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-100/90 px-3 py-1 text-xs font-extrabold text-emerald-800 border border-emerald-300">
               <TrendingUp className="h-3.5 w-3.5" />
               <span>34.67%</span>
-              <span className="text-slate-500 font-normal">vs previous month</span>
+              <span className="text-slate-500 font-normal">vs previous period</span>
             </div>
           </div>
 
           <div className="text-[11px] text-slate-500 font-medium hidden sm:block">
-            Hover over any month on the curve to inspect period income details.
+            Hover over any period point on the curve to inspect period income details.
           </div>
         </div>
 
@@ -929,27 +1007,29 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
                 strokeDasharray="4 4"
               />
 
-              {/* Vertical Guide Line for Active Month */}
-              <line
-                x1={activePoint.x}
-                y1={activePoint.y}
-                x2={activePoint.x}
-                y2="135"
-                stroke="#d97706"
-                strokeWidth="1.5"
-                strokeDasharray="3 3"
-              />
+              {/* Vertical Guide Line for Active Period */}
+              {activePoint && (
+                <line
+                  x1={activePoint.x}
+                  y1={activePoint.y}
+                  x2={activePoint.x}
+                  y2="135"
+                  stroke="#d97706"
+                  strokeWidth="1.5"
+                  strokeDasharray="3 3"
+                />
+              )}
 
               {/* Data Points on Path */}
-              {monthsData.map((pt, idx) => {
-                const isActive = idx === activeMonthIdx;
+              {trendData.map((pt, idx) => {
+                const isActive = idx === activeIdx;
 
                 return (
                   <g
-                    key={pt.month}
+                    key={pt.label}
                     className="cursor-pointer"
-                    onMouseEnter={() => setActiveMonthIdx(idx)}
-                    onClick={() => setActiveMonthIdx(idx)}
+                    onMouseEnter={() => setActiveIdx(idx)}
+                    onClick={() => setActiveIdx(idx)}
                   >
                     {/* Invisible Larger Touch/Hover Target */}
                     <circle cx={pt.x} cy={pt.y} r="14" fill="transparent" />
@@ -965,7 +1045,7 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
                       className="transition-all duration-200"
                     />
 
-                    {/* X-Axis Month Label */}
+                    {/* X-Axis Period Label */}
                     <text
                       x={pt.x}
                       y="152"
@@ -974,7 +1054,7 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
                         isActive ? "fill-amber-700 font-black" : "fill-slate-500"
                       }`}
                     >
-                      {pt.month}
+                      {pt.label}
                     </text>
                   </g>
                 );
@@ -982,29 +1062,31 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
             </svg>
 
             {/* Interactive Tooltip Card Floating Above Active Point */}
-            <div
-              style={{
-                left: `${(activePoint.x / 600) * 100}%`,
-                top: `${(activePoint.y / 160) * 100}%`,
-              }}
-              className="absolute -translate-x-1/2 -translate-y-full mb-3 pointer-events-none transition-all duration-200 z-10"
-            >
-              <div className="relative flex flex-col items-center rounded-xl bg-slate-900 px-3 py-1.5 text-white shadow-xl">
-                <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">
-                  Total income
-                </span>
-                <span className="text-xs font-black text-white">
-                  {formatMoney(activePoint.income)}
-                </span>
-                {/* Arrow Pointer */}
-                <div className="absolute -bottom-1 h-2 w-2 rotate-45 bg-slate-900" />
+            {activePoint && (
+              <div
+                style={{
+                  left: `${(activePoint.x / 600) * 100}%`,
+                  top: `${(activePoint.y / 160) * 100}%`,
+                }}
+                className="absolute -translate-x-1/2 -translate-y-full mb-3 pointer-events-none transition-all duration-200 z-10"
+              >
+                <div className="relative flex flex-col items-center rounded-xl bg-slate-900 px-3 py-1.5 text-white shadow-xl">
+                  <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">
+                    Total income ({activePoint.label})
+                  </span>
+                  <span className="text-xs font-black text-white">
+                    {formatMoney(activePoint.income)}
+                  </span>
+                  {/* Arrow Pointer */}
+                  <div className="absolute -bottom-1 h-2 w-2 rotate-45 bg-slate-900" />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Bottom Sub-Metrics Row (Restoboard style: Total Expenses, Total Income, Total Profit) */}
+      {/* Bottom Sub-Metrics Row */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-1 text-center">
         <div className="rounded-xl border border-slate-200/80 bg-white p-2.5 sm:p-3 shadow-2xs">
           <p className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">

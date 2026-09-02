@@ -264,20 +264,20 @@ export default function VipCustomersPage() {
   const customersWithDebt = customers.filter((c) => Number(c.current_debt || 0) > 0).length;
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-4 pb-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">
               VIP & Credit Customers
             </h1>
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-extrabold text-amber-900 border border-amber-300 shadow-2xs">
-              <Sparkles className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-900 border border-amber-300 shadow-2xs">
+              <Sparkles className="h-3 w-3 fill-amber-500 text-amber-500" />
               Customer Ledger
             </span>
           </div>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-0.5 text-xs text-slate-500">
             Manage authorized credit limits, VIP guest profiles, and record tab repayments.
           </p>
         </div>
@@ -285,111 +285,111 @@ export default function VipCustomersPage() {
         <button
           type="button"
           onClick={openCreateModal}
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-md transition hover:from-amber-600 hover:to-amber-700 active:scale-98 cursor-pointer"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:from-amber-600 hover:to-amber-700 active:scale-98 cursor-pointer"
         >
-          <Plus className="h-5 w-5" />
+          <Plus className="h-4 w-4" />
           Register VIP Customer
         </button>
       </div>
 
       {/* Alert Messages */}
       {success && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm font-semibold text-emerald-800 animate-in fade-in">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+        <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs font-semibold text-emerald-800 animate-in fade-in">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           {success}
         </div>
       )}
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-5 shadow-2xs">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wider text-red-600">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-red-600">
               Total Outstanding Debt
             </p>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-100 text-red-600">
-              <ShieldAlert className="h-5 w-5" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-100 text-red-600">
+              <ShieldAlert className="h-4 w-4" />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-extrabold text-slate-900">
-            {totalDebt.toLocaleString()} <span className="text-xs font-semibold text-slate-500">ETB</span>
+          <p className="mt-2 text-lg font-bold text-slate-900">
+            {totalDebt.toLocaleString()} <span className="text-[10px] font-semibold text-slate-500">ETB</span>
           </p>
-          <p className="mt-1 text-xs text-red-700 font-medium">
+          <p className="mt-0.5 text-[10px] text-red-700 font-medium">
             Across {customersWithDebt} active credit accounts
           </p>
         </div>
 
-        <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-5 shadow-2xs">
+        <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wider text-amber-700">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700">
               Active VIP Accounts
             </p>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-              <UserCheck className="h-5 w-5" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+              <UserCheck className="h-4 w-4" />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-extrabold text-slate-900">
-            {activeVips} <span className="text-xs font-semibold text-slate-500">Guests</span>
+          <p className="mt-2 text-lg font-bold text-slate-900">
+            {activeVips} <span className="text-[10px] font-semibold text-slate-500">Guests</span>
           </p>
-          <p className="mt-1 text-xs text-amber-800 font-medium">
+          <p className="mt-0.5 text-[10px] text-amber-800 font-medium">
             Pre-approved for credit tab
           </p>
         </div>
 
-        <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-5 shadow-2xs">
+        <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
               Total Credit Limit
             </p>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-              <CreditCard className="h-5 w-5" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+              <CreditCard className="h-4 w-4" />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-extrabold text-slate-900">
-            {totalCreditLimit.toLocaleString()} <span className="text-xs font-semibold text-slate-500">ETB</span>
+          <p className="mt-2 text-lg font-bold text-slate-900">
+            {totalCreditLimit.toLocaleString()} <span className="text-[10px] font-semibold text-slate-500">ETB</span>
           </p>
-          <p className="mt-1 text-xs text-blue-700 font-medium">
+          <p className="mt-0.5 text-[10px] text-blue-700 font-medium">
             Authorized maximum debt ceiling
           </p>
         </div>
 
-        <div className="rounded-2xl border border-purple-200 bg-gradient-to-br from-purple-50 to-white p-5 shadow-2xs">
+        <div className="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-white p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wider text-purple-600">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-purple-600">
               Credit Utilization
             </p>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
-              <Sparkles className="h-5 w-5 text-purple-600" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
+              <Sparkles className="h-4 w-4 text-purple-600" />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-extrabold text-slate-900">
+          <p className="mt-2 text-lg font-bold text-slate-900">
             {totalCreditLimit > 0 ? ((totalDebt / totalCreditLimit) * 100).toFixed(1) : "0"}%
           </p>
-          <p className="mt-1 text-xs text-purple-700 font-medium">
+          <p className="mt-0.5 text-[10px] text-purple-700 font-medium">
             Debt vs Approved Limit
           </p>
         </div>
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search by customer name, phone number, or company..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2 text-sm text-slate-800 outline-none focus:border-amber-500 focus:bg-white"
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 py-1.5 text-xs text-slate-800 outline-none focus:border-amber-500 focus:bg-white"
           />
         </div>
 
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-slate-400" />
+          <Filter className="h-3.5 w-3.5 text-slate-400" />
           <select
             value={tierFilter}
             onChange={(e) => setTierFilter(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-amber-500"
+            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-amber-500"
           >
             <option value="all">All VIP Tiers</option>
             <option value="Gold VIP">Gold VIP</option>
@@ -401,26 +401,26 @@ export default function VipCustomersPage() {
       </div>
 
       {/* Customer Directory Table */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-700">
-            <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+          <table className="w-full text-left text-xs text-slate-700">
+            <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
               <tr>
-                <th className="px-5 py-3.5">VIP Customer</th>
-                <th className="px-5 py-3.5">Tier & Company</th>
-                <th className="px-5 py-3.5">Approved Credit Limit</th>
-                <th className="px-5 py-3.5">Current Debt</th>
-                <th className="px-5 py-3.5">Available Credit</th>
-                <th className="px-5 py-3.5 text-right">Actions</th>
+                <th className="px-3.5 py-2.5">VIP Customer</th>
+                <th className="px-3.5 py-2.5">Tier & Company</th>
+                <th className="px-3.5 py-2.5">Approved Credit Limit</th>
+                <th className="px-3.5 py-2.5">Current Debt</th>
+                <th className="px-3.5 py-2.5">Available Credit</th>
+                <th className="px-3.5 py-2.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    <Users className="mx-auto mb-2 h-10 w-10 text-slate-300" />
-                    <p className="font-semibold">No VIP Customers found</p>
-                    <p className="text-xs">Adjust search filters or add a new VIP customer.</p>
+                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                    <Users className="mx-auto mb-1.5 h-8 w-8 text-slate-300" />
+                    <p className="font-semibold text-xs">No VIP Customers found</p>
+                    <p className="text-[11px]">Adjust search filters or add a new VIP customer.</p>
                   </td>
                 </tr>
               ) : (
@@ -433,15 +433,15 @@ export default function VipCustomersPage() {
                   return (
                     <tr key={cust.id} className="transition hover:bg-amber-50/30">
                       {/* Name & Phone */}
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 font-extrabold text-amber-800 shadow-2xs">
+                      <td className="px-3.5 py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 font-extrabold text-[11px] text-amber-800 shadow-2xs">
                             {cust.name.substring(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900">{cust.name}</p>
-                            <p className="flex items-center gap-1 text-xs text-slate-500">
-                              <Phone className="h-3 w-3" />
+                            <p className="font-bold text-slate-900 text-xs">{cust.name}</p>
+                            <p className="flex items-center gap-1 text-[11px] text-slate-500">
+                              <Phone className="h-2.5 w-2.5" />
                               {cust.phone}
                             </p>
                           </div>
@@ -449,15 +449,15 @@ export default function VipCustomersPage() {
                       </td>
 
                       {/* Tier & Company */}
-                      <td className="px-5 py-4">
-                        <div className="space-y-1">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900 border border-amber-300">
-                            <Sparkles className="h-3 w-3 fill-amber-500 text-amber-500" />
+                      <td className="px-3.5 py-2.5">
+                        <div className="space-y-0.5">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-300">
+                            <Sparkles className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
                             {cust.tier}
                           </span>
                           {cust.company && (
-                            <p className="flex items-center gap-1 text-xs text-slate-500">
-                              <Building className="h-3 w-3" />
+                            <p className="flex items-center gap-1 text-[10px] text-slate-500">
+                              <Building className="h-2.5 w-2.5" />
                               {cust.company}
                             </p>
                           )}
@@ -465,22 +465,22 @@ export default function VipCustomersPage() {
                       </td>
 
                       {/* Credit Limit */}
-                      <td className="px-5 py-4 font-bold text-slate-800">
+                      <td className="px-3.5 py-2.5 font-bold text-slate-800 text-xs">
                         {limit.toLocaleString()} ETB
                       </td>
 
                       {/* Current Debt */}
-                      <td className="px-5 py-4">
-                        <div className="space-y-1">
+                      <td className="px-3.5 py-2.5">
+                        <div className="space-y-0.5">
                           <span
-                            className={`inline-flex items-center gap-1 font-extrabold text-sm ${
+                            className={`inline-flex items-center gap-1 font-extrabold text-xs ${
                               debt > 0 ? "text-red-600" : "text-emerald-600"
                             }`}
                           >
                             {debt.toLocaleString()} ETB
                           </span>
                           {isMaxedOut && (
-                            <span className="block text-[10px] font-bold text-red-500 uppercase">
+                            <span className="block text-[9px] font-bold text-red-500 uppercase">
                               Limit Reached
                             </span>
                           )}
@@ -488,41 +488,41 @@ export default function VipCustomersPage() {
                       </td>
 
                       {/* Available Credit */}
-                      <td className="px-5 py-4 font-semibold text-emerald-700">
+                      <td className="px-3.5 py-2.5 font-semibold text-emerald-700 text-xs">
                         {available.toLocaleString()} ETB
                       </td>
 
                       {/* Actions */}
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-3.5 py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
                           {debt > 0 && (
                             <button
                               type="button"
                               onClick={() => openRepayModal(cust)}
-                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-700 cursor-pointer shadow-2xs"
+                              className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white transition hover:bg-emerald-700 cursor-pointer shadow-2xs"
                               title="Record Repayment"
                             >
-                              <DollarSign className="h-3.5 w-3.5" />
-                              Repay Debt
+                              <DollarSign className="h-3 w-3" />
+                              Repay
                             </button>
                           )}
 
                           <button
                             type="button"
                             onClick={() => openEditModal(cust)}
-                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+                            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
                             title="Edit VIP Profile"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-3.5 w-3.5" />
                           </button>
 
                           <button
                             type="button"
                             onClick={() => handleDeleteCustomer(cust.id)}
-                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 cursor-pointer"
+                            className="rounded-md p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 cursor-pointer"
                             title="Delete Profile"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </td>

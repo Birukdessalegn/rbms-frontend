@@ -417,33 +417,33 @@ export default function DashboardPage() {
           STATISTICS
       ====================================================== */}
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
 
           return (
             <div
               key={stat.title}
-              className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+              className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-xs transition hover:shadow-sm"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">
+                  <p className="text-xs font-medium text-gray-500">
                     {stat.title}
                   </p>
 
-                  <h2 className="mt-2 text-2xl font-bold text-gray-900">
+                  <h2 className="mt-1 text-xl font-bold text-gray-900">
                     {stat.value}
                   </h2>
                 </div>
 
-                <div className="rounded-xl bg-blue-50 p-3 text-blue-600">
-                  <Icon className="h-6 w-6" />
+                <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
+                  <Icon className="h-4 w-4" />
                 </div>
               </div>
 
-              <div className="mt-4">
-                <span className="text-xs font-medium text-gray-400">
+              <div className="mt-2">
+                <span className="text-[11px] font-medium text-gray-400">
                   {stat.description}
                 </span>
               </div>
@@ -977,24 +977,24 @@ function SummaryCard({
   icon: Icon,
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+    <div className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-xs transition hover:shadow-sm">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-500">
+          <p className="text-xs font-medium text-gray-500">
             {title}
           </p>
 
-          <h2 className="mt-2 text-2xl font-bold text-gray-900">
+          <h2 className="mt-1 text-xl font-bold text-gray-900">
             {value}
           </h2>
 
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-0.5 text-[11px] text-gray-400">
             {description}
           </p>
         </div>
 
-        <div className="rounded-xl bg-gray-50 p-3 text-gray-600">
-          <Icon className="h-5 w-5" />
+        <div className="rounded-lg bg-gray-50 p-2 text-gray-600">
+          <Icon className="h-4 w-4" />
         </div>
       </div>
     </div>

@@ -278,12 +278,18 @@ function ActiveOrders() {
     (o) => o.status !== "cancelled" && !(o.status === "completed" && o.payment_status === "paid")
   );
 
-  /* Role-Based Order Scoping: Waiters (roleId 5) only see their own assigned tickets */
-  const isWaiter =
-    String(user?.role || "").toLowerCase() === "waiter" ||
-    Number(user?.roleId || user?.role_id) === 5 ||
-    user?.role === 5 ||
-    user?.role === "5";
+  /* Role-Based Order Scoping: Waiters (roleId 6) only see their own assigned tickets */
+  const userRoleName = (
+    typeof user?.role === "string"
+      ? user.role
+      : user?.role?.name || user?.role_name || user?.roleName || ""
+  ).toLowerCase();
+
+  const userRoleId = Number(
+    user?.roleId || user?.role_id || user?.role?.id || 0
+  );
+
+  const isWaiter = userRoleName === "waiter" || userRoleId === 6;
 
   const userIdStr = String(user?.id || user?.user_id || user?.userId || "");
   const employeeIdStr = String(user?.employee_id || user?.employeeId || "");

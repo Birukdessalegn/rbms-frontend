@@ -407,14 +407,8 @@ function ActiveOrders() {
       return sum + qty * price;
     }, 0);
 
-    const discount = Number(order.discount || order.discount_amount || 0);
-    const tax = Number(order.tax || order.tax_amount || subtotal * 0.05);
-    const serviceCharge = Number(order.service_charge || order.service_charge_amount || subtotal * 0.10);
-
-    const grandTotal = Math.max(subtotal - discount + tax + serviceCharge, 0);
     const dbTotal = Number(order.total_amount ?? order.totalAmount ?? order.total ?? 0);
-
-    return dbTotal > subtotal ? dbTotal : (grandTotal > 0 ? grandTotal : subtotal);
+    return dbTotal > 0 ? dbTotal : subtotal;
   };
 
   // ============================================================

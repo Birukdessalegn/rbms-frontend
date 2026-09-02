@@ -59,6 +59,7 @@ function ProductsPage() {
 
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
+  const [basePriceInput, setBasePriceInput] = useState("");
 
   const [form, setForm] = useState({
     productCode: "",
@@ -180,6 +181,7 @@ function ProductsPage() {
     setEditingProduct(null);
     setImageFile(null);
     setImagePreview("");
+    setBasePriceInput("");
 
     setForm({
       productCode: "",
@@ -208,6 +210,8 @@ function ProductsPage() {
     setEditingProduct(prod);
     setImageFile(null);
     setImagePreview(prod.image_url || prod.imageUrl || "");
+    const prodPrice = Number(prod.price || 0);
+    setBasePriceInput(prodPrice > 0 ? (prodPrice / 1.15).toFixed(2) : "");
 
     setForm({
       productCode: prod.product_code || prod.productCode || "",
@@ -1173,25 +1177,79 @@ function ProductsPage() {
 
               </div>
 
-              {/* Prices */}
+              {/* Prices with Live VAT Auto-Calculation */}
 
               <div className="grid gap-4 md:grid-cols-2">
 
-                <FormField label="Customer Price *">
+                <FormField label="Base Price (Excl. VAT)">
+
+                  <input
+                    type="number"
+                    value={basePriceInput}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setBasePriceInput(val);
+                      if (val !== "" && !isNaN(Number(val))) {
+                        const finalWithVat = (Number(val) * 1.15).toFixed(2);
+                        setForm((prev) => ({ ...prev, price: finalWithVat }));
+                      } else {
+                        setForm((prev) => ({ ...prev, price: "" }));
+                      }
+                    }}
+                    placeholder="1000"
+                    min="0"
+                    step="0.01"
+                    className={inputClass}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Net price before 15% VAT (e.g. 1,000)
+                  </p>
+
+                </FormField>
+
+                <FormField label="Final Customer Price (Incl. 15% VAT) *">
 
                   <input
                     type="number"
                     name="price"
                     value={form.price}
-                    onChange={handleChange}
-                    placeholder="350"
-                    min="0"
-                    step="0.01"
-                    required
-                    className={inputClass}
+                    readOnly
+                    disabled
+                    placeholder="Auto-calculated (e.g. 1,150)"
+                    className={`${inputClass} bg-slate-100 font-semibold text-slate-700 cursor-not-allowed`}
                   />
+                  <p className="mt-1 text-[11px] text-emerald-700 font-medium">
+                    Auto-calculated with 15% VAT for POS & Receipts
+                  </p>
 
                 </FormField>
+
+              </div>
+
+              {/* VAT Live Preview Card */}
+              {Number(form.price) > 0 && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-xs text-emerald-950 shadow-sm">
+                  <p className="font-bold text-emerald-900 text-xs mb-1.5 flex items-center gap-1.5">
+                    ✨ Live VAT & Price Breakdown (15% Ethiopian VAT)
+                  </p>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-slate-700">
+                      <span>Base Net Price (Excl. VAT):</span>
+                      <span className="font-mono font-medium">{(Number(form.price) / 1.15).toFixed(2)} ETB</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-700">
+                      <span>+ 15% VAT Amount:</span>
+                      <span className="font-mono font-medium">+{(Number(form.price) - Number(form.price) / 1.15).toFixed(2)} ETB</span>
+                    </div>
+                    <div className="flex justify-between border-t border-emerald-200 pt-1.5 font-bold text-emerald-950 text-sm">
+                      <span>Final Selling Price (Saved on POS):</span>
+                      <span className="font-mono text-emerald-700">{Number(form.price).toFixed(2)} ETB</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid gap-4 md:grid-cols-2">
 
                 <FormField label="Staff Price (ETB)">
 

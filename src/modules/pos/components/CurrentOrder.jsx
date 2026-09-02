@@ -11,12 +11,13 @@ function CurrentOrder({
   orderType,
 })
  {
-  const subtotal = orderItems.reduce(
-    (total, item) => total + item.price * item.quantity,
+  const total = orderItems.reduce(
+    (acc, item) => acc + item.price * item.quantity,
     0
   );
 
-  const total = subtotal;
+  const vat = total * (15 / 115);
+  const netSubtotal = total - vat;
 
     return (
       <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white">
@@ -72,23 +73,22 @@ function CurrentOrder({
           <div className="space-y-3 text-sm">
 
             <div className="flex justify-between text-gray-600">
-              <span>Subtotal</span>
-              <span>{subtotal.toLocaleString()} ETB</span>
+              <span>Subtotal (Excl. VAT)</span>
+              <span>{netSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB</span>
             </div>
 
-            <div className="flex justify-between text-emerald-600 text-xs font-semibold">
-              <span>VAT / Tax</span>
-              <span>Included in Price</span>
+            <div className="flex justify-between text-gray-600 text-xs">
+              <span>VAT (15% Included)</span>
+              <span>{vat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB</span>
             </div>
 
             <div className="border-t border-gray-200 pt-3">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-gray-900">
-                  Total
+                  Total (Incl. VAT)
                 </span>
-
                 <span className="text-xl font-bold text-blue-600">
-                  {total.toLocaleString()} ETB
+                  {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
                 </span>
               </div>
             </div>

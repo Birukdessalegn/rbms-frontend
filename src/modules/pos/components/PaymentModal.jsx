@@ -415,24 +415,12 @@ function PaymentModal({
     0
   );
 
-  // Service charge (10%)
+  // Service charge (0 if not set in DB)
   const serviceCharge = Number(
     fullOrder?.service_charge ??
     fullOrder?.service_charge_amount ??
     order?.service_charge ??
-    (calculatedSubtotal * 0.10)
-  );
-
-  // Tax / VAT (5%)
-  const tax = Number(
-    fullOrder?.tax ??
-    fullOrder?.tax_amount ??
-    order?.tax ??
-    (calculatedSubtotal * 0.05)
-  );
-
-  const calculatedGrandTotal = Math.max(
-    calculatedSubtotal - discount + serviceCharge + tax,
+    order?.service_charge_amount ??
     0
   );
 
@@ -446,9 +434,13 @@ function PaymentModal({
     0
   );
 
-  const total = dbTotal > 0 ? dbTotal : calculatedGrandTotal;
+  const total = calculatedSubtotal > 0
+    ? Math.max(calculatedSubtotal - discount, 0)
+    : (dbTotal > 0 ? dbTotal : 0);
 
-  const subtotal = calculatedSubtotal > 0 ? calculatedSubtotal : total;
+  // Tax / VAT (15% included)
+  const tax = total * (15 / 115);
+  const subtotal = Math.max(total - tax, 0);
 
   /* 
    * Already paid 
@@ -1147,7 +1139,7 @@ function PaymentModal({
 
                 <div className="flex justify-between text-sm text-gray-500">
                   <span>
-                    Tax
+                    VAT / Tax (15%)
                   </span>
 
                   <span>

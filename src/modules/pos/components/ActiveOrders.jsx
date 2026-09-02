@@ -291,6 +291,7 @@ function ActiveOrders() {
 
   const visibleOrders = isWaiter
     ? activeOrders.filter((order) => {
+
         const orderWaiterId = String(
           order.waiter_id ||
           order.waiterId ||

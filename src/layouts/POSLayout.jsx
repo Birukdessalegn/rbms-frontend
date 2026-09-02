@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   ShoppingCart,
+  CheckCircle2,
   BarChart3,
   Receipt,
   LogOut,
@@ -18,6 +19,11 @@ const menuItems = [
     name: "POS Terminal",
     path: "/pos",
     icon: ShoppingCart,
+  },
+  {
+    name: "My Served Orders",
+    path: "/pos/served-orders",
+    icon: CheckCircle2,
   },
   {
     name: "Daily Sales Audit",

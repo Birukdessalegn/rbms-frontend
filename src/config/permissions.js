@@ -39,6 +39,7 @@ export const ROLE_PERMISSIONS = {
   // Waiter permissions
   [ROLES.WAITER]: [
     "dashboard.view",
+    "pos.view",
     "orders.view",
     "orders.create",
     "customers.view",

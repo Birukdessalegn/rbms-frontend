@@ -639,27 +639,27 @@ function ActiveOrders() {
 
         ) : (
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-1 sm:mx-0">
 
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-left text-xs sm:text-sm">
 
-              <thead className="bg-slate-100/80 text-xs font-bold uppercase tracking-wider text-slate-600">
+              <thead className="bg-slate-100/80 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-600">
 
                 <tr>
 
-                  <th className="px-5 py-4">
+                  <th className="px-3 py-3 sm:px-5 sm:py-4 whitespace-nowrap">
                     Table & Order
                   </th>
 
-                  <th className="px-5 py-4">
+                  <th className="px-3 py-3 sm:px-5 sm:py-4 min-w-[200px]">
                     Ordered Items (Food, Drinks & Other)
                   </th>
 
-                  <th className="px-5 py-4 text-center">
+                  <th className="px-3 py-3 sm:px-5 sm:py-4 text-center whitespace-nowrap">
                     Table Status
                   </th>
 
-                  <th className="px-5 py-4 text-right">
+                  <th className="px-3 py-3 sm:px-5 sm:py-4 text-right whitespace-nowrap">
                     Actions & Payment
                   </th>
 
@@ -691,7 +691,7 @@ function ActiveOrders() {
                     >
 
                       {/* TABLE & ORDER */}
-                      <td className="px-5 py-4 min-w-[200px]">
+                      <td className="px-3 py-3 sm:px-5 sm:py-4 min-w-[160px] sm:min-w-[200px]">
                         <div className="flex flex-col">
                           <span className="text-base font-extrabold text-slate-900">
                             {order.table_number || order.table_id
@@ -781,7 +781,7 @@ function ActiveOrders() {
                       </td>
 
                       {/* ITEMS (FOOD, DRINKS, OTHER) */}
-                      <td className="min-w-[280px] px-5 py-3">
+                      <td className="min-w-[200px] sm:min-w-[280px] px-3 py-3 sm:px-5 sm:py-3">
 
                         <div className="flex flex-wrap items-center gap-1.5">
 
@@ -869,10 +869,10 @@ function ActiveOrders() {
                       </td>
 
                       {/* OVERALL TABLE STATUS */}
-                      <td className="px-5 py-3 text-center">
+                      <td className="px-3 py-3 sm:px-5 sm:py-3 text-center whitespace-nowrap">
 
                         <span
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-extrabold ${getStatusStyle(
+                          className={`inline-flex rounded-full px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-extrabold ${getStatusStyle(
                             order.status
                           )}`}
                         >
@@ -882,7 +882,7 @@ function ActiveOrders() {
                       </td>
 
                       {/* ACTIONS & PAYMENT */}
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-3 py-3 sm:px-5 sm:py-3 text-right whitespace-nowrap">
 
                         {paidOrderIds.has(String(order.id)) ||
                         paidOrderIds.has(String(order.order_id)) ||

@@ -21,7 +21,7 @@ const rolePermissions = {
     "finance",
   ],
 
-  WAITER: ["pos"],
+  WAITER: ["pos", "dashboard", "orders"],
   CASHIER: ["pos", "finance"],
   CHEF: ["kitchen"],
   BARTENDER: ["bar"],

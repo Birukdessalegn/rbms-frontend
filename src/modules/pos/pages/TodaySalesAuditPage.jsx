@@ -590,15 +590,15 @@ function TodaySalesAuditPage() {
               <p className="mt-0.5 text-xs text-slate-400">Try adjusting your search criteria or filter tabs.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto -mx-1 sm:mx-0">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-100/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
                   <tr>
-                    <th className="px-5 py-4">Table & Ticket</th>
-                    <th className="px-5 py-4">Server / Waiter</th>
-                    <th className="px-5 py-4">Total Amount</th>
-                    <th className="px-5 py-4">Kitchen / Table Status</th>
-                    <th className="px-5 py-4">Payment Method & Audit</th>
+                    <th className="px-3 py-3 sm:px-5 sm:py-4 whitespace-nowrap">Table & Ticket</th>
+                    <th className="px-3 py-3 sm:px-5 sm:py-4 whitespace-nowrap">Server / Waiter</th>
+                    <th className="px-3 py-3 sm:px-5 sm:py-4 whitespace-nowrap">Total Amount</th>
+                    <th className="px-3 py-3 sm:px-5 sm:py-4 whitespace-nowrap">Kitchen / Table Status</th>
+                    <th className="px-3 py-3 sm:px-5 sm:py-4 min-w-[180px]">Payment Method & Audit</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
@@ -611,7 +611,7 @@ function TodaySalesAuditPage() {
                     return (
                       <tr key={order.id || order.order_number} className="hover:bg-slate-50/80 transition">
                         {/* Table & Ticket */}
-                        <td className="px-5 py-4">
+                        <td className="px-3 py-3 sm:px-5 sm:py-4">
                           <div className="flex flex-col">
                             <span className="text-sm font-black text-slate-900">
                               {order.table_number || order.table_id
@@ -628,15 +628,15 @@ function TodaySalesAuditPage() {
                         </td>
 
                         {/* Server / Waiter */}
-                        <td className="px-5 py-4">
-                          <div className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-extrabold text-indigo-900 border border-indigo-100 shadow-2xs">
+                        <td className="px-3 py-3 sm:px-5 sm:py-4">
+                          <div className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-extrabold text-indigo-900 border border-indigo-100 shadow-2xs">
                             <User size={14} className="text-indigo-600" />
                             <span>{waiterName}</span>
                           </div>
                         </td>
 
                         {/* Total Amount */}
-                        <td className="px-5 py-4">
+                        <td className="px-3 py-3 sm:px-5 sm:py-4">
                           <div className="flex flex-col">
                             <span className="text-sm font-black text-slate-900">
                               {orderTotal.toFixed(2)} ETB
@@ -650,7 +650,7 @@ function TodaySalesAuditPage() {
                         </td>
 
                         {/* Kitchen / Table Status */}
-                        <td className="px-5 py-4">
+                        <td className="px-3 py-3 sm:px-5 sm:py-4">
                           <span
                             className={`badge ${
                               order.status === "completed"
@@ -667,7 +667,7 @@ function TodaySalesAuditPage() {
                         </td>
 
                         {/* Payment Method & Audit Details */}
-                        <td className="px-5 py-4">
+                        <td className="px-3 py-3 sm:px-5 sm:py-4">
                           <div className="space-y-1.5">
                             {payments.length > 0 ? (
                               payments.map((p, pIdx) => (

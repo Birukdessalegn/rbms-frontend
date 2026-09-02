@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   UserCheck,
   Receipt,
+  CheckCircle2,
   BarChart3,
   Menu,
   X,
@@ -33,7 +34,6 @@ import {
   Settings,
   User,
   ShieldCheck,
-  CheckCircle2,
   ClipboardList,
   Clock,
   ArrowLeftRight,
@@ -77,6 +77,11 @@ const navigationGroups = [
             name: "POS Terminal",
             path: "/pos",
             icon: ShoppingCart,
+          },
+          {
+            name: "My Served Orders",
+            path: "/pos/served-orders",
+            icon: CheckCircle2,
           },
           {
             name: "Attendance Terminal",
@@ -142,13 +147,6 @@ const navigationGroups = [
             icon: BarChart3,
           },
         ],
-      },
-
-      {
-        name: "Reservations",
-        path: "/reservations",
-        icon: CalendarDays,
-        permission: "reservations.view",
       },
 
       {
@@ -248,12 +246,6 @@ const navigationGroups = [
         permission: "products.view",
       },
 
-      {
-        name: "VIP & Credit Customers",
-        path: "/admin/vip-customers",
-        icon: UserCheck,
-        permission: "customers.view",
-      },
     ],
   },
 
@@ -536,14 +528,12 @@ function DashboardLayout() {
             }
 
             /*
-              WAITER restricted items
+              WAITER restricted items (Allow POS & Served Orders)
             */
             if (normalizedRole === "WAITER") {
               if (
                 item.path === "/tables" ||
-                item.path === "/pos" ||
-                item.permission === "tables.view" ||
-                item.permission === "pos.view"
+                item.permission === "tables.view"
               ) {
                 return false;
               }
@@ -557,21 +547,20 @@ function DashboardLayout() {
                 item.name === "Finance" ||
                 item.permission === "finance.view" ||
                 item.path === "/finance" ||
-                item.path?.startsWith("/finance")
+                item.path?.startsWith("/finance") ||
+                item.path === "/tables" ||
+                item.permission === "tables.view"
               ) {
                 return false;
               }
             }
 
             /*
-              Dashboard is only for ADMIN and MANAGER.
+              Dashboard is available for ADMIN, MANAGER, CASHIER, and WAITER.
             */
 
             if (item.path === "/dashboard") {
-              return (
-                normalizedRole === "ADMIN" ||
-                normalizedRole === "MANAGER"
-              );
+              return true;
             }
 
             /*
@@ -592,7 +581,6 @@ function DashboardLayout() {
               const visibleChildren = item.children.filter((child) => {
                 if (normalizedRole === "WAITER") {
                   const hiddenWaiterPaths = [
-                    "/pos",
                     "/employees/attendance",
                     "/pos/sales-audit",
                     "/pos/tables",
@@ -605,7 +593,11 @@ function DashboardLayout() {
                   }
                 }
                 if (normalizedRole === "CASHIER") {
-                  if (child.path?.startsWith("/finance")) {
+                  if (
+                    child.path?.startsWith("/finance") ||
+                    child.path === "/pos/tables" ||
+                    child.path === "/tables"
+                  ) {
                     return false;
                   }
                 }
@@ -680,13 +672,13 @@ function DashboardLayout() {
 
           ${
             isCollapsed
-              ? "lg:w-20"
-              : "lg:w-64"
+              ? "lg:w-16"
+              : "lg:w-56"
           }
 
           ${
             isMobileOpen
-              ? "translate-x-0 w-64 shadow-2xl"
+              ? "translate-x-0 w-56 max-w-[80vw] shadow-2xl"
               : "-translate-x-full lg:translate-x-0"
           }
         `}
@@ -1032,8 +1024,8 @@ function DashboardLayout() {
 
           ${
             isCollapsed
-              ? "lg:ml-20"
-              : "lg:ml-64"
+              ? "lg:ml-16"
+              : "lg:ml-56"
           }
         `}
       >

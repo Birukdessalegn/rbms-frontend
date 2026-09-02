@@ -8,6 +8,7 @@ import PaymentPage from "../modules/pos/pages/PaymentPage";
 import TablesPage from "../modules/pos/components/TablesPage";
 import ProductsPage from "../modules/products/ProductsPage";  
 import VipCustomersPage from "../modules/customers/VipCustomersPage";
+import WaiterServedOrdersPage from "../modules/pos/pages/WaiterServedOrdersPage";
 
 
 import ExpensesPage from "../modules/expense/pages/ExpensesPage";
@@ -144,6 +145,10 @@ function AppRoutes() {
                 element={<TablesPage />}
               />
 
+              <Route
+                path="/pos/served-orders"
+                element={<WaiterServedOrdersPage />}
+              />
               <Route
                 path="/pos/reports"
                 element={<POSReportsPage />}
@@ -304,20 +309,7 @@ function AppRoutes() {
             </Route>
 
 
-            {/* -------------------------
-                RESERVATIONS
-            -------------------------- */}
 
-            <Route
-              element={
-                <PermissionRoute permission="reservations" />
-              }
-            >
-              <Route
-                path="/reservations"
-                element={<h1>Reservations</h1>}
-              />
-            </Route>
 
 
             {/* -------------------------

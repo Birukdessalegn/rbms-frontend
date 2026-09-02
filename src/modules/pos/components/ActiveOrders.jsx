@@ -349,11 +349,6 @@ function ActiveOrders() {
               userNameLower.length > 0 &&
               (tableWaiterName.includes(userNameLower) || userNameLower.includes(tableWaiterName))));
 
-        // Explicit Exclusion: If table is occupied on floor by another waiter, hide order from current waiter
-        if (matchedTable && matchedTable.status === "occupied" && !isTableOwnedByMe) {
-          return false;
-        }
-
         const matchesId =
           (userIdStr.length > 0 && orderWaiterId === userIdStr) ||
           (employeeIdStr.length > 0 && orderWaiterId === employeeIdStr);
@@ -363,9 +358,18 @@ function ActiveOrders() {
           orderWaiterName.length > 0 &&
           (orderWaiterName.includes(userNameLower) || userNameLower.includes(orderWaiterName));
 
+        const isMyOrder = isTableOwnedByMe || matchesId || matchesName;
         const isUnassigned = !orderWaiterId && !orderWaiterName;
 
-        return isTableOwnedByMe || matchesId || matchesName || isUnassigned;
+        // Explicit Exclusion: If table is explicitly occupied on floor by another waiter and not my order, hide it
+        if (matchedTable && matchedTable.status === "occupied" && !isMyOrder) {
+          const otherWaiterId = String(matchedTable.current_waiter_id || "");
+          if (otherWaiterId && otherWaiterId !== userIdStr && otherWaiterId !== employeeIdStr) {
+            return false;
+          }
+        }
+
+        return isMyOrder || isUnassigned;
       })
     : activeOrders;
 

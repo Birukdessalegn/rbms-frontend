@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { BarChart3 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import api from "../../../services/api";
 import audioService from "../../../services/audioService";
@@ -8,6 +10,8 @@ function KitchenPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [alertOrder, setAlertOrder] = useState(null);
+  const [kitchenStock, setKitchenStock] = useState([]);
+  const [activeTab, setActiveTab] = useState("orders"); // "orders" | "inventory"
 
   const prevOrdersRef = useRef(null);
 
@@ -164,6 +168,14 @@ function KitchenPage() {
     }
     return [];
   };
+
+  const kitchenStockMap = new Map();
+  (kitchenStock || []).forEach((item) => {
+    const pid = item.product_id || item.productId || item.id;
+    if (pid) kitchenStockMap.set(Number(pid), item);
+    const pName = (item.product_name || item.name || "").toLowerCase().trim();
+    if (pName) kitchenStockMap.set(pName, item);
+  });
 
   if (loading) {
     return (

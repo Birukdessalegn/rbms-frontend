@@ -138,9 +138,21 @@ function TableSelector({
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {tables.map((table) => {
           const isSelected = selectedTable?.id === table.id;
-          const isAvailable = table.status === "available";
 
           const activeOrderForTable = activeOrders.find((o) => {
+            const isUnpaid =
+              o.status !== "completed" &&
+              o.status !== "paid" &&
+              o.payment_status !== "paid" &&
+              o.is_paid !== true;
+
+            if (!isUnpaid) return false;
+
+            // Only consider orders that actually have a positive financial amount (> 0 ETB)
+            // Zero-dollar kitchen/bar prep tickets should not lock the table!
+            const amt = Number(o.total_amount || o.total || o.grand_total || o.subtotal || 0);
+            if (amt <= 0) return false;
+
             const oTableId = String(o.table_id || o.tableId || o.table?.id || "");
             const oTableNum = String(
               o.table_number || o.tableNumber || o.table?.table_number || ""
@@ -159,6 +171,10 @@ function TableSelector({
               (oTableId && tNum && oTableId === tNum)
             );
           });
+
+          const hasActiveUnpaidOrder = Boolean(activeOrderForTable);
+          const isAvailable = !hasActiveUnpaidOrder;
+          const displayStatus = isAvailable ? "available" : "occupied";
 
           const rawWaiterName =
             table.current_waiter_name ||
@@ -222,7 +238,7 @@ function TableSelector({
                     }
                   `}
                 >
-                  {table.status}
+                  {displayStatus}
                 </span>
               </div>
 
@@ -231,7 +247,7 @@ function TableSelector({
               </p>
 
               {/* Show Waiter Badge if Occupied and Selectable (e.g. My Table or Admin) */}
-              {table.status === "occupied" && canSelectTable && (
+              {!isAvailable && canSelectTable && (
                 <div className="mt-2 flex items-center gap-1 rounded-lg bg-amber-100/90 px-2 py-1 text-[11px] font-bold text-amber-950 border border-amber-200/80">
                   <span>👤</span>
                   <span className="truncate">Serving: {waiterName || "Assigned Waiter"}</span>

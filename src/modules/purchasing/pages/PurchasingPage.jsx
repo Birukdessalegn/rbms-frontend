@@ -1,7 +1,9 @@
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 import {
   ShoppingCart,
+  BarChart3,
   ClipboardList,
   Clock3,
   CheckCircle2,
@@ -751,6 +753,14 @@ function PurchasingPage() {
         </div>
 
         <div className="flex gap-2">
+
+          <Link
+            to="/purchasing/reports"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+          >
+            <BarChart3 className="h-4 w-4 text-emerald-400" />
+            Purchasing Reports
+          </Link>
 
           <button
             type="button"

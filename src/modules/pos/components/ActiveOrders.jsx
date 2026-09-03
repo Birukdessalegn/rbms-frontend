@@ -274,9 +274,15 @@ function ActiveOrders() {
 
   const { user } = useAuth();
 
-  const activeOrders = Array.from(tableOrderGroupMap.values()).filter(
-    (o) => o.status !== "cancelled" && !(o.status === "completed" && o.payment_status === "paid")
-  );
+  const activeOrders = Array.from(tableOrderGroupMap.values()).filter((o) => {
+    if (o.status === "cancelled" || o.status === "completed") return false;
+    if (o.payment_status === "paid") return false;
+    if (paidOrderIds.has(String(o.id || o.order_id))) return false;
+    const paidAmt = Number(o.paid_amount || 0);
+    const itemsTotal = (o.items || []).reduce((acc, i) => acc + Number(i.quantity || i.qty || 1) * Number(i.unit_price || i.price || 0), 0);
+    if (paidAmt > 0 && itemsTotal > 0 && paidAmt >= (itemsTotal - 0.5)) return false;
+    return true;
+  });
 
   /* Role-Based Order Scoping: Waiters (roleId 6) only see their own assigned tickets */
   const userRoleName = (
@@ -671,11 +677,25 @@ function ActiveOrders() {
 
                 {visibleOrders.map((order, orderIdx) => {
 
-                  const barOrder =
-                    getBarOrder(order);
+                  const barOrder = getBarOrder(order);
+                  const fullyServed = isOrderFullyServed(order);
 
-                  const fullyServed =
-                    isOrderFullyServed(order);
+                  const orderItems = Array.isArray(order.items) ? order.items : [];
+                  const hasFoodItems = orderItems.some((i) => {
+                    const cat = String(i.category || i.category_type || "").toLowerCase();
+                    const nm = String(i.name || i.product_name || i.title || "").toLowerCase();
+                    if (cat === "food" || cat === "kitchen") return true;
+                    if (cat === "drink" || cat === "bar") return false;
+                    const isDrinkKeyword = nm.includes("chivas") || nm.includes("beer") || nm.includes("wine") || nm.includes("whiskey") || nm.includes("vodka") || nm.includes("cognac") || nm.includes("gin") || nm.includes("cocktail") || nm.includes("soda") || nm.includes("water") || nm.includes("juice") || nm.includes("drink");
+                    return !isDrinkKeyword;
+                  });
+
+                  const hasDrinkItems = Boolean(barOrder) || orderItems.some((i) => {
+                    const cat = String(i.category || i.category_type || "").toLowerCase();
+                    const nm = String(i.name || i.product_name || i.title || "").toLowerCase();
+                    if (cat === "drink" || cat === "bar") return true;
+                    return nm.includes("chivas") || nm.includes("beer") || nm.includes("wine") || nm.includes("whiskey") || nm.includes("vodka") || nm.includes("cognac") || nm.includes("gin") || nm.includes("cocktail") || nm.includes("soda") || nm.includes("water") || nm.includes("juice") || nm.includes("drink");
+                  });
 
                   const rowKey =
                     order.uniqueKey ||
@@ -905,7 +925,7 @@ function ActiveOrders() {
                           <div className="flex flex-wrap items-center justify-end gap-2">
 
                             {/* SERVE DRINKS BUTTON */}
-                            {barOrder && (barOrder.status === "ready" || barOrder.status === "preparing") && (
+                            {hasDrinkItems && barOrder && (barOrder.status === "ready" || barOrder.status === "preparing") && (
                               <button
                                 type="button"
                                 onClick={() => handleServeDrinks(barOrder)}
@@ -916,7 +936,7 @@ function ActiveOrders() {
                             )}
 
                             {/* SERVE FOOD BUTTON */}
-                            {(order.status === "ready" || order.kitchenOrder?.status === "ready") && (
+                            {hasFoodItems && (order.status === "ready" || order.kitchenOrder?.status === "ready") && (
                               <button
                                 type="button"
                                 onClick={() => handleServeFood(order)}

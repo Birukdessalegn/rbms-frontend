@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef, useMemo } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import {
   Wine,
+  BarChart3,
   ClipboardList,
   Flame,
   CheckCircle2,
@@ -37,6 +38,7 @@ function BarPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [viewMode, setViewMode] = useState("cards"); // "cards" | "list"
   const [mainSectionTab, setMainSectionTab] = useState("orders"); // "orders" | "inventory"
+  const [barStockList, setBarStockList] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
 
   const prevOrdersRef = useRef(null);
@@ -63,10 +65,16 @@ function BarPage() {
     try {
       setError("");
 
-      const [barRes, prodRes] = await Promise.all([
+      const [barRes, prodRes, barStockRes] = await Promise.all([
         api("/bar/orders").catch(() => []),
         api("/products").catch(() => api("/bar/inventory").catch(() => ([]))),
+        api("/inventory/departments/bar").catch(() => api("/inventory/multi-location").catch(() => ([]))),
       ]);
+
+      const fetchedDeptStock = Array.isArray(barStockRes)
+        ? barStockRes
+        : (barStockRes?.inventory || barStockRes?.data || []);
+      setBarStockList(fetchedDeptStock);
 
       const fetchedOrders = barRes?.orders || barRes?.data || (Array.isArray(barRes) ? barRes : []);
       const fetchedProducts = prodRes?.products || prodRes?.data || (Array.isArray(prodRes) ? prodRes : []);
@@ -238,6 +246,18 @@ function BarPage() {
   const barDrinks = useMemo(() => {
     if (!Array.isArray(products)) return [];
 
+    const barStockMap = new Map();
+    (barStockList || []).forEach((item) => {
+      const pid = item.product_id || item.productId || item.id;
+      if (pid) {
+        barStockMap.set(Number(pid), Number(item.bar_quantity !== undefined ? item.bar_quantity : item.quantity || 0));
+      }
+      const pName = (item.product_name || item.name || "").toLowerCase().trim();
+      if (pName) {
+        barStockMap.set(pName, Number(item.bar_quantity !== undefined ? item.bar_quantity : item.quantity || 0));
+      }
+    });
+
     return products.filter((p) => {
       const cat = (p.category_name || p.category || p.type || "").toLowerCase();
       const pName = (p.product_name || p.name || "").toLowerCase();
@@ -305,15 +325,16 @@ function BarPage() {
         });
       });
 
-      const currentStock = Number(p.stock_quantity ?? p.stock ?? p.quantity ?? 10);
+      const realBarStock = barStockMap.get(Number(p.id)) ?? barStockMap.get(pName);
+      const currentStock = realBarStock !== undefined ? realBarStock : Number(p.stock_quantity ?? p.stock ?? p.quantity ?? 0);
       const isShotBased = totalShotsCapacity > 1 || isSpiritOrWhiskey;
 
       const shotsRemaining = isShotBased
-        ? Math.max(totalShotsCapacity - (shotsPurchased % totalShotsCapacity), 0)
+        ? Math.max(Math.round(currentStock * totalShotsCapacity), 0)
         : currentStock;
 
       const fillPercentage = isShotBased
-        ? Math.round((shotsRemaining / totalShotsCapacity) * 100)
+        ? Math.min(Math.round((currentStock / Math.max(currentStock, 1)) * 100), 100)
         : currentStock > 0 ? 100 : 0;
 
       return {
@@ -327,7 +348,7 @@ function BarPage() {
         currentStock,
       };
     });
-  }, [products, orders]);
+  }, [products, orders, barStockList]);
 
   // Search filtered bar drinks
   const filteredBarDrinks = useMemo(() => {
@@ -634,6 +655,14 @@ function BarPage() {
           <Sparkles className="h-4 w-4 text-amber-300" />
           Live Bar Drink Inventory & Shot Radar ({barDrinks.length})
         </button>
+
+        <Link
+          to="/bar/reports"
+          className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold bg-slate-900 text-white shadow-xs hover:bg-slate-800 transition sm:ml-auto"
+        >
+          <BarChart3 className="h-4 w-4 text-purple-300" />
+          Bar Reports
+        </Link>
       </div>
 
       {mainSectionTab === "inventory" ? (

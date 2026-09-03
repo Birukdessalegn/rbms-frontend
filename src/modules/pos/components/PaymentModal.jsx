@@ -39,13 +39,14 @@ function PaymentModal({
   const [showVipDropdown, setShowVipDropdown] = useState(false);
   const [selectedVip, setSelectedVip] = useState(null);
   const [vipList, setVipList] = useState([]);
+  const vipDropdownRef = useRef(null);
 
   useEffect(() => {
     localStorage.removeItem("rbms_vip_customers");
     const fetchVipCustomers = async () => {
       try {
-        const res = await api("/vip-customers");
-        const list = Array.isArray(res) ? res : res?.data || [];
+        const res = await api("/vip-customers").catch(() => api("/customers").catch(() => ([])));
+        const list = Array.isArray(res) ? res : res?.data || res?.customers || [];
         setVipList(list);
       } catch {
         setVipList([]);
@@ -54,13 +55,37 @@ function PaymentModal({
     fetchVipCustomers();
   }, []);
 
+  // Close VIP dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (vipDropdownRef.current && !vipDropdownRef.current.contains(e.target)) {
+        setShowVipDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const filteredVips = useMemo(() => {
-    if (!customerName.trim()) return vipList;
-    return vipList.filter((v) =>
-      v.name.toLowerCase().includes(customerName.toLowerCase()) ||
-      (v.phone && v.phone.includes(customerName))
-    );
+    const q = customerName.trim().toLowerCase();
+    if (!q) return vipList;
+    return vipList.filter((v) => {
+      const name = (v.name || v.full_name || v.customer_name || "").toLowerCase();
+      const phone = (v.phone || v.phone_number || "").toLowerCase();
+      const company = (v.company || "").toLowerCase();
+      const tier = (v.tier || "").toLowerCase();
+      return name.includes(q) || phone.includes(q) || company.includes(q) || tier.includes(q);
+    });
   }, [vipList, customerName]);
+
+  const selectedVipStats = useMemo(() => {
+    if (!selectedVip) return null;
+    const limit = Number(selectedVip.credit_limit || selectedVip.creditLimit || 0);
+    const debt = Number(selectedVip.current_debt || selectedVip.currentDebt || selectedVip.debt || 0);
+    const isUnlimited = (selectedVip.tier || "").toLowerCase().includes("gold") || (selectedVip.tier || "").toLowerCase().includes("unlimited") || limit >= 999999;
+    const available = isUnlimited ? 999999999 : Math.max(limit - debt, 0);
+    return { limit, debt, available, isUnlimited };
+  }, [selectedVip]);
 
   // PC Camera / WebCam state
   const [showWebcam, setShowWebcam] = useState(false);
@@ -485,6 +510,13 @@ function PaymentModal({
       return;
     }
 
+    if (paymentMethod === "credit" && selectedVip && selectedVipStats) {
+      if (payableAmount > selectedVipStats.available) {
+        setError(`Insufficient VIP credit limit. Order total (${payableAmount.toFixed(2)} ETB) exceeds available balance (${selectedVipStats.available.toFixed(2)} ETB).`);
+        return;
+      }
+    }
+
     try {
       setLoading(true);
 
@@ -499,9 +531,8 @@ function PaymentModal({
           fullOrder?.id,
         ];
         for (const val of candidates) {
-          const num = Number(val);
-          if (!isNaN(num) && Number.isInteger(num) && num > 0 && num < 2000000000) {
-            return num;
+          if (val !== undefined && val !== null && String(val).trim() !== "") {
+            return val;
           }
         }
         return null;
@@ -518,22 +549,24 @@ function PaymentModal({
               method: "POST",
               body: JSON.stringify({
                 amount: payableAmount,
-                paymentMethod,
+                paymentMethod: paymentMethod === "credit" ? "credit" : paymentMethod,
                 customerId: selectedVip?.id || null,
                 vipCustomerId: selectedVip?.id || null,
-                customerName: customerName.trim() || null,
+                vip_customer_id: selectedVip?.id || null,
+                customerName: selectedVip?.name || customerName.trim() || null,
+                customer_name: selectedVip?.name || customerName.trim() || null,
                 customerPhone: customerPhone.trim() || null,
                 creditReason: creditReason.trim() || null,
                 reference: paymentMode === "split"
                   ? `SPLIT_SHARE:${selectedItemsSummary.totalSelectedQty}_ITEMS`
-                  : customerName.trim()
-                    ? `VIP_CREDIT:${customerName.trim()}`
+                  : (selectedVip?.name || customerName.trim())
+                    ? `VIP_CREDIT:${selectedVip?.name || customerName.trim()}`
                     : receiptImage
                       ? "IMAGE_ATTACHED"
                       : "PAYMENT",
                 receiptImage: receiptImage || null,
                 imageUrl: receiptImage || null,
-                status: paymentMethod === "credit" ? "credit_pending" : "paid",
+                status: "paid",
                 splitItems: paymentMode === "split" ? selectedItemsSummary.selectedList : null,
               }),
             }
@@ -590,10 +623,13 @@ function PaymentModal({
         const tId = order?.table_id || order?.table_number;
         if (tId) {
           try {
-            await api(`/tables/${tId}/status`, {
+            await api(`/pos/tables/${tId}`, {
               method: "PUT",
               body: JSON.stringify({ status: "available" }),
-            });
+            }).catch(() => api(`/tables/${tId}`, {
+              method: "PUT",
+              body: JSON.stringify({ status: "available" }),
+            })).catch(() => null);
           } catch (tErr) {
             console.log("Table status reset notice:", tErr);
           }
@@ -626,16 +662,26 @@ function PaymentModal({
       }
 
       // FULL BILL SETTLEMENT (Remaining tab <= 0)
-      const tableIdToFree = order?.table_id || fullOrder?.table_id || order?.table_number || fullOrder?.table_number;
-      if (tableIdToFree) {
+      if (realOrderId) {
         try {
-          await api(`/tables/${tableIdToFree}/status`, {
+          await Promise.allSettled([
+            api(`/kitchen/orders/${realOrderId}/status`, { method: "PUT", body: JSON.stringify({ status: "completed", payment_status: "paid" }) }),
+            api(`/bar/orders/${realOrderId}/status`, { method: "PUT", body: JSON.stringify({ status: "completed", payment_status: "paid" }) }),
+            api(`/pos/orders/${realOrderId}/status`, { method: "PUT", body: JSON.stringify({ status: "completed", payment_status: "paid" }) }),
+          ]);
+        } catch (compErr) {
+          console.log("Order completion status notice:", compErr);
+        }
+      }
+
+      const rawTableToFree = order?.table_id || fullOrder?.table_id || order?.table_number || fullOrder?.table_number;
+      if (rawTableToFree) {
+        const cleanTId = String(rawTableToFree).replace(/^t/i, "");
+        try {
+          await api(`/pos/tables/${cleanTId}`, {
             method: "PUT",
-            body: JSON.stringify({ status: "available", is_occupied: false }),
-          }).catch(() => api(`/pos/tables/${tableIdToFree}/status`, {
-            method: "PUT",
-            body: JSON.stringify({ status: "available", is_occupied: false }),
-          }));
+            body: JSON.stringify({ status: "available" }),
+          }).catch(() => null);
         } catch (tblErr) {
           console.log("Table status reset notice:", tblErr);
         }
@@ -1318,7 +1364,58 @@ function PaymentModal({
                 </div>
               </div>
 
-              <div className="relative">
+              {/* Selected VIP Active Badge */}
+              {selectedVip && selectedVipStats ? (
+                <div className="rounded-xl border border-emerald-300 bg-emerald-50/80 p-3 text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-emerald-950 flex items-center gap-1.5 text-sm">
+                      👑 VIP Customer: {selectedVip.name || selectedVip.full_name}
+                      <span className="rounded-full bg-emerald-200/80 px-2 py-0.5 text-[10px] text-emerald-900 border border-emerald-300">
+                        {selectedVip.tier || "VIP"}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedVip(null);
+                        setCustomerName("");
+                        setCustomerPhone("");
+                      }}
+                      className="text-[11px] font-bold text-slate-500 hover:text-slate-900 underline"
+                    >
+                      Clear / Change VIP
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center pt-1 border-t border-emerald-200/70">
+                    <div className="bg-white/80 rounded-lg p-1.5 border border-emerald-100">
+                      <span className="block text-[10px] text-slate-500 font-medium">Credit Limit</span>
+                      <span className="font-bold text-slate-900">
+                        {selectedVipStats.isUnlimited ? "♾️ Unlimited" : `${selectedVipStats.limit.toLocaleString()} ETB`}
+                      </span>
+                    </div>
+                    <div className="bg-white/80 rounded-lg p-1.5 border border-emerald-100">
+                      <span className="block text-[10px] text-slate-500 font-medium">Current Debt</span>
+                      <span className="font-bold text-amber-700">{selectedVipStats.debt.toLocaleString()} ETB</span>
+                    </div>
+                    <div className="bg-white/80 rounded-lg p-1.5 border border-emerald-100">
+                      <span className="block text-[10px] text-slate-500 font-medium">Available Credit</span>
+                      <span className="font-extrabold text-emerald-700">
+                        {selectedVipStats.isUnlimited ? "♾️ Unlimited" : `${selectedVipStats.available.toLocaleString()} ETB`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {!selectedVipStats.isUnlimited && payableAmount > selectedVipStats.available && (
+                    <div className="rounded-lg bg-amber-100 p-2 text-[11px] font-bold text-amber-900 border border-amber-300 flex items-center gap-1.5">
+                      <span>⚠️ Note: Order total ({payableAmount.toFixed(2)} ETB) exceeds available credit ({selectedVipStats.available.toFixed(2)} ETB). Manager approval required.</span>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {/* VIP Customer Search Input & Dropdown */}
+              <div className="relative" ref={vipDropdownRef}>
                 <label className="block text-xs font-bold text-amber-900 mb-1">
                   Search Registered VIP Customer / Enter Guest Name *
                 </label>
@@ -1331,42 +1428,65 @@ function PaymentModal({
                     setShowVipDropdown(true);
                     setSelectedVip(null);
                   }}
-                  placeholder="Type name or phone number..."
+                  placeholder="Type VIP name, phone number, or company..."
                   className="w-full rounded-xl border border-amber-300 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
                 />
 
-                {/* Live VIP Dropdown */}
-                {showVipDropdown && filteredVips.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-xl border border-amber-200 bg-white shadow-xl">
-                    <p className="px-3 py-1.5 text-[10px] font-extrabold uppercase text-amber-800 bg-amber-50 border-b border-amber-100">
-                      Pre-Approved VIP Customers ({filteredVips.length})
+                {/* Live VIP Search Dropdown */}
+                {showVipDropdown && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-amber-200 bg-white shadow-2xl">
+                    <p className="px-3 py-1.5 text-[10px] font-extrabold uppercase text-amber-800 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
+                      <span>Registered VIP Directory ({filteredVips.length})</span>
+                      <span className="text-[9px] text-slate-400 font-normal">Click to select customer</span>
                     </p>
-                    {filteredVips.map((v) => (
-                      <button
-                        key={v.id}
-                        type="button"
-                        onClick={() => {
-                          setCustomerName(v.name);
-                          setCustomerPhone(v.phone || "");
-                          setSelectedVip(v);
-                          setShowVipDropdown(false);
-                        }}
-                        className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-xs hover:bg-amber-50 transition border-b border-slate-50 last:border-0 cursor-pointer"
-                      >
-                        <div>
-                          <p className="font-bold text-slate-900">{v.name}</p>
-                          <p className="text-[11px] text-slate-500">{v.phone} • <span className="text-amber-700 font-semibold">{v.tier}</span></p>
-                        </div>
-                        <div className="text-right">
-                          <span className="block font-extrabold text-emerald-700">
-                            Limit: {Number(v.credit_limit || 0).toLocaleString()} ETB
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            Debt: {Number(v.current_debt || 0).toLocaleString()} ETB
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+
+                    {filteredVips.length > 0 ? (
+                      filteredVips.map((v) => {
+                        const vName = v.name || v.full_name || v.customer_name || "VIP Customer";
+                        const vPhone = v.phone || v.phone_number || "";
+                        const vLimit = Number(v.credit_limit || v.creditLimit || 0);
+                        const vDebt = Number(v.current_debt || v.currentDebt || v.debt || 0);
+                        const isUnl = (v.tier || "").toLowerCase().includes("gold") || (v.tier || "").toLowerCase().includes("unlimited") || vLimit >= 999999;
+
+                        return (
+                          <button
+                            key={v.id || v.customer_id || vName}
+                            type="button"
+                            onClick={() => {
+                              setCustomerName(vName);
+                              setCustomerPhone(vPhone);
+                              setSelectedVip(v);
+                              setShowVipDropdown(false);
+                            }}
+                            className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-xs hover:bg-amber-50 transition border-b border-slate-50 last:border-0 cursor-pointer"
+                          >
+                            <div>
+                              <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                                👑 {vName}
+                                <span className="text-[10px] text-amber-800 font-semibold rounded-md bg-amber-100 px-1.5 py-0.5">
+                                  {v.tier || "VIP"}
+                                </span>
+                              </p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                {vPhone ? `📞 ${vPhone}` : "No Phone"} {v.company ? `• ${v.company}` : ""}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <span className="block font-black text-emerald-700 text-xs">
+                                Available: {isUnl ? "♾️ Unlimited" : `${Math.max(vLimit - vDebt, 0).toLocaleString()} ETB`}
+                              </span>
+                              <span className="text-[10px] text-slate-500 block">
+                                {isUnl ? "Unlimited Credit Ceiling" : `Limit: ${vLimit.toLocaleString()} • Debt: ${vDebt.toLocaleString()}`}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="p-3 text-center text-xs text-slate-500 font-medium">
+                        No registered VIP found matching "{customerName}". Enter contact details below for custom guest credit.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1591,7 +1711,7 @@ function PaymentModal({
               : paymentMode === "split"
                 ? `Complete Split Share Payment (${payableAmount.toFixed(2)} ETB)`
                 : paymentMethod === "credit"
-                  ? `Submit for Manager Approval (${payableAmount.toFixed(2)} ETB)`
+                  ? `Mark as Paid (${payableAmount.toFixed(2)} ETB)`
                   : `Complete Payment (${payableAmount.toFixed(2)} ETB)`}
           </button>
 

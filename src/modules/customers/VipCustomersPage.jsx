@@ -427,8 +427,9 @@ export default function VipCustomersPage() {
                 filteredCustomers.map((cust) => {
                   const debt = Number(cust.current_debt || 0);
                   const limit = Number(cust.credit_limit || 0);
-                  const available = Math.max(limit - debt, 0);
-                  const isMaxedOut = debt >= limit && limit > 0;
+                  const isUnlimited = (cust.tier || "").toLowerCase().includes("gold") || (cust.tier || "").toLowerCase().includes("unlimited") || limit >= 999999;
+                  const available = isUnlimited ? Infinity : Math.max(limit - debt, 0);
+                  const isMaxedOut = !isUnlimited && debt >= limit && limit > 0;
 
                   return (
                     <tr key={cust.id} className="transition hover:bg-amber-50/30">
@@ -466,7 +467,7 @@ export default function VipCustomersPage() {
 
                       {/* Credit Limit */}
                       <td className="px-3.5 py-2.5 font-bold text-slate-800 text-xs">
-                        {limit.toLocaleString()} ETB
+                        {isUnlimited ? "♾️ Unlimited" : `${limit.toLocaleString()} ETB`}
                       </td>
 
                       {/* Current Debt */}
@@ -488,8 +489,8 @@ export default function VipCustomersPage() {
                       </td>
 
                       {/* Available Credit */}
-                      <td className="px-3.5 py-2.5 font-semibold text-emerald-700 text-xs">
-                        {available.toLocaleString()} ETB
+                      <td className="px-3.5 py-2.5 font-bold text-emerald-700 text-xs">
+                        {isUnlimited ? "♾️ Unlimited" : `${available.toLocaleString()} ETB`}
                       </td>
 
                       {/* Actions */}
@@ -597,10 +598,18 @@ export default function VipCustomersPage() {
                   </label>
                   <select
                     value={form.tier}
-                    onChange={(e) => setForm({ ...form, tier: e.target.value })}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-amber-500"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const isGold = val.toLowerCase().includes("gold") || val.toLowerCase().includes("unlimited");
+                      setForm({
+                        ...form,
+                        tier: val,
+                        creditLimit: isGold ? "999999999" : (form.creditLimit === "999999999" ? "15000" : form.creditLimit),
+                      });
+                    }}
+                    className="w-full rounded-xl border border-amber-300 bg-amber-50/50 px-3 py-2.5 text-sm font-bold text-amber-950 outline-none focus:border-amber-500"
                   >
-                    <option value="Gold VIP">Gold VIP</option>
+                    <option value="Gold VIP">👑 Gold VIP (Unlimited Credit)</option>
                     <option value="Executive">Executive</option>
                     <option value="Regular VIP">Regular VIP</option>
                     <option value="Corporate Account">Corporate Account</option>
@@ -611,17 +620,18 @@ export default function VipCustomersPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Approved Credit Limit (ETB) *
+                    Approved Credit Limit (ETB) * {(form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")) && "(♾️ Unlimited Active)"}
                   </label>
                   <input
                     type="number"
                     required
+                    disabled={form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")}
                     min="0"
                     step="1000"
-                    value={form.creditLimit}
+                    value={(form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")) ? "999999999" : form.creditLimit}
                     onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
                     placeholder="15000"
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-bold text-slate-900 outline-none focus:border-amber-500"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-bold text-slate-900 outline-none focus:border-amber-500 disabled:bg-amber-100/70 disabled:text-amber-900"
                   />
                 </div>
 

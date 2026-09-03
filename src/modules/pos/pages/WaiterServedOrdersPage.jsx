@@ -30,6 +30,7 @@ function WaiterServedOrdersPage() {
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "served" | "ready" | "completed"
   const [shiftFilter, setShiftFilter] = useState("all"); // "all" | "day" | "night"
   const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [selectedOrderDetail, setSelectedOrderDetail] = useState(null);
 
   const userIdStr = String(user?.id || user?.user_id || user?.userId || "");
   const employeeIdStr = String(user?.employee_id || user?.employeeId || "");
@@ -59,64 +60,113 @@ function WaiterServedOrdersPage() {
         if (Array.isArray(val)) return val;
         if (Array.isArray(val?.orders)) return val.orders;
         if (Array.isArray(val?.data)) return val.data;
+        if (Array.isArray(val?.barOrders)) return val.barOrders;
+        if (Array.isArray(val?.bar_orders)) return val.bar_orders;
+        if (Array.isArray(val?.data?.orders)) return val.data.orders;
         return [];
       };
 
       const rawOrders = [
-        ...extractArray(kitchenRes),
-        ...extractArray(barRes),
-        ...extractArray(posRes),
+        ...extractArray(kitchenRes).map((o) => ({ ...o, _source: "kitchen" })),
+        ...extractArray(barRes).map((o) => ({ ...o, _source: "bar" })),
+        ...extractArray(posRes).map((o) => ({ ...o, _source: "pos" })),
       ];
 
-      // Group & deduplicate orders by order_id or order_number
+      // Group & deduplicate orders by order_number or source-prefixed ID
       const orderMap = new Map();
 
       rawOrders.forEach((item) => {
-        const key = String(item.id || item.order_id || item.order_number || Math.random());
+        const orderNum = item.order_number || item.orderNumber || item.reference;
+        const key = orderNum
+          ? String(orderNum).trim().toLowerCase()
+          : item.order_id
+            ? `ord_${item.order_id}`
+            : `${item._source || "ord"}_${item.id || Math.random()}`;
+
         const existing = orderMap.get(key) || {};
 
-        // Parse item payload
-        let parsedItems = [];
-        if (Array.isArray(item.items)) {
-          parsedItems = item.items;
-        } else if (typeof item.items === "string") {
-          try {
-            parsedItems = JSON.parse(item.items);
-          } catch (e) {
-            parsedItems = [];
-          }
-        }
+        // Parse items payload from any item candidates
+        const parseItems = (rawObj) => {
+          let list = [];
+          const candidates = [
+            rawObj.items,
+            rawObj.order_items,
+            rawObj.bar_items,
+            rawObj.kitchen_items,
+            rawObj.products,
+            rawObj.details,
+          ];
 
-        const mergedItems = [...(existing.items || []), ...parsedItems];
-        // Deduplicate items by name
+          for (const c of candidates) {
+            if (Array.isArray(c) && c.length > 0) {
+              list = c;
+              break;
+            } else if (typeof c === "string" && c.trim()) {
+              try {
+                const parsed = JSON.parse(c);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  list = parsed;
+                  break;
+                }
+              } catch (e) {
+                // ignore error
+              }
+            }
+          }
+          return list;
+        };
+
+        const parsedItems = parseItems(item);
+        const existingItems = parseItems(existing);
+        const mergedItems = [...existingItems, ...parsedItems];
+
+        // Deduplicate items by name and portion
         const uniqueItems = [];
         const seenNames = new Set();
         mergedItems.forEach((i) => {
-          const nameKey = (i.name || i.product_name || i.title || "").toLowerCase();
-          if (nameKey && !seenNames.has(nameKey)) {
+          const name = i.name || i.product_name || i.title || i.item_name || "Product";
+          const portion = i.portion || i.portionTitle || i.notes || "";
+          const nameKey = `${name}_${portion}`.toLowerCase();
+          if (!seenNames.has(nameKey)) {
             seenNames.add(nameKey);
-            uniqueItems.push(i);
+            uniqueItems.push({
+              ...i,
+              name,
+              quantity: Number(i.quantity ?? i.qty ?? 1),
+              unit_price: Number(i.unit_price ?? i.price ?? i.product_price ?? 0),
+            });
           }
         });
+
+        const pm = item.payment_method || item.paymentMethod || existing.payment_method || existing.paymentMethod || "";
+        const ref = item.reference || item.payment_reference || item.notes || existing.reference || existing.payment_reference || "";
+        const custId = item.customer_id || item.vip_customer_id || item.vipCustomerId || existing.customer_id || existing.vip_customer_id || null;
 
         orderMap.set(key, {
           ...existing,
           ...item,
           id: item.id || item.order_id || existing.id,
-          order_number: item.order_number || existing.order_number || `#${key}`,
+          order_number: orderNum || existing.order_number || `#${key}`,
           table_number: item.table_number || existing.table_number || "T1",
           table_id: item.table_id || existing.table_id,
           status: item.status || existing.status || "served",
           payment_status: item.payment_status || existing.payment_status || "unpaid",
+          payment_method: pm,
+          reference: ref,
+          customer_id: custId,
           waiter_first_name: item.waiter_first_name || existing.waiter_first_name || "",
           waiter_last_name: item.waiter_last_name || existing.waiter_last_name || "",
           waiter_id: item.waiter_id || existing.waiter_id,
           created_at: item.created_at || item.createdAt || existing.created_at || new Date().toISOString(),
-          items: uniqueItems.length > 0 ? uniqueItems : mergedItems,
+          items: uniqueItems,
         });
       });
 
-      setOrders(Array.from(orderMap.values()));
+      const allSortedOrders = Array.from(orderMap.values()).sort(
+        (a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0)
+      );
+
+      setOrders(allSortedOrders);
     } catch (err) {
       console.error("Failed to fetch served orders:", err);
       setError("Failed to refresh orders. Please try again.");
@@ -184,10 +234,15 @@ function WaiterServedOrdersPage() {
       const rawDate = order.created_at || order.createdAt || order.date;
       if (!rawDate) return true; // Include if date missing
 
-      const orderDateStr = String(rawDate).split(/[T ]/)[0];
-      const isToday = !orderDateStr || orderDateStr === todayStr;
+      const orderDate = new Date(rawDate);
+      const now = new Date();
+      const isToday =
+        isNaN(orderDate.getTime()) ||
+        (orderDate.getFullYear() === now.getFullYear() &&
+          orderDate.getMonth() === now.getMonth() &&
+          orderDate.getDate() === now.getDate());
 
-      return isMyOrder && isToday;
+      return isMyOrder && (isToday || true);
     });
   }, [orders, userIdStr, employeeIdStr, userNameLower, userFirstName, userFullName]);
 
@@ -196,31 +251,33 @@ function WaiterServedOrdersPage() {
   ========================================================= */
 
   const filteredOrders = useMemo(() => {
-    return myTodayOrders.filter((order) => {
-      // Status filter
-      const statusLower = (order.status || "").toLowerCase();
-      if (statusFilter !== "all" && statusLower !== statusFilter) {
-        return false;
-      }
+    return myTodayOrders
+      .filter((order) => {
+        // Status filter
+        const statusLower = (order.status || "").toLowerCase();
+        if (statusFilter !== "all" && statusLower !== statusFilter) {
+          return false;
+        }
 
-      // Shift Filter (Day: 7:00 AM - 6:00 PM, Night: 6:00 PM - 7:00 AM)
-      if (shiftFilter !== "all" && order.created_at) {
-        const orderHour = new Date(order.created_at).getHours();
-        const isDayShift = orderHour >= 7 && orderHour < 18;
-        if (shiftFilter === "day" && !isDayShift) return false;
-        if (shiftFilter === "night" && isDayShift) return false;
-      }
+        // Shift Filter (Day: 7:00 AM - 6:00 PM, Night: 6:00 PM - 7:00 AM)
+        if (shiftFilter !== "all" && order.created_at) {
+          const orderHour = new Date(order.created_at).getHours();
+          const isDayShift = orderHour >= 7 && orderHour < 18;
+          if (shiftFilter === "day" && !isDayShift) return false;
+          if (shiftFilter === "night" && isDayShift) return false;
+        }
 
-      // Search Query
-      if (searchQuery.trim()) {
-        const query = searchQuery.trim().toLowerCase();
-        const tableStr = String(order.table_number || "").toLowerCase();
-        const orderNumStr = String(order.order_number || "").toLowerCase();
-        return tableStr.includes(query) || orderNumStr.includes(query);
-      }
+        // Search Query
+        if (searchQuery.trim()) {
+          const query = searchQuery.trim().toLowerCase();
+          const tableStr = String(order.table_number || "").toLowerCase();
+          const orderNumStr = String(order.order_number || "").toLowerCase();
+          return tableStr.includes(query) || orderNumStr.includes(query);
+        }
 
-      return true;
-    });
+        return true;
+      })
+      .sort((a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0));
   }, [myTodayOrders, statusFilter, shiftFilter, searchQuery]);
 
   /* =========================================================
@@ -284,12 +341,96 @@ function WaiterServedOrdersPage() {
     return "bg-amber-100 text-amber-800 border border-amber-200";
   };
 
-  const getPaymentBadgeClass = (paymentStatus) => {
+  const getPaymentBadgeClass = (paymentStatus, orderStatus) => {
     const ps = String(paymentStatus || "").toLowerCase();
-    if (ps === "paid") {
-      return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+    const os = String(orderStatus || "").toLowerCase();
+    if (
+      ps === "paid" ||
+      ps === "partial" ||
+      ps === "partially_paid" ||
+      ps === "credit" ||
+      ps === "vip" ||
+      os === "completed" ||
+      os === "served"
+    ) {
+      return "bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold";
     }
-    return "bg-amber-50 text-amber-700 border border-amber-200";
+    return "bg-amber-50 text-amber-700 border border-amber-200 font-bold";
+  };
+
+  const formatPaymentStatusLabel = (paymentStatus, orderStatus) => {
+    const ps = String(paymentStatus || "").toLowerCase();
+    const os = String(orderStatus || "").toLowerCase();
+    if (
+      ps === "paid" ||
+      ps === "partial" ||
+      ps === "partially_paid" ||
+      ps === "credit" ||
+      ps === "vip" ||
+      os === "completed" ||
+      os === "served"
+    ) {
+      return "PAID";
+    }
+    return (ps.toUpperCase() || "PENDING");
+  };
+
+  const formatPaymentMethodObj = (order) => {
+    const pm = (
+      order.payment_method ||
+      order.paymentMethod ||
+      order.method ||
+      order.payments?.[0]?.payment_method ||
+      ""
+    ).toLowerCase();
+
+    const ref = (
+      order.reference ||
+      order.payment_reference ||
+      order.notes ||
+      order.payments?.[0]?.reference ||
+      ""
+    ).toLowerCase();
+
+    const custName = (
+      order.customer_name ||
+      order.customerName ||
+      order.vip_name ||
+      order.vip_customer_name ||
+      ""
+    ).toLowerCase();
+
+    const ps = String(order.payment_status || "").toLowerCase();
+    const st = String(order.status || "").toLowerCase();
+    const hasVipId = Boolean(order.customer_id || order.vip_customer_id || order.vipCustomerId);
+
+    if (
+      pm.includes("vip") ||
+      pm.includes("credit") ||
+      ref.includes("vip") ||
+      ref.includes("credit") ||
+      ps === "credit" ||
+      ps === "vip" ||
+      hasVipId ||
+      custName.length > 0
+    ) {
+      return { label: "👑 VIP Credit", class: "bg-purple-100 text-purple-900 border border-purple-200 font-extrabold" };
+    }
+    if (pm.includes("card")) {
+      return { label: "💳 Card", class: "bg-blue-100 text-blue-900 border border-blue-200 font-extrabold" };
+    }
+    if (pm.includes("mobile") || pm.includes("telebirr")) {
+      return { label: "📱 Telebirr", class: "bg-amber-100 text-amber-900 border border-amber-200 font-extrabold" };
+    }
+    if (pm.includes("cash")) {
+      return { label: "💵 Cash", class: "bg-emerald-100 text-emerald-900 border border-emerald-200 font-extrabold" };
+    }
+
+    if (ps === "paid" || ps === "credit" || st === "completed" || st === "served") {
+      return { label: "👑 VIP Credit", class: "bg-purple-100 text-purple-900 border border-purple-200 font-extrabold" };
+    }
+
+    return { label: "⏳ Pending", class: "bg-amber-100 text-amber-900 border border-amber-200 font-bold" };
   };
 
   return (
@@ -448,41 +589,37 @@ function WaiterServedOrdersPage() {
             <div className="flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
               <button
                 onClick={() => setStatusFilter("all")}
-                className={`rounded-lg px-3 py-1.5 transition ${
-                  statusFilter === "all"
+                className={`rounded-lg px-3 py-1.5 transition ${statusFilter === "all"
                     ? "bg-white text-slate-900 shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 All Status
               </button>
               <button
                 onClick={() => setStatusFilter("served")}
-                className={`rounded-lg px-3 py-1.5 transition ${
-                  statusFilter === "served"
+                className={`rounded-lg px-3 py-1.5 transition ${statusFilter === "served"
                     ? "bg-emerald-600 text-white shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Served
               </button>
               <button
                 onClick={() => setStatusFilter("ready")}
-                className={`rounded-lg px-3 py-1.5 transition ${
-                  statusFilter === "ready"
+                className={`rounded-lg px-3 py-1.5 transition ${statusFilter === "ready"
                     ? "bg-blue-600 text-white shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Ready
               </button>
               <button
                 onClick={() => setStatusFilter("completed")}
-                className={`rounded-lg px-3 py-1.5 transition ${
-                  statusFilter === "completed"
+                className={`rounded-lg px-3 py-1.5 transition ${statusFilter === "completed"
                     ? "bg-purple-600 text-white shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Completed
               </button>
@@ -534,7 +671,7 @@ function WaiterServedOrdersPage() {
               {filteredOrders.map((order) => {
                 const isExpanded = expandedOrderId === order.id;
                 const items = Array.isArray(order.items) ? order.items : [];
-                const totalAmount = items.reduce((sum, i) => {
+                const itemsSum = items.reduce((sum, i) => {
                   const q = Number(i.quantity ?? i.qty ?? 1);
                   const p = Number(i.unit_price ?? i.price ?? i.product_price ?? 0);
                   return sum + q * p;
@@ -542,12 +679,12 @@ function WaiterServedOrdersPage() {
                 const dbTotal = Number(
                   order.total_amount ?? order.total ?? order.grand_total ?? 0
                 );
-                const displayTotal = dbTotal > 0 ? dbTotal : totalAmount;
+                const displayTotal = itemsSum > 0 ? itemsSum : (dbTotal > 0 ? dbTotal : 0);
                 const orderTimeStr = order.created_at
                   ? new Date(order.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
                   : "Today";
 
                 return (
@@ -578,8 +715,8 @@ function WaiterServedOrdersPage() {
                           {order.status === "served" ? <CheckCircle2 className="h-3 w-3" /> : null}
                           {String(order.status || "served").toUpperCase()}
                         </span>
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${getPaymentBadgeClass(order.payment_status)}`}>
-                          {String(order.payment_status || "unpaid").toUpperCase()}
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${getPaymentBadgeClass(order.payment_status, order.status)}`}>
+                          {formatPaymentStatusLabel(order.payment_status, order.status)}
                         </span>
                       </div>
 
@@ -614,188 +751,312 @@ function WaiterServedOrdersPage() {
 
             {/* Desktop Table (>= 768px) */}
             <div className="overflow-x-auto hidden md:block">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="px-5 py-3.5">Table & Order #</th>
-                  <th className="px-5 py-3.5">Time Served</th>
-                  <th className="px-5 py-3.5">Status</th>
-                  <th className="px-5 py-3.5">Items Delivered</th>
-                  <th className="px-5 py-3.5">Payment Status</th>
-                  <th className="px-5 py-3.5 text-right">Amount (ETB)</th>
-                  <th className="px-5 py-3.5 text-center">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {filteredOrders.map((order) => {
-                  const isExpanded = expandedOrderId === order.id;
-                  const items = Array.isArray(order.items) ? order.items : [];
-                  const dbTotal = Number(
-                    order.total_amount ?? order.total ?? order.grand_total ?? 0
-                  );
-                  const displayTotal = dbTotal > 0 ? dbTotal : items.reduce((sum, i) => sum + (Number(i.quantity ?? i.qty ?? 1) * Number(i.unit_price ?? i.price ?? i.product_price ?? 0)), 0);
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-slate-200 bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold">
+                  <tr>
+                    <th className="px-5 py-3.5">Table & Order #</th>
+                    <th className="px-5 py-3.5">Time Served</th>
+                    <th className="px-5 py-3.5">Status</th>
+                    <th className="px-5 py-3.5">Items Delivered</th>
+                    <th className="px-5 py-3.5">Payment Status</th>
+                    <th className="px-5 py-3.5">Payment Method</th>
+                    <th className="px-5 py-3.5 text-right">Amount (ETB)</th>
+                    <th className="px-5 py-3.5 text-center">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {filteredOrders.map((order) => {
+                    const isExpanded = expandedOrderId === order.id;
+                    const items = Array.isArray(order.items) ? order.items : [];
+                    const itemsSum = items.reduce((sum, i) => sum + (Number(i.quantity ?? i.qty ?? 1) * Number(i.unit_price ?? i.price ?? i.product_price ?? 0)), 0);
+                    const dbTotal = Number(
+                      order.total_amount ?? order.total ?? order.grand_total ?? 0
+                    );
+                    const displayTotal = itemsSum > 0 ? itemsSum : (dbTotal > 0 ? dbTotal : 0);
+                    const pmObj = formatPaymentMethodObj(order);
 
-                  return (
-                    <React.Fragment key={order.id}>
-                      <tr className="transition hover:bg-slate-50/80">
-                        {/* Table & Order */}
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2.5">
-                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 font-bold text-blue-700">
-                              {String(order.table_number || "T1").replace(/^T/i, "T")}
-                            </span>
-                            <div>
-                              <p className="font-bold text-slate-900">
-                                Table {order.table_number}
-                              </p>
-                              <p className="text-[11px] font-mono text-slate-500">
-                                {order.order_number}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Time */}
-                        <td className="px-5 py-4 font-medium text-slate-600">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="h-3.5 w-3.5 text-slate-400" />
-                            {order.created_at
-                              ? new Date(order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                              : "Today"}
-                          </div>
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(
-                              order.status
-                            )}`}
-                          >
-                            {order.status === "served" ? (
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                            ) : null}
-                            {String(order.status || "served").toUpperCase()}
-                          </span>
-                        </td>
-
-                        {/* Items */}
-                        <td className="px-5 py-4">
-                          <div className="flex flex-wrap gap-1">
-                            {items.length > 0 ? (
-                              items.map((item, idx) => (
-                                <span
-                                  key={idx}
-                                  className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 border border-slate-200/60"
-                                >
-                                  <span>
-                                    {item.quantity || item.qty || 1}x
-                                  </span>
-                                  <span>
-                                    {item.name ||
-                                      item.product_name ||
-                                      item.title ||
-                                      "Item"}
-                                  </span>
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-slate-400 italic">
-                                {order.items_summary || "Delivered items"}
+                    return (
+                      <React.Fragment key={order.id}>
+                        <tr
+                          onClick={() => setSelectedOrderDetail(order)}
+                          className="transition hover:bg-purple-50/40 cursor-pointer"
+                        >
+                          {/* Table & Order */}
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-2.5">
+                              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 font-bold text-blue-700">
+                                {String(order.table_number || "T1").replace(/^T/i, "T")}
                               </span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Payment Status */}
-                        <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getPaymentBadgeClass(
-                              order.payment_status
-                            )}`}
-                          >
-                            {String(
-                              order.payment_status || "unpaid"
-                            ).toUpperCase()}
-                          </span>
-                        </td>
-
-                        {/* Amount */}
-                        <td className="px-5 py-4 text-right font-extrabold text-slate-900">
-                          {displayTotal.toFixed(2)} ETB
-                        </td>
-
-                        {/* Details Toggle */}
-                        <td className="px-5 py-4 text-center">
-                          <button
-                            onClick={() =>
-                              setExpandedOrderId(
-                                isExpanded ? null : order.id
-                              )
-                            }
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                            title="Toggle order details"
-                          >
-                            {isExpanded ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </button>
-                        </td>
-                      </tr>
-
-                      {/* Expanded Details Row */}
-                      {isExpanded && (
-                        <tr className="bg-slate-50/50">
-                          <td colSpan={7} className="px-5 py-3 border-t border-slate-100">
-                            <div className="rounded-xl bg-white p-4 border border-slate-200/80 shadow-xs">
-                              <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-                                Detailed Items Breakdown
-                              </h4>
-                              {items.length === 0 ? (
-                                <p className="text-xs text-slate-400 italic">
-                                  No itemized details recorded.
+                              <div>
+                                <p className="font-bold text-slate-900">
+                                  Table {order.table_number}
                                 </p>
+                                <p className="text-[11px] font-mono text-slate-500">
+                                  {order.order_number}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Time */}
+                          <td className="px-5 py-4 font-medium text-slate-600">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="h-3.5 w-3.5 text-slate-400" />
+                              {order.created_at
+                                ? new Date(order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                                : "Today"}
+                            </div>
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-5 py-4">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(
+                                order.status
+                              )}`}
+                            >
+                              {order.status === "served" ? (
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                              ) : null}
+                              {String(order.status || "served").toUpperCase()}
+                            </span>
+                          </td>
+
+                          {/* Items */}
+                          <td className="px-5 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {items.length > 0 ? (
+                                items.map((item, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 border border-slate-200/60"
+                                  >
+                                    <span>
+                                      {item.quantity || item.qty || 1}x
+                                    </span>
+                                    <span>
+                                      {item.name ||
+                                        item.product_name ||
+                                        item.title ||
+                                        "Item"}
+                                    </span>
+                                  </span>
+                                ))
                               ) : (
-                                <div className="space-y-1.5">
-                                  {items.map((item, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="flex items-center justify-between border-b border-slate-100 pb-1.5 text-xs text-slate-700 last:border-b-0"
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-bold text-slate-800">
-                                          {item.quantity || item.qty || 1}x
-                                        </span>
-                                        <span className="font-medium text-slate-900">
-                                          {item.name || item.product_name || item.title || "Item"}
-                                        </span>
-                                      </div>
-                                      <span className="font-mono text-slate-600 font-semibold">
-                                        {(
-                                          Number(item.quantity || item.qty || 1) *
-                                          Number(item.unit_price || item.price || 0)
-                                        ).toFixed(2)}{" "}
-                                        ETB
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
+                                <span className="text-slate-400 italic">
+                                  {order.items_summary || "Delivered items"}
+                                </span>
                               )}
                             </div>
                           </td>
+
+                          {/* Payment Status */}
+                          <td className="px-5 py-4">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${getPaymentBadgeClass(
+                                order.payment_status,
+                                order.status
+                              )}`}
+                            >
+                              {formatPaymentStatusLabel(order.payment_status, order.status)}
+                            </span>
+                          </td>
+
+                          {/* Payment Method Column */}
+                          <td className="px-5 py-4">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${pmObj.class}`}>
+                              {pmObj.label}
+                            </span>
+                          </td>
+
+                          {/* Amount */}
+                          <td className="px-5 py-4 text-right font-extrabold text-slate-900">
+                            {displayTotal.toFixed(2)} ETB
+                          </td>
+
+                          {/* Details Toggle */}
+                          <td className="px-5 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() =>
+                                setExpandedOrderId(
+                                  isExpanded ? null : order.id
+                                )
+                              }
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                              title="Toggle order details"
+                            >
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </button>
+                          </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+
+                        {/* Expanded Details Row */}
+                        {isExpanded && (
+                          <tr className="bg-slate-50/50">
+                            <td colSpan={8} className="px-5 py-3 border-t border-slate-100">
+                              <div className="rounded-xl bg-white p-4 border border-slate-200/80 shadow-xs">
+                                <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                  Detailed Items Breakdown
+                                </h4>
+                                {items.length === 0 ? (
+                                  <p className="text-xs text-slate-400 italic">
+                                    No itemized details recorded.
+                                  </p>
+                                ) : (
+                                  <div className="space-y-1.5">
+                                    {items.map((item, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="flex items-center justify-between border-b border-slate-100 pb-1.5 text-xs text-slate-700 last:border-b-0"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="rounded bg-slate-100 px-1.5 py-0.5 font-bold text-slate-800">
+                                            {item.quantity || item.qty || 1}x
+                                          </span>
+                                          <span className="font-medium text-slate-900">
+                                            {item.name || item.product_name || item.title || "Item"}
+                                          </span>
+                                        </div>
+                                        <span className="font-mono text-slate-600 font-semibold">
+                                          {(
+                                            Number(item.quantity || item.qty || 1) *
+                                            Number(item.unit_price || item.price || 0)
+                                          ).toFixed(2)}{" "}
+                                          ETB
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
       </div>
+
+      {/* =========================================================
+          TOUCHABLE ORDER DETAIL MODAL
+      ========================================================= */}
+      {selectedOrderDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg flex flex-col rounded-3xl bg-white shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 px-6 py-4 text-white">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-300">
+                  <Receipt className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold tracking-tight">
+                    Order Details ({selectedOrderDetail.order_number || `#${selectedOrderDetail.id}`})
+                  </h3>
+                  <p className="text-xs text-slate-300">Table #{selectedOrderDetail.table_number || "Counter"}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedOrderDetail(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Order Meta Header Cards */}
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50 p-3">
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block">Payment Method</span>
+                  <span className={`inline-flex items-center gap-1 mt-1 rounded-full px-2.5 py-0.5 font-bold ${formatPaymentMethodObj(selectedOrderDetail).class}`}>
+                    {formatPaymentMethodObj(selectedOrderDetail).label}
+                  </span>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50 p-3">
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block">Payment Status</span>
+                  <span className={`inline-flex items-center mt-1 rounded-full px-2.5 py-0.5 font-bold ${getPaymentBadgeClass(selectedOrderDetail.payment_status, selectedOrderDetail.status)}`}>
+                    {formatPaymentStatusLabel(selectedOrderDetail.payment_status, selectedOrderDetail.status)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Items Breakdown */}
+              <div>
+                <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-2">
+                  Delivered Items List
+                </h4>
+                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden divide-y divide-slate-100 text-xs">
+                  {Array.isArray(selectedOrderDetail.items) && selectedOrderDetail.items.length > 0 ? (
+                    selectedOrderDetail.items.map((item, idx) => {
+                      const qty = Number(item.quantity || item.qty || 1);
+                      const price = Number(item.unit_price || item.price || 0);
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-3">
+                          <div>
+                            <p className="font-extrabold text-slate-900">
+                              {item.name || item.product_name || item.title || "Delivered Product"}
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-mono">
+                              {qty} x {price.toFixed(2)} ETB
+                            </p>
+                          </div>
+                          <span className="font-black text-slate-900 font-mono">
+                            {(qty * price).toFixed(2)} ETB
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="p-4 text-center text-slate-400 italic">
+                      No itemized details recorded.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Total Calculation */}
+              {(() => {
+                const detailItems = Array.isArray(selectedOrderDetail.items) ? selectedOrderDetail.items : [];
+                const detailItemsSum = detailItems.reduce((sum, i) => sum + (Number(i.quantity ?? i.qty ?? 1) * Number(i.unit_price ?? i.price ?? i.product_price ?? 0)), 0);
+                const dbTotal = Number(selectedOrderDetail.total_amount ?? selectedOrderDetail.total ?? selectedOrderDetail.grand_total ?? 0);
+                const modalDisplayTotal = detailItemsSum > 0 ? detailItemsSum : (dbTotal > 0 ? dbTotal : 0);
+
+                return (
+                  <div className="rounded-2xl bg-slate-900 p-4 text-white flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Total Order Amount</span>
+                    <span className="text-xl font-black text-emerald-400">
+                      {modalDisplayTotal.toFixed(2)} ETB
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-slate-200 bg-slate-50 px-6 py-3 text-right">
+              <button
+                type="button"
+                onClick={() => setSelectedOrderDetail(null)}
+                className="rounded-xl bg-slate-900 text-white px-5 py-2 text-xs font-bold hover:bg-slate-800 transition cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

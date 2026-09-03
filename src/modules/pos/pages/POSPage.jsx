@@ -158,11 +158,15 @@ if (orderType === "Dine In" && !selectedTable) {
         waiter_name: user?.username || user?.name || null,
 
         items: orderItems.map((item) => ({
-        productId: item.id,
-        product_id: item.id,
+        productId: item.originalId || item.id,
+        product_id: item.originalId || item.id,
         name: item.name,
         product_name: item.name,
+        price: item.price,
+        unit_price: item.price,
         quantity: item.quantity,
+        portion: item.portion || "",
+        shotsDeduction: item.shotsDeduction || null,
         notes: item.notes || "",
       })),
 

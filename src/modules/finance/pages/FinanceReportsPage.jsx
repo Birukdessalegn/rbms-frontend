@@ -1,3 +1,4 @@
+import { printReportArea } from "../../../utils/printHelper";
 import { useEffect, useMemo, useState } from "react";
 import {
   Wallet,
@@ -208,7 +209,7 @@ function FinanceReportsPage() {
   }, [filteredLedger]);
 
   const handlePrint = () => {
-    window.print();
+    printReportArea("finance-reports-printable-area", "Finance Revenue & Expense Audit Report");
   };
 
   return (
@@ -400,6 +401,20 @@ function FinanceReportsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* OFFICIAL EXECUTIVE PRINT FOOTER */}
+        <div className="mt-10 pt-4 border-t-2 border-slate-900">
+          <div className="flex justify-between items-center text-xs text-slate-900 font-bold">
+            <div>
+              <p className="font-extrabold uppercase">THE OAK CLUB — FINANCIAL AUDIT STATEMENT</p>
+              <p className="text-[10px] text-slate-500 font-normal">Confidential • Executive Financial & Fiscal Audit Report</p>
+            </div>
+            <div className="text-right">
+              <p>Finance Officer / Accountant: ______________________</p>
+              <p className="mt-2">General Manager Approval: _______________________</p>
+            </div>
           </div>
         </div>
       </div>

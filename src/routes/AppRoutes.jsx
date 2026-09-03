@@ -48,6 +48,8 @@ import KitchenReportsPage from "../modules/kitchen/pages/KitchenReportsPage";
 
 import POSPage from "../modules/pos/pages/POSPage";
 import POSReportsPage from "../modules/pos/pages/POSReportsPage";
+import MasterReportsPage from "../modules/reports/pages/MasterReportsPage";
+import PurchasingReportsPage from "../modules/purchasing/pages/PurchasingReportsPage";
 import TodaySalesAuditPage from "../modules/pos/pages/TodaySalesAuditPage";
 
 import BarPage from "../modules/bar/pages/BarPage";
@@ -321,6 +323,10 @@ function AppRoutes() {
               path="/purchasing"
               element={<PurchasingPage />}
             />
+            <Route
+              path="/purchasing/reports"
+              element={<PurchasingReportsPage />}
+            />
 
 
             {/* -------------------------
@@ -363,10 +369,7 @@ function AppRoutes() {
                 <PermissionRoute permission="reports" />
               }
             >
-              <Route
-                path="/reports"
-                element={<h1>Reports</h1>}
-              />
+              <Route path="/reports" element={<MasterReportsPage />} />
             </Route>
 
             {/* -------------------------
@@ -453,10 +456,7 @@ function AppRoutes() {
                 element={<h1>Order History</h1>}
               />
 
-              <Route
-                path="/chef/kitchen/reports"
-                element={<h1>Kitchen Reports</h1>}
-              />
+              <Route path="/chef/kitchen/reports" element={<KitchenReportsPage />} />
 
             </Route>
           </Route>

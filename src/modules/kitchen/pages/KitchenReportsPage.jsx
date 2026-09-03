@@ -1,3 +1,4 @@
+import { printReportArea } from "../../../utils/printHelper";
 import { useEffect, useMemo, useState } from "react";
 import {
   Printer,
@@ -212,7 +213,7 @@ function KitchenReportsPage() {
   }, [filteredOrders]);
 
   const handlePrint = () => {
-    window.print();
+    printReportArea("kitchen-reports-printable-area", "Kitchen Production & Order Audit Report");
   };
 
   const getStatusBadge = (status) => {
@@ -464,6 +465,20 @@ function KitchenReportsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* OFFICIAL EXECUTIVE PRINT FOOTER */}
+        <div className="mt-10 pt-4 border-t-2 border-slate-900">
+          <div className="flex justify-between items-center text-xs text-slate-900 font-bold">
+            <div>
+              <p className="font-extrabold uppercase">THE OAK CLUB — KITCHEN SHIFT AUDIT REPORT</p>
+              <p className="text-[10px] text-slate-500 font-normal">Confidential • Food Safety & Production Audit Report</p>
+            </div>
+            <div className="text-right">
+              <p>Head Chef Signature: ______________________</p>
+              <p className="mt-2">Manager Approval: _______________________</p>
+            </div>
           </div>
         </div>
       </div>

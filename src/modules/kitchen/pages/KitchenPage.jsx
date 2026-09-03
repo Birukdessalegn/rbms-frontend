@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Package, Flame, UtensilsCrossed } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import api from "../../../services/api";
 import audioService from "../../../services/audioService";
@@ -189,14 +189,49 @@ function KitchenPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Kitchen
-        </h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Kitchen Display (KDS)
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Manage live food orders and dish preparation tickets.
+          </p>
+        </div>
 
-        <p className="mt-1 text-sm text-gray-500">
-          Manage kitchen orders and food preparation.
-        </p>
+        {/* TOP TAB SWITCHER: KDS ORDERS vs LIVE ASSETS */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200 shadow-xs">
+            <button
+              type="button"
+              className="flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-black text-slate-900 shadow-sm transition"
+            >
+              <Flame className="h-3.5 w-3.5 text-orange-500" />
+              Food Orders (KDS)
+              {kitchenOrders.filter((o) => o.status === "pending" || o.status === "preparing").length > 0 && (
+                <span className="ml-1 rounded-full bg-orange-500 px-1.5 py-0.2 text-[10px] font-extrabold text-white">
+                  {kitchenOrders.filter((o) => o.status === "pending" || o.status === "preparing").length}
+                </span>
+              )}
+            </button>
+
+            <Link
+              to="/kitchen/assets"
+              className="flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition"
+            >
+              <Package className="h-3.5 w-3.5 text-amber-600" />
+              Live Kitchen Assets
+            </Link>
+          </div>
+
+          <Link
+            to="/kitchen/reports"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs transition"
+          >
+            <BarChart3 className="h-3.5 w-3.5 text-slate-500" />
+            Reports
+          </Link>
+        </div>
       </div>
 
       {/* Error */}

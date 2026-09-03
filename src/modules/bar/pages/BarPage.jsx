@@ -21,6 +21,7 @@ import {
   Droplets,
   GlassWater,
   Search,
+  UtensilsCrossed,
 } from "lucide-react";
 import api from "../../../services/api";
 import audioService from "../../../services/audioService";
@@ -671,6 +672,14 @@ function BarPage() {
           <Sparkles className="h-4 w-4 text-amber-300" />
           Live Bar Drink Inventory & Shot Radar ({barDrinks.length})
         </button>
+
+        <Link
+          to="/kitchen/assets"
+          className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold bg-amber-50 border border-amber-200 text-amber-900 hover:bg-amber-100 transition shadow-xs"
+        >
+          <UtensilsCrossed className="h-4 w-4 text-amber-600" />
+          Live Kitchen Assets
+        </Link>
 
         <Link
           to="/bar/reports"

@@ -118,6 +118,11 @@ const navigationGroups = [
             icon: Flame,
           },
           {
+            name: "Live Kitchen Assets",
+            path: "/kitchen/assets",
+            icon: Package,
+          },
+          {
             name: "Kitchen Reports",
             path: "/kitchen/reports",
             icon: BarChart3,

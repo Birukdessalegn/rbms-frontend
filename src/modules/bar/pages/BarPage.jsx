@@ -25,6 +25,7 @@ import {
 import api from "../../../services/api";
 import audioService from "../../../services/audioService";
 import NewOrderAlertModal from "../../../components/common/NewOrderAlertModal";
+import { formatImageUrl, getCustomShotsMap } from "../../products/ProductsPage";
 
 function BarPage() {
   const location = useLocation();
@@ -309,7 +310,17 @@ function BarPage() {
       const pName = (p.product_name || p.name || "").toLowerCase();
       const isSpiritOrWhiskey = cat.includes("whiskey") || cat.includes("spirit") || cat.includes("liquor") || cat.includes("vodka") || cat.includes("gin") || cat.includes("rum") || cat.includes("tequila") || pName.includes("whiskey") || pName.includes("red label") || pName.includes("black label") || pName.includes("jack daniel") || pName.includes("jameson");
 
-      const totalShotsCapacity = Number(p.shots_capacity || p.bottle_shots || p.shots_per_bottle || p.capacity_shots || (isSpiritOrWhiskey ? 30 : 1));
+      const localMap = getCustomShotsMap();
+      const localData = localMap[String(p.id)] || localMap[String(p.product_code || p.productCode)];
+      const totalShotsCapacity = Number(
+        p.shots_capacity ||
+        p.shotsCapacity ||
+        p.bottle_shots ||
+        p.shots_per_bottle ||
+        p.capacity_shots ||
+        localData?.shots ||
+        (isSpiritOrWhiskey ? 30 : 1)
+      );
 
       // Calculate total shots purchased from order history
       let shotsPurchased = 0;
@@ -320,7 +331,12 @@ function BarPage() {
           const matchId = it.product_id === p.id || it.productId === p.id || it.id === p.id;
           const matchName = (it.product_name || it.name || "").toLowerCase() === pName;
           if (matchId || matchName) {
-            shotsPurchased += Number(it.quantity || it.qty || 1);
+            const shotDeduct = Number(it.shots_deduction || it.shotsDeduction || it.shots || 0);
+            if (shotDeduct > 0) {
+              shotsPurchased += shotDeduct * Number(it.quantity || it.qty || 1);
+            } else {
+              shotsPurchased += Number(it.quantity || it.qty || 1);
+            }
           }
         });
       });

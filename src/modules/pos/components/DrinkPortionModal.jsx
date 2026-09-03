@@ -1,11 +1,19 @@
 import { X } from "lucide-react";
-import { formatImageUrl } from "../../products/ProductsPage";
+import { formatImageUrl, getCustomShotsMap } from "../../products/ProductsPage";
 
 function DrinkPortionModal({ product, onClose, onSelectPortion }) {
   if (!product) return null;
 
+  const localMap = getCustomShotsMap();
+  const localData = localMap[String(product.id)] || localMap[String(product.product_code || product.productCode)];
   const basePrice = Number(product.unit_price || product.price || 0);
-  const totalShots = Number(product.shots_capacity || product.shotsCapacity || product.bottle_shots || 30);
+  const totalShots = Number(
+    product.shots_capacity ||
+    product.shotsCapacity ||
+    product.bottle_shots ||
+    localData?.shots ||
+    30
+  );
   const halfShots = Math.max(1, Math.round(totalShots / 2));
 
   const rawImage =

@@ -8,6 +8,7 @@ import CurrentOrder from "../components/CurrentOrder";
 import api from "../../../services/api";
 import ActiveOrders from "../components/ActiveOrders";
 import DrinkPortionModal from "../components/DrinkPortionModal";
+import { getCustomShotsMap } from "../../products/ProductsPage";
 
 function POSPage() {
   const { user } = useAuth();
@@ -25,16 +26,24 @@ function POSPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [portionModalProduct, setPortionModalProduct] = useState(null);
 
+  // Helper to identify spirit/liquor bottle products that should open the portion serving modal
   const isSpiritOrLiquorProduct = (product) => {
     if (!product) return false;
     const cat = (product.category_name || product.category || product.type || "").toLowerCase();
     const pName = (product.product_name || product.name || "").toLowerCase();
 
+    const localMap = getCustomShotsMap();
+    const localData = localMap[String(product.id)] || localMap[String(product.product_code || product.productCode)];
+    const hasCustomShots =
+      Number(product.shots_capacity || product.shotsCapacity || localData?.shots || 0) > 0 ||
+      localData?.isShotItem === true;
+
     const isShotItem =
       product.is_shot_item === true ||
       product.isShotItem === true ||
       product.shots_capacity > 0 ||
-      product.shotsCapacity > 0;
+      product.shotsCapacity > 0 ||
+      hasCustomShots;
 
     const isSpiritCat =
       cat.includes("whiskey") ||
@@ -126,17 +135,17 @@ function POSPage() {
     setPortionModalProduct(null);
   };
 
- const handleSendToKitchen = async () => {
-  if (orderItems.length === 0) {
-    return;
-  }
-if (orderType === "Dine In" && !selectedTable) {
-  alert("Please select a table for Dine In orders.");
-  return;
-}
+  const handleSendToKitchen = async () => {
+    if (orderItems.length === 0) {
+      return;
+    }
+    if (orderType === "Dine In" && !selectedTable) {
+      alert("Please select a table for Dine In orders.");
+      return;
+    }
 
-  try {
-    const orderNumber = `ORD-${Date.now()}`;
+    try {
+      const orderNumber = `ORD-${Date.now()}`;
 
       const rawTableId = Number(selectedTable?.id);
       const tableId = (!isNaN(rawTableId) && rawTableId > 0) ? rawTableId : null;
@@ -158,62 +167,62 @@ if (orderType === "Dine In" && !selectedTable) {
         waiter_name: user?.username || user?.name || null,
 
         items: orderItems.map((item) => ({
-        productId: item.originalId || item.id,
-        product_id: item.originalId || item.id,
-        name: item.name,
-        product_name: item.name,
-        price: item.price,
-        unit_price: item.price,
-        quantity: item.quantity,
-        portion: item.portion || "",
-        shotsDeduction: item.shotsDeduction || null,
-        notes: item.notes || "",
-      })),
+          productId: item.originalId || item.id,
+          product_id: item.originalId || item.id,
+          name: item.name,
+          product_name: item.name,
+          price: item.price,
+          unit_price: item.price,
+          quantity: item.quantity,
+          portion: item.portion || "",
+          shotsDeduction: item.shotsDeduction || null,
+          notes: item.notes || "",
+        })),
 
-      notes: "",
-    };
+        notes: "",
+      };
 
-    const response = await api("/pos/orders", {
-      method: "POST",
-      body: JSON.stringify(orderData),
-    });
+      const response = await api("/pos/orders", {
+        method: "POST",
+        body: JSON.stringify(orderData),
+      });
 
-    console.log("Order created:", response);
+      console.log("Order created:", response);
 
-    // Explicitly update table status to occupied if table was selected
-    if (selectedTable?.id) {
-      try {
-        await api(`/tables/${selectedTable.id}/status`, {
-          method: "PUT",
-          body: JSON.stringify({ status: "occupied" }),
-        });
-      } catch (tableErr) {
-        console.log("Table status update note:", tableErr);
+      // Explicitly update table status to occupied if table was selected
+      if (selectedTable?.id) {
+        try {
+          await api(`/tables/${selectedTable.id}/status`, {
+            method: "PUT",
+            body: JSON.stringify({ status: "occupied" }),
+          });
+        } catch (tableErr) {
+          console.log("Table status update note:", tableErr);
+        }
       }
+
+      setOrderItems([]);
+      setSelectedTable(null);
+
+      // Instantly refresh table status and active orders in Restaurant Context
+      if (fetchTables) {
+        fetchTables();
+      }
+      if (fetchKitchenOrders) {
+        fetchKitchenOrders();
+      }
+
+      alert("Order sent to kitchen successfully!");
+
+    } catch (error) {
+      console.error("Failed to create order:", error);
+
+      alert(
+        error.message ||
+        "Failed to send order to kitchen"
+      );
     }
-
-    setOrderItems([]);
-    setSelectedTable(null);
-
-    // Instantly refresh table status and active orders in Restaurant Context
-    if (fetchTables) {
-      fetchTables();
-    }
-    if (fetchKitchenOrders) {
-      fetchKitchenOrders();
-    }
-
-    alert("Order sent to kitchen successfully!");
-
-  } catch (error) {
-    console.error("Failed to create order:", error);
-
-    alert(
-      error.message ||
-      "Failed to send order to kitchen"
-    );
-  }
- };
+  };
 
   const handleIncrease = (productId) => {
     setOrderItems((prevItems) =>
@@ -260,24 +269,9 @@ if (orderType === "Dine In" && !selectedTable) {
             Create and manage restaurant and bar orders.
           </p>
         </div>
-
-        {/* <div className="flex gap-3">
-          <button
-            onClick={handleClear}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Hold Order
-          </button>
-
-          <button
-            onClick={handleClear}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            New Order
-          </button>
-        </div> */}
       </div>
-<ActiveOrders />
+
+      <ActiveOrders />
 
       {/* Order Type */}
       <div className="flex gap-2">
@@ -324,48 +318,47 @@ if (orderType === "Dine In" && !selectedTable) {
 
           {/* Products */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-  {/* Categories */}
-  <div className="flex gap-2">
-    {["all", "food", "drinks"].map((category) => (
-      <button
-        key={category}
-        type="button"
-        onClick={() => setActiveCategory(category)}
-        className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-          activeCategory === category
-            ? "bg-blue-600 text-white"
-            : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-        }`}
-      >
-        {category === "all"
-          ? "All"
-          : category === "food"
-          ? "Food"
-          : "Drinks"}
-      </button>
-    ))}
-  </div>
+            {/* Categories */}
+            <div className="flex gap-2">
+              {["all", "food", "drinks"].map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setActiveCategory(category)}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                    activeCategory === category
+                      ? "bg-blue-600 text-white"
+                      : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {category === "all"
+                    ? "All"
+                    : category === "food"
+                    ? "Food"
+                    : "Drinks"}
+                </button>
+              ))}
+            </div>
 
-  {/* Search */}
-  <div className="w-full sm:w-64">
-    <input
-      type="text"
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      placeholder="Search products..."
-      className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-    />
-  </div>
-</div>
+            {/* Search */}
+            <div className="w-full sm:w-64">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search products..."
+                className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+          </div>
 
-<div className="mt-5">
-  <ProductGrid
-    onAddProduct={handleAddProduct}
-    activeCategory={activeCategory}
-    orderItems={orderItems}
-    searchTerm={searchTerm}
-  />
-
+          <div className="mt-5">
+            <ProductGrid
+              onAddProduct={handleAddProduct}
+              activeCategory={activeCategory}
+              orderItems={orderItems}
+              searchTerm={searchTerm}
+            />
           </div>
         </div>
 

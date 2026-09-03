@@ -38,6 +38,28 @@ export const formatImageUrl = (url) => {
   return `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
 };
 
+export const getCustomShotsMap = () => {
+  try {
+    return JSON.parse(localStorage.getItem("rbms_custom_shots_map") || "{}");
+  } catch {
+    return {};
+  }
+};
+
+export const setCustomProductShots = (productIdOrCode, shots, isShotItem = true) => {
+  try {
+    if (!productIdOrCode) return;
+    const map = getCustomShotsMap();
+    map[String(productIdOrCode)] = {
+      shots: Number(shots) > 0 ? Number(shots) : 30,
+      isShotItem: Boolean(isShotItem),
+    };
+    localStorage.setItem("rbms_custom_shots_map", JSON.stringify(map));
+  } catch (err) {
+    console.warn("Could not save custom shots map", err);
+  }
+};
+
 function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -88,8 +110,61 @@ function ProductsPage() {
       setError("");
 
       const response = await api("/products");
+      const rawProducts = response.products || [];
+      const localMap = getCustomShotsMap();
+      const enriched = rawProducts.map((p) => {
+        const cat = (p.category_name || p.category || p.type || "").toLowerCase();
+        const pName = (p.name || p.product_name || "").toLowerCase();
+        const isFoodOrSoft =
+          cat.includes("food") ||
+          cat.includes("kitchen") ||
+          cat.includes("beer") ||
+          cat.includes("soft") ||
+          cat.includes("water") ||
+          cat.includes("wine") ||
+          pName.includes("salad") ||
+          pName.includes("beer") ||
+          pName.includes("water") ||
+          pName.includes("coca") ||
+          pName.includes("pizza") ||
+          pName.includes("burger");
 
-      setProducts(response.products || []);
+        const local = localMap[String(p.id)] || localMap[String(p.product_code || p.productCode)];
+        const isExplicitShot = p.is_shot_item === true || p.isShotItem === true || local?.isShotItem === true;
+        const isSpiritBottle =
+          !isFoodOrSoft &&
+          (cat.includes("whiskey") ||
+            cat.includes("spirit") ||
+            cat.includes("liquor") ||
+            cat.includes("vodka") ||
+            cat.includes("gin") ||
+            cat.includes("rum") ||
+            cat.includes("tequila") ||
+            pName.includes("whiskey") ||
+            pName.includes("red label") ||
+            pName.includes("black label") ||
+            pName.includes("jack daniel") ||
+            pName.includes("jameson") ||
+            pName.includes("vodka") ||
+            pName.includes("gin") ||
+            pName.includes("rum") ||
+            pName.includes("tequila"));
+
+        const isShot = !isFoodOrSoft && (isExplicitShot || isSpiritBottle);
+        const cap = isShot
+          ? Number(p.shots_capacity || p.shotsCapacity || p.bottle_shots || local?.shots || 30)
+          : 0;
+
+        return {
+          ...p,
+          shots_capacity: cap,
+          shotsCapacity: cap,
+          is_shot_item: Boolean(isShot),
+          isShotItem: Boolean(isShot),
+        };
+      });
+
+      setProducts(enriched);
     } catch (error) {
       console.error("Failed to fetch products:", error);
 
@@ -143,10 +218,26 @@ function ProductsPage() {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    setForm((previous) => ({
-      ...previous,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setForm((previous) => {
+      const nextVal = type === "checkbox" ? checked : value;
+      const updated = {
+        ...previous,
+        [name]: nextVal,
+      };
+
+      if (name === "categoryId") {
+        const catObj = categories.find((c) => String(c.id) === String(value));
+        const catType = (catObj?.type || catObj?.name || "").toLowerCase();
+        if (catType.includes("food") || catType.includes("kitchen")) {
+          if (["bottle", "shot", "half_bottle"].includes(updated.unit)) {
+            updated.unit = "plate";
+          }
+          updated.isShotItem = false;
+        }
+      }
+
+      return updated;
+    });
   };
 
   // ============================================================
@@ -213,6 +304,21 @@ function ProductsPage() {
     const prodPrice = Number(prod.price || 0);
     setBasePriceInput(prodPrice > 0 ? (prodPrice / 1.15).toFixed(2) : "");
 
+    const localMap = getCustomShotsMap();
+    const localData = localMap[String(prod.id)] || localMap[String(prod.product_code || prod.productCode)];
+    const resolvedShots = String(
+      prod.shots_capacity ??
+      prod.shotsCapacity ??
+      prod.bottle_shots ??
+      localData?.shots ??
+      30
+    );
+    const resolvedIsShotItem =
+      prod.is_shot_item ??
+      prod.isShotItem ??
+      localData?.isShotItem ??
+      (Number(resolvedShots) > 0);
+
     setForm({
       productCode: prod.product_code || prod.productCode || "",
       name: prod.name || "",
@@ -227,8 +333,8 @@ function ProductsPage() {
       isActive: prod.is_active ?? prod.isActive ?? true,
       menuType: prod.menu_type || prod.menuType || "both",
       isTodaysSpecial: prod.is_todays_special ?? prod.isTodaysSpecial ?? false,
-      shotsCapacity: String(prod.shots_capacity || prod.shotsCapacity || prod.bottle_shots || 30),
-      isShotItem: prod.is_shot_item ?? prod.isShotItem ?? (prod.shots_capacity > 0 || prod.shotsCapacity > 0),
+      shotsCapacity: resolvedShots,
+      isShotItem: Boolean(resolvedIsShotItem),
     });
 
     setShowModal(true);
@@ -341,10 +447,20 @@ function ProductsPage() {
       const endpoint = editingProduct ? `/products/${editingProduct.id}` : "/products";
       const method = editingProduct ? "PUT" : "POST";
 
-      await api(endpoint, {
+      const res = await api(endpoint, {
         method,
         body: formData,
       });
+
+      // Persist custom shots immediately to local registry so it's instantly available
+      const savedShotsNum = Number(safeShotsCapacity);
+      const savedProdId = editingProduct?.id || res?.product?.id || res?.id || res?.data?.id;
+      if (savedProdId) {
+        setCustomProductShots(savedProdId, savedShotsNum, form.isShotItem);
+      }
+      if (code) {
+        setCustomProductShots(code, savedShotsNum, form.isShotItem);
+      }
 
       setSuccess(editingProduct ? "Product updated successfully." : "Product created successfully.");
       setShowModal(false);
@@ -881,7 +997,7 @@ function ProductsPage() {
                             ETB / {product.unit || "pcs"}
                           </span>
 
-                          {(product.shots_capacity > 0 || product.shotsCapacity > 0 || product.is_shot_item || product.isShotItem) && (
+                          {Boolean(product.is_shot_item || product.isShotItem) && Number(product.shots_capacity || product.shotsCapacity) > 0 && (
                             <div className="mt-1">
                               <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-extrabold text-purple-700 border border-purple-200">
                                 🥃 {product.shots_capacity || product.shotsCapacity || 30} Shots/Bottle
@@ -1138,39 +1254,26 @@ function ProductsPage() {
                     onChange={handleChange}
                     className={inputClass}
                   >
+                    <optgroup label="🍽️ Food & Kitchen Servings">
+                      <option value="plate">Plate (Main dishes / Food meals)</option>
+                      <option value="portion">Portion (Salads / Appetizers / Sides)</option>
+                      <option value="bowl">Bowl (Soups / Stews)</option>
+                      <option value="pcs">Pieces / pcs (Burgers / Sambusa / Shisha)</option>
+                    </optgroup>
 
-                    <option value="pcs">
-                      Pieces (pcs)
-                    </option>
+                    <optgroup label="🍸 Bar & Beverage Servings">
+                      <option value="bottle">Full Bottle (Liquor / Wine / Beer)</option>
+                      <option value="half_bottle">Half Bottle</option>
+                      <option value="glass">Glass (Cocktails / Wine)</option>
+                      <option value="shot">Shot Glass (Spirits / Liquor)</option>
+                      <option value="can">Can (Soft Drinks / Canned Beer)</option>
+                      <option value="cup">Cup (Coffee / Tea)</option>
+                    </optgroup>
 
-                    <option value="shot">
-                      Shot / Shoot Glass (shot)
-                    </option>
-
-                    <option value="glass">
-                      Glass
-                    </option>
-
-                    <option value="half_bottle">
-                      Half Bottle
-                    </option>
-
-                    <option value="bottle">
-                      Full Bottle
-                    </option>
-
-                    <option value="plate">
-                      Plate
-                    </option>
-
-                    <option value="liter">
-                      Liter (l)
-                    </option>
-
-                    <option value="kg">
-                      Kilogram (kg)
-                    </option>
-
+                    <optgroup label="⚖️ Volume & Bulk Weight">
+                      <option value="liter">Liter (l)</option>
+                      <option value="kg">Kilogram (kg)</option>
+                    </optgroup>
                   </select>
 
                 </FormField>
@@ -1326,20 +1429,27 @@ function ProductsPage() {
 
               </div>
 
-              {/* Spirit & Liquor Portion Configuration */}
-              <div className="rounded-2xl border border-purple-200 bg-purple-50/40 p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Wine className="h-5 w-5 text-purple-600" />
-                    <div>
-                      <h4 className="text-xs font-extrabold text-purple-900 uppercase tracking-wider">
-                        Spirit / Liquor Shot & Bottle Setup
-                      </h4>
-                      <p className="text-[11px] text-purple-700">
-                        Configure custom shots per bottle (Single/Double Shot, Half & Full Bottle)
-                      </p>
-                    </div>
-                  </div>
+              {/* Spirit & Liquor Portion Configuration (Only shown for beverage/spirits or if enabled) */}
+              {(() => {
+                const selectedCat = categories.find((c) => String(c.id) === String(form.categoryId));
+                const catType = (selectedCat?.type || selectedCat?.name || "").toLowerCase();
+                const isFoodCategory = catType.includes("food") || catType.includes("kitchen");
+                if (isFoodCategory && !form.isShotItem) return null;
+
+                return (
+                  <div className="rounded-2xl border border-purple-200 bg-purple-50/40 p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Wine className="h-5 w-5 text-purple-600" />
+                        <div>
+                          <h4 className="text-xs font-extrabold text-purple-900 uppercase tracking-wider">
+                            Spirit / Liquor Shot & Bottle Setup
+                          </h4>
+                          <p className="text-[11px] text-purple-700">
+                            Configure custom shots per bottle (Single/Double Shot, Half & Full Bottle)
+                          </p>
+                        </div>
+                      </div>
 
                   <label className="flex items-center gap-2 cursor-pointer">
                     <span className="text-xs font-bold text-slate-700">
@@ -1405,6 +1515,8 @@ function ProductsPage() {
                   )}
                 </div>
               </div>
+            );
+          })()}
 
               {/* Description */}
 

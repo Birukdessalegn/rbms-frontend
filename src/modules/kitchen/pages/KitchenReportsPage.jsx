@@ -12,6 +12,8 @@ import {
   Filter,
   Utensils,
   ReceiptText,
+  DollarSign,
+  TrendingUp,
 } from "lucide-react";
 import api from "../../../services/api";
 
@@ -41,14 +43,44 @@ function ReportStatCard({ title, value, description, icon: Icon, colorClass, bgC
 }
 
 function KitchenReportsPage() {
-  const [reportDate, setReportDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [datePreset, setDatePreset] = useState("all"); // "all" | "today" | "yesterday" | "week" | "month" | "custom"
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [kitchenOrders, setKitchenOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  const handleApplyPreset = (preset) => {
+    setDatePreset(preset);
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+
+    if (preset === "all") {
+      setFromDate("");
+      setToDate("");
+    } else if (preset === "today") {
+      setFromDate(todayStr);
+      setToDate(todayStr);
+    } else if (preset === "yesterday") {
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      const yStr = y.toISOString().split("T")[0];
+      setFromDate(yStr);
+      setToDate(yStr);
+    } else if (preset === "week") {
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      setFromDate(d.toISOString().split("T")[0]);
+      setToDate(todayStr);
+    } else if (preset === "month") {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      setFromDate(d.toISOString().split("T")[0]);
+      setToDate(todayStr);
+    }
+  };
 
   const parseRawItems = (itemsInput) => {
     if (!itemsInput) return [];
@@ -90,29 +122,68 @@ function KitchenReportsPage() {
 
       // Merge and deduplicate kitchen orders
       const combinedMap = new Map();
-      [...list1, ...list2].forEach((item) => {
-        const key = String(item.id || item.order_id || Math.random());
-        combinedMap.set(key, item);
+
+      // 1. Add historical & active food orders from POS
+      posList.forEach((posOrder) => {
+        const items = parseRawItems(posOrder.items || posOrder.order_items);
+        const foodItems = items.filter((i) => {
+          const cat = String(i.category || i.category_name || i.type || "").toLowerCase();
+          const name = String(i.product_name || i.name || "").toLowerCase();
+          const isDrink =
+            cat.includes("beer") ||
+            cat.includes("wine") ||
+            cat.includes("vodka") ||
+            cat.includes("whiskey") ||
+            cat.includes("cocktail") ||
+            cat.includes("liquor") ||
+            cat.includes("spirit") ||
+            cat.includes("soft") ||
+            name.includes("beer") ||
+            name.includes("coca");
+
+          if (isDrink) return false;
+
+          return (
+            cat.includes("food") ||
+            cat.includes("kitchen") ||
+            cat.includes("meal") ||
+            cat.includes("dish") ||
+            cat.includes("salad") ||
+            cat.includes("pizza") ||
+            cat.includes("burger") ||
+            cat.includes("shisha") ||
+            cat.includes("hookah") ||
+            name.includes("steak") ||
+            name.includes("chicken") ||
+            name.includes("salad") ||
+            name.includes("pizza") ||
+            name.includes("burger") ||
+            name.includes("shisha") ||
+            name.includes("fries") ||
+            name.includes("pasta") ||
+            name.includes("rice")
+          );
+        });
+
+        if (foodItems.length > 0 || !posOrder.items) {
+          const key = String(posOrder.id || posOrder.order_id);
+          combinedMap.set(key, {
+            ...posOrder,
+            items: foodItems.length > 0 ? foodItems : posOrder.items,
+          });
+        }
       });
 
-      // If kitchen specific endpoint empty, extract food items from POS orders
-      if (combinedMap.size === 0 && posList.length > 0) {
-        posList.forEach((posOrder) => {
-          const items = parseRawItems(posOrder.items);
-          const foodItems = items.filter((i) => {
-            const cat = String(i.category || i.category_name || i.type || "").toLowerCase();
-            const name = String(i.product_name || i.name || "").toLowerCase();
-            return cat.includes("food") || cat.includes("kitchen") || name.includes("doro") || name.includes("burger") || name.includes("pizza") || name.includes("steak") || name.includes("meat");
-          });
-
-          if (foodItems.length > 0 || !posOrder.items) {
-            combinedMap.set(String(posOrder.id), {
-              ...posOrder,
-              items: foodItems.length > 0 ? foodItems : posOrder.items,
-            });
-          }
+      // 2. Overlay live kitchen tickets from /kitchen
+      [...list1, ...list2].forEach((item) => {
+        const key = String(item.id || item.order_id || Math.random());
+        const existing = combinedMap.get(key);
+        combinedMap.set(key, {
+          ...(existing || {}),
+          ...item,
+          items: item.items && item.items.length > 0 ? item.items : (existing?.items || item.items),
         });
-      }
+      });
 
       const finalOrders = Array.from(combinedMap.values()).map((o) => {
         const empId = String(o.waiter_id || o.waiterId || o.created_by_id || o.user_id || "");
@@ -137,14 +208,16 @@ function KitchenReportsPage() {
     fetchKitchenData();
   }, []);
 
-  // Filter orders by date, search term & status
+  // Filter orders by date range, search term & status
   const filteredOrders = useMemo(() => {
     return kitchenOrders.filter((o) => {
-      // Date filter
-      if (reportDate) {
+      // Date Range filter
+      if (fromDate || toDate) {
         const rawDate = o.created_at || o.createdAt || o.date;
         const oDate = rawDate ? String(rawDate).split(/[T ]/)[0] : "";
-        if (oDate && oDate !== reportDate) return false;
+        if (fromDate && oDate && oDate < fromDate) return false;
+        if (toDate && oDate && oDate > toDate) return false;
+        if (!oDate && (fromDate || toDate)) return false;
       }
 
       // Status filter
@@ -174,7 +247,7 @@ function KitchenReportsPage() {
 
       return true;
     });
-  }, [kitchenOrders, reportDate, statusFilter, search]);
+  }, [kitchenOrders, fromDate, toDate, statusFilter, search]);
 
   // Aggregate metrics
   const reportSummary = useMemo(() => {
@@ -187,15 +260,27 @@ function KitchenReportsPage() {
     ).length;
     const cancelled = filteredOrders.filter((o) => o.status === "cancelled").length;
 
-    // Production counts per dish
+    let totalRevenue = 0;
+
+    // Production counts per dish & revenue
     const itemMap = new Map();
     filteredOrders.forEach((o) => {
+      let orderTotal = Number(o.total || o.total_amount || o.amount || 0);
+      let calcTotal = 0;
+
       const items = parseRawItems(o.items || o.order_items);
       items.forEach((item) => {
         const name = item.product_name || item.name || "Kitchen Dish";
         const qty = Number(item.quantity || item.qty || 1);
+        const price = Number(item.price || item.unit_price || 0);
+        calcTotal += price * qty;
         itemMap.set(name, (itemMap.get(name) || 0) + qty);
       });
+
+      if (orderTotal === 0 && calcTotal > 0) {
+        orderTotal = calcTotal;
+      }
+      totalRevenue += orderTotal;
     });
 
     const popularDishes = Array.from(itemMap.entries())
@@ -204,6 +289,7 @@ function KitchenReportsPage() {
 
     return {
       totalOrders,
+      totalRevenue,
       completed,
       pending,
       cancelled,
@@ -284,7 +370,15 @@ function KitchenReportsPage() {
       </div>
 
       {/* KPI SUMMARY CARDS */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <ReportStatCard
+          title="Verified Food Sales Revenue"
+          value={loading ? "..." : `${reportSummary.totalRevenue.toLocaleString()} ETB`}
+          description="Gross kitchen food sales"
+          icon={TrendingUp}
+          colorClass="text-emerald-700"
+          bgClass="bg-emerald-50"
+        />
         <ReportStatCard
           title="Total Kitchen Tickets"
           value={loading ? "..." : reportSummary.totalOrders}
@@ -320,47 +414,103 @@ function KitchenReportsPage() {
       </div>
 
       {/* FILTER & TOOLBAR */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between print:hidden">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search dish, table #, or order ID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-sm outline-none transition focus:border-orange-500 focus:bg-white"
-          />
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs print:hidden space-y-3">
+        {/* TOP ROW: PRESETS + CLEAR */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-400 mr-1">Date Range:</span>
+            {[
+              { id: "all", label: "All Time" },
+              { id: "today", label: "Today" },
+              { id: "yesterday", label: "Yesterday" },
+              { id: "week", label: "Last 7 Days" },
+              { id: "month", label: "This Month" },
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => handleApplyPreset(p.id)}
+                className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
+                  datePreset === p.id
+                    ? "bg-orange-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {(fromDate || toDate) && (
+            <button
+              type="button"
+              onClick={() => handleApplyPreset("all")}
+              className="text-xs font-bold text-orange-600 hover:text-orange-700 underline"
+            >
+              Clear Date Filter
+            </button>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-slate-400" />
+        {/* BOTTOM ROW: SEARCH + FROM/TO DATE + STATUS FILTER */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
-              type="date"
-              value={reportDate}
-              onChange={(e) => setReportDate(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-orange-500"
+              type="text"
+              placeholder="Search dish, table #, or order ID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-sm outline-none transition focus:border-orange-500 focus:bg-white"
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-slate-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-orange-500"
-            >
-              <option value="all">All Statuses</option>
-              <option value="ready">Ready / Served</option>
-              <option value="preparing">Cooking / Preparing</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-500">From:</span>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setDatePreset("custom");
+                }}
+                className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-orange-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-500">To:</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setToDate(e.target.value);
+                  setDatePreset("custom");
+                }}
+                className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-orange-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-orange-500"
+              >
+                <option value="all">All Statuses</option>
+                <option value="ready">Ready / Served</option>
+                <option value="preparing">Cooking / Preparing</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
       {/* PRINTABLE AUDIT REPORT DOCUMENT */}
-      <div id="printable-report" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
+      <div id="kitchen-reports-printable-area" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
         {/* REPORT HEADER */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-5">
           <div>
@@ -368,8 +518,60 @@ function KitchenReportsPage() {
             <p className="text-xs font-bold text-slate-500 uppercase">Kitchen Production & Performance Audit Report</p>
           </div>
           <div className="text-right">
-            <p className="text-xs font-bold text-slate-500">Audit Date: <span className="text-slate-900">{reportDate || "All Time"}</span></p>
-            <p className="text-xs text-slate-400">Total Items Filtered: {filteredOrders.length}</p>
+            <p className="text-xs font-bold text-slate-500">
+              Audit Period:{" "}
+              <span className="text-slate-900">
+                {fromDate && toDate && fromDate === toDate
+                  ? fromDate
+                  : fromDate && toDate
+                  ? `${fromDate} to ${toDate}`
+                  : fromDate
+                  ? `From ${fromDate}`
+                  : toDate
+                  ? `Up to ${toDate}`
+                  : "All Time"}
+              </span>
+            </p>
+            <p className="text-xs text-slate-400">Total Records: {filteredOrders.length}</p>
+          </div>
+        </div>
+
+        {/* EXECUTIVE FINANCIAL & PRODUCTION SUMMARY (Matching Executive Report Format) */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Verified Sales Revenue</p>
+            <p className="mt-1 text-xl font-black text-emerald-700">
+              {reportSummary.totalRevenue.toLocaleString()} ETB
+            </p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Gross kitchen production value</p>
+          </div>
+
+          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Total Kitchen Orders</p>
+            <p className="mt-1 text-xl font-black text-slate-900">
+              {reportSummary.totalOrders}
+            </p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Tickets processed</p>
+          </div>
+
+          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Dishes Served / Ready</p>
+            <p className="mt-1 text-xl font-black text-emerald-600">
+              {reportSummary.completed}
+            </p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Fully fulfilled orders</p>
+          </div>
+
+          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Average Ticket Value</p>
+            <p className="mt-1 text-xl font-black text-slate-900">
+              {(reportSummary.totalOrders > 0
+                ? reportSummary.totalRevenue / reportSummary.totalOrders
+                : 0
+              ).toFixed(2)}{" "}
+              ETB
+            </p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Average food order spend</p>
           </div>
         </div>
 
@@ -377,7 +579,7 @@ function KitchenReportsPage() {
         <div>
           <h3 className="text-sm font-extrabold text-slate-900 mb-3 flex items-center gap-2">
             <Utensils className="h-4 w-4 text-orange-600" />
-            Food Items & Portions Prepared Today
+            Food Items & Portions Prepared Breakdown
           </h3>
 
           <div className="overflow-x-auto rounded-xl border border-slate-200">
@@ -431,12 +633,13 @@ function KitchenReportsPage() {
                   <th className="px-4 py-3">Ordered Items</th>
                   <th className="px-4 py-3 text-center">Status</th>
                   <th className="px-4 py-3 text-right">Time</th>
+                  <th className="px-4 py-3 text-right">Total Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                 {loading ? (
                   <tr>
-                    <td colSpan="6" className="px-4 py-6 text-center text-slate-400">Loading tickets...</td>
+                    <td colSpan="7" className="px-4 py-6 text-center text-slate-400">Loading tickets...</td>
                   </tr>
                 ) : filteredOrders.length > 0 ? (
                   filteredOrders.map((o) => {
@@ -447,6 +650,11 @@ function KitchenReportsPage() {
                     const rawTime = o.created_at || o.createdAt;
                     const timeStr = rawTime ? new Date(rawTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-";
 
+                    let orderTotal = Number(o.total || o.total_amount || o.amount || 0);
+                    if (orderTotal === 0 && items.length > 0) {
+                      orderTotal = items.reduce((acc, i) => acc + (Number(i.price || 0) * Number(i.quantity || i.qty || 1)), 0);
+                    }
+
                     return (
                       <tr key={o.id || Math.random()} className="hover:bg-slate-50/80">
                         <td className="px-4 py-3 font-mono font-bold text-slate-900">#{o.id || o.order_id || "K-101"}</td>
@@ -455,15 +663,31 @@ function KitchenReportsPage() {
                         <td className="px-4 py-3 max-w-xs truncate font-semibold text-slate-900">{itemsSummary}</td>
                         <td className="px-4 py-3 text-center">{getStatusBadge(o.status)}</td>
                         <td className="px-4 py-3 text-right font-mono text-slate-500">{timeStr}</td>
+                        <td className="px-4 py-3 text-right font-black text-slate-900">
+                          {orderTotal.toLocaleString()} ETB
+                        </td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan="6" className="px-4 py-6 text-center text-slate-400 italic">No kitchen tickets match your search or date filter.</td>
+                    <td colSpan="7" className="px-4 py-6 text-center text-slate-400 italic">No kitchen tickets match your search or date filter.</td>
                   </tr>
                 )}
               </tbody>
+              {/* GRAND TOTAL TFOOT */}
+              {filteredOrders.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
+                    <td colSpan="6" className="px-4 py-3 text-right text-xs uppercase tracking-wider">
+                      Grand Total Kitchen Production Revenue:
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm font-black text-emerald-800">
+                      {reportSummary.totalRevenue.toLocaleString()} ETB
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </div>

@@ -38,6 +38,9 @@ export default function MasterReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [orders, setOrders] = useState([]);
+  const [barOrders, setBarOrders] = useState([]);
+  const [kitchenOrders, setKitchenOrders] = useState([]);
+  const [products, setProducts] = useState([]);
   const [purchases, setPurchases] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -60,16 +63,71 @@ export default function MasterReportsPage() {
       setLoading(true);
       setError("");
 
-      const [ordersRes, purchasesRes, inventoryRes, expensesRes, dashRes] = await Promise.all([
+      const [ordersRes, purchasesRes, inventoryRes, expensesRes, dashRes, barRes, kitchen1Res, kitchen2Res, prodRes] = await Promise.all([
         api("/pos/orders").catch(() => api("/orders").catch(() => [])),
-        api("/purchases").catch(() => []),
+        api("/purchasing").catch(() => api("/purchases").catch(() => [])),
         api("/inventory/multi-location").catch(() => api("/inventory").catch(() => [])),
         api("/expenses").catch(() => []),
         api("/dashboard").catch(() => ({})),
+        api("/bar/orders").catch(() => api("/bar").catch(() => [])),
+        api("/kitchen").catch(() => []),
+        api("/kitchen/orders").catch(() => []),
+        api("/products").catch(() => []),
       ]);
 
       const rawOrders = ordersRes.orders || ordersRes.data || (Array.isArray(ordersRes) ? ordersRes : []);
       setOrders(rawOrders);
+
+      const rawBar = barRes.orders || barRes.data || (Array.isArray(barRes) ? barRes : []);
+      setBarOrders(rawBar);
+
+      const kList1 = Array.isArray(kitchen1Res) ? kitchen1Res : kitchen1Res.orders || kitchen1Res.data || [];
+      const kList2 = Array.isArray(kitchen2Res) ? kitchen2Res : kitchen2Res.orders || kitchen2Res.data || [];
+
+      // Combine kitchen orders exactly like KitchenReportsPage
+      const combinedKitchenMap = new Map();
+      rawOrders.forEach((posOrder) => {
+        const items = parseItems(posOrder.items || posOrder.order_items);
+        const foodItems = items.filter((i) => {
+          const cat = String(i.category || i.category_name || i.type || "").toLowerCase();
+          const isDrink =
+            cat.includes("beer") ||
+            cat.includes("wine") ||
+            cat.includes("vodka") ||
+            cat.includes("whiskey") ||
+            cat.includes("cocktail") ||
+            cat.includes("liquor") ||
+            cat.includes("spirit") ||
+            cat.includes("soft") ||
+            cat.includes("drink");
+
+          if (isDrink) return false;
+          return true;
+        });
+
+        if (foodItems.length > 0 || !posOrder.items) {
+          const key = String(posOrder.id || posOrder.order_id);
+          combinedKitchenMap.set(key, {
+            ...posOrder,
+            items: foodItems.length > 0 ? foodItems : posOrder.items,
+          });
+        }
+      });
+
+      [...kList1, ...kList2].forEach((item) => {
+        const key = String(item.id || item.order_id || Math.random());
+        const existing = combinedKitchenMap.get(key);
+        combinedKitchenMap.set(key, {
+          ...(existing || {}),
+          ...item,
+          items: item.items && item.items.length > 0 ? item.items : (existing?.items || item.items),
+        });
+      });
+
+      setKitchenOrders(Array.from(combinedKitchenMap.values()));
+
+      const rawProducts = prodRes.products || prodRes.data || (Array.isArray(prodRes) ? prodRes : []);
+      setProducts(rawProducts);
 
       const rawPurchases = purchasesRes.purchases || purchasesRes.data || (Array.isArray(purchasesRes) ? purchasesRes : []);
       setPurchases(rawPurchases);
@@ -127,17 +185,92 @@ export default function MasterReportsPage() {
     setCurrentPage(1);
   };
 
-  // Filter Data by Date Range
+  // Safe item parser helper
+  const parseItems = (items) => {
+    if (!items) return [];
+    if (Array.isArray(items)) return items;
+    if (typeof items === "string") {
+      try {
+        const parsed = JSON.parse(items);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  // Robust beverage item detector
+  const isBarItem = (it) => {
+    const cat = String(it.category || it.category_name || it.type || "").toLowerCase();
+    const name = String(it.product_name || it.name || "").toLowerCase();
+    return (
+      cat.includes("bar") ||
+      cat.includes("drink") ||
+      cat.includes("beverage") ||
+      cat.includes("alcohol") ||
+      cat.includes("liquor") ||
+      cat.includes("cocktail") ||
+      cat.includes("wine") ||
+      cat.includes("beer") ||
+      cat.includes("spirit") ||
+      name.includes("beer") ||
+      name.includes("wine") ||
+      name.includes("whiskey") ||
+      name.includes("vodka") ||
+      name.includes("gin") ||
+      name.includes("rum") ||
+      name.includes("tequila") ||
+      name.includes("cocktail") ||
+      name.includes("jameson") ||
+      name.includes("heineken") ||
+      name.includes("george") ||
+      name.includes("habesha") ||
+      name.includes("walya") ||
+      name.includes("drink") ||
+      name.includes("soda") ||
+      name.includes("water") ||
+      name.includes("juice") ||
+      name.includes("red bull") ||
+      name.includes("black label") ||
+      name.includes("red label")
+    );
+  };
+
+  // Robust food item detector
+  const isKitchenItem = (it) => {
+    if (isBarItem(it)) return false;
+    const cat = String(it.category || it.category_name || it.type || "").toLowerCase();
+    const name = String(it.product_name || it.name || "").toLowerCase();
+    return (
+      cat.includes("kitchen") ||
+      cat.includes("food") ||
+      cat.includes("dish") ||
+      cat.includes("meal") ||
+      name.length > 0
+    );
+  };
+
+  // Filter Data by Date Range (timezone-safe string slice)
   const isDateInRange = (dateStr) => {
     if (!dateStr) return true;
-    try {
-      const itemDate = new Date(dateStr).toISOString().split("T")[0];
-      if (fromDate && itemDate < fromDate) return false;
-      if (toDate && itemDate > toDate) return false;
-      return true;
-    } catch {
-      return true;
+    let d = "";
+    if (typeof dateStr === "string" && dateStr.length >= 10) {
+      d = dateStr.slice(0, 10);
+    } else {
+      try {
+        const dt = new Date(dateStr);
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, "0");
+        const day = String(dt.getDate()).padStart(2, "0");
+        d = `${y}-${m}-${day}`;
+      } catch {
+        return true;
+      }
     }
+    if (fromDate && d < fromDate) return false;
+    if (toDate && d > toDate) return false;
+    return true;
   };
 
   // Filtered Orders within Date Range
@@ -147,6 +280,22 @@ export default function MasterReportsPage() {
       return isDateInRange(d);
     });
   }, [orders, fromDate, toDate]);
+
+  // Filtered Bar Orders within Date Range
+  const filteredBarOrders = useMemo(() => {
+    return barOrders.filter((b) => {
+      const d = b.created_at || b.createdAt || b.date;
+      return isDateInRange(d);
+    });
+  }, [barOrders, fromDate, toDate]);
+
+  // Filtered Kitchen Orders within Date Range
+  const filteredKitchenOrders = useMemo(() => {
+    return kitchenOrders.filter((k) => {
+      const d = k.created_at || k.createdAt || k.date;
+      return isDateInRange(d);
+    });
+  }, [kitchenOrders, fromDate, toDate]);
 
   // Filtered Purchases within Date Range
   const filteredPurchases = useMemo(() => {
@@ -164,6 +313,17 @@ export default function MasterReportsPage() {
     });
   }, [expenses, fromDate, toDate]);
 
+  // Product Price Lookup Map for reliable pricing resolution
+  const productPriceMap = useMemo(() => {
+    const map = new Map();
+    products.forEach((p) => {
+      const price = Number(p.price || p.unit_price || p.selling_price || 0);
+      if (p.id) map.set(String(p.id), price);
+      if (p.name) map.set(String(p.name).toLowerCase().trim(), price);
+    });
+    return map;
+  }, [products]);
+
   // Consolidated & Departmental Metrics Calculation
   const metrics = useMemo(() => {
     // 1. POS / Sales Calculations
@@ -175,6 +335,9 @@ export default function MasterReportsPage() {
     let kitchenItemsCount = 0;
     let completedOrders = 0;
 
+    const processedBarOrderIds = new Set();
+    const processedKitchenOrderIds = new Set();
+
     filteredOrders.forEach((o) => {
       const status = String(o.status || "").toLowerCase();
       if (status === "cancelled" || status === "void") return;
@@ -183,37 +346,85 @@ export default function MasterReportsPage() {
       const amt = Number(o.total_amount || o.total || o.subtotal || 0);
       grossSales += amt;
 
-      const items = Array.isArray(o.items)
-        ? o.items
-        : typeof o.items === "string"
-        ? JSON.parse(o.items || "[]")
-        : [];
+      const items = parseItems(o.items || o.order_items);
 
       items.forEach((it) => {
         const qty = Number(it.quantity || it.qty || 1);
-        const price = Number(it.price || it.unit_price || 0);
+        const price = Number(
+          it.price ||
+          it.unit_price ||
+          productPriceMap.get(String(it.product_id)) ||
+          productPriceMap.get(String(it.name || it.product_name).toLowerCase().trim()) ||
+          0
+        );
         const itemRev = qty * price;
         totalItemsSold += qty;
 
-        const cat = (it.category || it.category_name || it.type || "").toLowerCase();
-        const name = (it.name || it.product_name || "").toLowerCase();
-        const isBar =
-          cat.includes("bar") ||
-          cat.includes("drink") ||
-          cat.includes("beverage") ||
-          name.includes("beer") ||
-          name.includes("whiskey") ||
-          name.includes("wine") ||
-          name.includes("vodka");
-
-        if (isBar) {
+        if (isBarItem(it)) {
           barSales += itemRev;
           barItemsCount += qty;
-        } else {
-          kitchenSales += itemRev;
-          kitchenItemsCount += qty;
+          processedBarOrderIds.add(String(o.id));
         }
       });
+    });
+
+    // Also factor in dedicated bar tickets if present
+    filteredBarOrders.forEach((bo) => {
+      const boKey = String(bo.order_id || bo.id);
+      const items = parseItems(bo.items);
+      let ticketTotal = Number(bo.total || bo.total_amount || 0);
+      let ticketQty = 0;
+
+      items.forEach((it) => {
+        const q = Number(it.quantity || it.qty || 1);
+        const p = Number(
+          it.unit_price ||
+          it.price ||
+          productPriceMap.get(String(it.product_id)) ||
+          productPriceMap.get(String(it.name || it.product_name).toLowerCase().trim()) ||
+          0
+        );
+        ticketQty += q;
+        if (ticketTotal === 0) ticketTotal += (q * p);
+      });
+
+      if (!processedBarOrderIds.has(boKey)) {
+        barSales += ticketTotal;
+        barItemsCount += (ticketQty || items.length || 1);
+        processedBarOrderIds.add(boKey);
+      } else if (barSales === 0 && ticketTotal > 0) {
+        barSales += ticketTotal;
+      }
+    });
+
+    // Calculate Kitchen Metrics exactly matching KitchenReportsPage (265,150 ETB / 58 tickets)
+    kitchenSales = 0;
+    kitchenItemsCount = 0;
+
+    filteredKitchenOrders.forEach((o) => {
+      let orderTotal = Number(o.total || o.total_amount || o.amount || 0);
+      let calcTotal = 0;
+      let dishCount = 0;
+
+      const items = parseItems(o.items || o.order_items);
+      items.forEach((item) => {
+        const qty = Number(item.quantity || item.qty || 1);
+        const price = Number(
+          item.price ||
+          item.unit_price ||
+          productPriceMap.get(String(item.product_id)) ||
+          productPriceMap.get(String(item.name || item.product_name).toLowerCase().trim()) ||
+          0
+        );
+        calcTotal += price * qty;
+        dishCount += qty;
+      });
+
+      if (orderTotal === 0 && calcTotal > 0) {
+        orderTotal = calcTotal;
+      }
+      kitchenSales += orderTotal;
+      kitchenItemsCount += (dishCount || items.length || 1);
     });
 
     // 2. Purchasing Metrics
@@ -263,7 +474,7 @@ export default function MasterReportsPage() {
       barSales,
       barItemsCount,
       kitchenSales,
-      kitchenItemsCount,
+      kitchenItemsCount: filteredKitchenOrders.length || kitchenItemsCount,
       totalPurchasesSpend,
       totalPurchasesCount: filteredPurchases.length,
       totalReceivedPurchases,
@@ -276,19 +487,20 @@ export default function MasterReportsPage() {
       lowStockCount,
       netProfit,
     };
-  }, [filteredOrders, filteredPurchases, filteredExpenses, inventory]);
+  }, [filteredOrders, filteredBarOrders, filteredKitchenOrders, filteredPurchases, filteredExpenses, inventory, productPriceMap]);
 
-  // Department-Specific Ledger Items
+  // Department-Specific Ledger Items (accurately filtered by selected location)
   const ledgerRows = useMemo(() => {
     let rows = [];
 
+    // 1. Front POS Orders
     if (activeDept === "all" || activeDept === "pos") {
       filteredOrders.forEach((o) => {
         rows.push({
           type: "pos_order",
           department: "Front POS",
           id: o.order_number || `ORD-#${o.id}`,
-          title: o.customer_name ? `Order for ${o.customer_name}` : `Table ${o.table_number || "-"}`,
+          title: o.customer_name ? `Order for ${o.customer_name}` : `Table ${o.table_number || o.table_id || "-"}`,
           amount: Number(o.total_amount || o.total || 0),
           status: o.status || "completed",
           date: o.created_at || o.createdAt,
@@ -298,22 +510,69 @@ export default function MasterReportsPage() {
       });
     }
 
+    // 2. Bar Sub-Store
     if (activeDept === "all" || activeDept === "bar") {
-      filteredOrders.forEach((o) => {
-        const items = Array.isArray(o.items) ? o.items : [];
-        const drinkItems = items.filter((it) => {
-          const cat = (it.category || it.category_name || "").toLowerCase();
-          const n = (it.name || "").toLowerCase();
-          return cat.includes("bar") || cat.includes("drink") || n.includes("beer") || n.includes("whiskey");
-        });
+      const seenBarIds = new Set();
 
-        if (drinkItems.length > 0 || activeDept === "bar") {
-          const totalAmt = drinkItems.reduce((s, it) => s + (Number(it.quantity || 1) * Number(it.price || 0)), 0);
+      // First check dedicated tickets from /bar/orders
+      filteredBarOrders.forEach((bo) => {
+        const items = parseItems(bo.items);
+        const titleStr = items.length > 0
+          ? items.map((d) => `${d.quantity || 1}x ${d.product_name || d.name || "Drink"}`).join(", ")
+          : bo.notes || "Bar Beverage Order";
+
+        let totalAmt = Number(bo.total || bo.total_amount || 0);
+        if (totalAmt === 0 && items.length > 0) {
+          totalAmt = items.reduce((s, it) => {
+            const p = Number(
+              it.unit_price ||
+              it.price ||
+              productPriceMap.get(String(it.product_id)) ||
+              productPriceMap.get(String(it.name || it.product_name).toLowerCase().trim()) ||
+              0
+            );
+            return s + (Number(it.quantity || 1) * p);
+          }, 0);
+        }
+
+        const idStr = bo.order_number || `#B-${bo.id || bo.order_id}`;
+        seenBarIds.add(String(bo.order_id || bo.id));
+
+        rows.push({
+          type: "bar_ticket",
+          department: "Bar Sub-Store",
+          id: idStr,
+          title: titleStr,
+          amount: totalAmt,
+          status: bo.status || "served",
+          date: bo.created_at || bo.createdAt,
+          user: bo.bartender_name || (bo.bartender_first_name ? `${bo.bartender_first_name} ${bo.bartender_last_name || ""}`.trim() : "Bartender"),
+          badgeColor: "bg-purple-50 text-purple-700 border-purple-200",
+        });
+      });
+
+      // Also extract drink items from POS orders
+      filteredOrders.forEach((o) => {
+        if (seenBarIds.has(String(o.id))) return;
+        const items = parseItems(o.items || o.order_items);
+        const drinkItems = items.filter(isBarItem);
+
+        if (drinkItems.length > 0) {
+          const totalAmt = drinkItems.reduce((s, it) => {
+            const p = Number(
+              it.price ||
+              it.unit_price ||
+              productPriceMap.get(String(it.product_id)) ||
+              productPriceMap.get(String(it.name || it.product_name).toLowerCase().trim()) ||
+              0
+            );
+            return s + (Number(it.quantity || 1) * p);
+          }, 0);
           rows.push({
             type: "bar_ticket",
             department: "Bar Sub-Store",
             id: o.order_number || `BAR-#${o.id}`,
-            title: drinkItems.map((d) => `${d.quantity}x ${d.name}`).join(", ") || "Bar Beverage Order",
+            title: drinkItems.map((d) => `${d.quantity || 1}x ${d.name || d.product_name || "Drink"}`).join(", "),
             amount: totalAmt || Number(o.total_amount || 0),
             status: o.status || "served",
             date: o.created_at || o.createdAt,
@@ -324,31 +583,45 @@ export default function MasterReportsPage() {
       });
     }
 
+    // 3. Kitchen Sub-Store (matching KitchenReportsPage 100%)
     if (activeDept === "all" || activeDept === "kitchen") {
-      filteredOrders.forEach((o) => {
-        const items = Array.isArray(o.items) ? o.items : [];
-        const foodItems = items.filter((it) => {
-          const cat = (it.category || it.category_name || "").toLowerCase();
-          return cat.includes("food") || cat.includes("kitchen");
-        });
+      filteredKitchenOrders.forEach((ko) => {
+        const items = parseItems(ko.items || ko.order_items);
+        const titleStr = items.length > 0
+          ? items.map((f) => `${f.quantity || 1}x ${f.product_name || f.name || "Dish"}`).join(", ")
+          : ko.notes || "Kitchen Food Order";
 
-        if (foodItems.length > 0 || activeDept === "kitchen") {
-          const totalAmt = foodItems.reduce((s, it) => s + (Number(it.quantity || 1) * Number(it.price || 0)), 0);
-          rows.push({
-            type: "kitchen_ticket",
-            department: "Kitchen Sub-Store",
-            id: o.order_number || `KIT-#${o.id}`,
-            title: foodItems.map((f) => `${f.quantity}x ${f.name}`).join(", ") || "Kitchen Food Order",
-            amount: totalAmt || Number(o.total_amount || 0),
-            status: o.status || "prepared",
-            date: o.created_at || o.createdAt,
-            user: o.waiter_name || "Chef",
-            badgeColor: "bg-amber-50 text-amber-800 border-amber-200",
-          });
+        let totalAmt = Number(ko.total || ko.total_amount || ko.amount || 0);
+        if (totalAmt === 0 && items.length > 0) {
+          totalAmt = items.reduce((s, it) => {
+            const p = Number(
+              it.unit_price ||
+              it.price ||
+              productPriceMap.get(String(it.product_id)) ||
+              productPriceMap.get(String(it.name || it.product_name).toLowerCase().trim()) ||
+              0
+            );
+            return s + (Number(it.quantity || 1) * p);
+          }, 0);
         }
+
+        const idStr = ko.order_number || `#K-${ko.id || ko.order_id || "1"}`;
+
+        rows.push({
+          type: "kitchen_ticket",
+          department: "Kitchen Sub-Store",
+          id: idStr,
+          title: titleStr,
+          amount: totalAmt,
+          status: ko.status || "prepared",
+          date: ko.created_at || ko.createdAt || ko.date,
+          user: ko.chef_name || ko.waiter_name || "Chef",
+          badgeColor: "bg-amber-50 text-amber-800 border-amber-200",
+        });
       });
     }
 
+    // 4. Purchasing & Suppliers
     if (activeDept === "all" || activeDept === "purchasing") {
       filteredPurchases.forEach((p) => {
         rows.push({
@@ -365,15 +638,16 @@ export default function MasterReportsPage() {
       });
     }
 
+    // 5. Inventory & Warehouse
     if (activeDept === "inventory") {
       inventory.forEach((it) => {
         rows.push({
           type: "inventory_item",
           department: "Inventory",
-          id: it.product_code || `SKU-#${it.product_id}`,
-          title: `${it.product_name} (Central: ${it.main_quantity || 0} ${it.unit}, Bar: ${it.bar_quantity || 0} ${it.unit})`,
-          amount: Number(it.price || it.cost_price || 0) * Number(it.total_quantity || 0),
-          status: Number(it.total_quantity || 0) > 0 ? "in_stock" : "out_of_stock",
+          id: it.product_code || `SKU-#${it.product_id || it.id}`,
+          title: `${it.product_name || it.name} (Central: ${it.main_quantity || 0} ${it.unit || "units"}, Bar: ${it.bar_quantity || 0} ${it.unit || "units"}, Kitchen: ${it.kitchen_quantity || 0} ${it.unit || "units"})`,
+          amount: Number(it.price || it.cost_price || 0) * Number(it.total_quantity || (Number(it.main_quantity || 0) + Number(it.bar_quantity || 0) + Number(it.kitchen_quantity || 0))),
+          status: Number(it.total_quantity || it.main_quantity || 0) > 0 ? "in_stock" : "out_of_stock",
           date: it.updated_at || new Date().toISOString(),
           user: "Central Store",
           badgeColor: "bg-slate-100 text-slate-700 border-slate-200",
@@ -396,7 +670,7 @@ export default function MasterReportsPage() {
     }
 
     return rows;
-  }, [filteredOrders, filteredPurchases, inventory, activeDept, searchQuery]);
+  }, [filteredOrders, filteredBarOrders, filteredKitchenOrders, filteredPurchases, inventory, activeDept, searchQuery]);
 
   // Paginated Rows
   const totalPages = Math.ceil(ledgerRows.length / pageSize) || 1;
@@ -835,6 +1109,18 @@ export default function MasterReportsPage() {
                   ))
                 )}
               </tbody>
+              {ledgerRows.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
+                    <td colSpan="6" className="py-3 px-4 text-right text-xs uppercase tracking-wider">
+                      Grand Total Amount ({activeDept.toUpperCase()}):
+                    </td>
+                    <td className="py-3 px-4 text-right text-sm font-black text-slate-950">
+                      {formatMoney(ledgerRows.reduce((acc, r) => acc + Number(r.amount || 0), 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
 

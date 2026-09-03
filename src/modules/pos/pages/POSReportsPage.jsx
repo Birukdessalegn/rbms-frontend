@@ -965,6 +965,19 @@ function POSReportsPage() {
                   </tr>
                 )}
               </tbody>
+              {filteredOrders.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
+                    <td colSpan="5" className="px-5 py-3.5 text-right text-xs uppercase tracking-wider">
+                      Grand Total Paid POS Revenue:
+                    </td>
+                    <td className="px-5 py-3.5 font-black text-sm text-emerald-800">
+                      {totalSales.toLocaleString()} ETB
+                    </td>
+                    <td className="px-5 py-3.5"></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
 

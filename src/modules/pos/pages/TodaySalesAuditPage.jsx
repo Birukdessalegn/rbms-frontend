@@ -716,6 +716,19 @@ function TodaySalesAuditPage() {
                     );
                   })}
                 </tbody>
+                {filteredOrders.length > 0 && (
+                  <tfoot>
+                    <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
+                      <td colSpan="3" className="px-3 py-3.5 text-right text-xs uppercase tracking-wider">
+                        Grand Total Verified Sales Revenue:
+                      </td>
+                      <td className="px-3 py-3.5 font-black text-sm text-emerald-800">
+                        {totalPaidRevenue.toLocaleString()} ETB
+                      </td>
+                      <td colSpan="2"></td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           )}

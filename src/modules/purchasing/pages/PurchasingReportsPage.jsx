@@ -51,8 +51,7 @@ export default function PurchasingReportsPage() {
   const fetchPurchases = async () => {
     try {
       setLoading(true);
-      setError("");
-      const res = await api("/purchases").catch(() => []);
+      const res = await api("/purchasing").catch(() => api("/purchases").catch(() => []));
       const raw = res.purchases || res.data || (Array.isArray(res) ? res : []);
       setPurchases(raw);
     } catch (err) {
@@ -543,6 +542,18 @@ export default function PurchasingReportsPage() {
                   })
                 )}
               </tbody>
+              {filteredPurchases.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
+                    <td colSpan="6" className="py-3 px-4 text-right text-xs uppercase tracking-wider">
+                      Grand Total Procurement Expenditure:
+                    </td>
+                    <td className="py-3 px-4 text-right text-sm font-black text-slate-900">
+                      {formatMoney(kpis.totalSpend)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
 

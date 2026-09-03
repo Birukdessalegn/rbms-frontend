@@ -332,7 +332,7 @@ function FinanceReportsPage() {
       </div>
 
       {/* PRINTABLE FINANCIAL AUDIT REPORT */}
-      <div id="printable-report" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
+      <div id="finance-reports-printable-area" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
         {/* REPORT HEADER */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-5">
           <div>
@@ -342,6 +342,41 @@ function FinanceReportsPage() {
           <div className="text-right">
             <p className="text-xs font-bold text-slate-500">Period: <span className="text-slate-900">{startDate} to {endDate}</span></p>
             <p className="text-xs text-slate-400">Total Ledger Entries: {filteredLedger.length}</p>
+          </div>
+        </div>
+
+        {/* EXECUTIVE FINANCIAL SUMMARY (Printed onto paper/PDF) */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Verified Sales Revenue</p>
+            <p className="mt-1 text-xl font-black text-emerald-700">
+              {totalRevenue.toLocaleString()} ETB
+            </p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Gross POS sales collected</p>
+          </div>
+
+          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Total Expenses & Purchases</p>
+            <p className="mt-1 text-xl font-black text-red-600">
+              {totalExpenses.toLocaleString()} ETB
+            </p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Operating & stock costs</p>
+          </div>
+
+          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Net Cash Margin</p>
+            <p className={`mt-1 text-xl font-black ${netProfit >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+              {netProfit.toLocaleString()} ETB
+            </p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">{netProfit >= 0 ? "Positive Net Cashflow" : "Net Deficit"}</p>
+          </div>
+
+          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Digital Money (Telebirr/Card)</p>
+            <p className="mt-1 text-xl font-black text-indigo-700">
+              {totalDigitalSales.toLocaleString()} ETB
+            </p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Non-cash electronic split</p>
           </div>
         </div>
 
@@ -400,6 +435,34 @@ function FinanceReportsPage() {
                   </tr>
                 )}
               </tbody>
+              {filteredLedger.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
+                    <td colSpan="6" className="px-4 py-3 text-right text-xs uppercase tracking-wider">
+                      Verified Revenue Subtotal:
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm font-black text-emerald-800">
+                      +{totalRevenue.toLocaleString()} ETB
+                    </td>
+                  </tr>
+                  <tr className="bg-slate-100 font-black text-slate-900">
+                    <td colSpan="6" className="px-4 py-2.5 text-right text-xs uppercase tracking-wider">
+                      Total Expenses & Purchases:
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-sm font-black text-red-700">
+                      -{totalExpenses.toLocaleString()} ETB
+                    </td>
+                  </tr>
+                  <tr className="bg-slate-200/90 font-black text-slate-950 border-t border-slate-300">
+                    <td colSpan="6" className="px-4 py-3 text-right text-xs uppercase tracking-wider">
+                      NET CASH MARGIN:
+                    </td>
+                    <td className={`px-4 py-3 text-right text-base font-black ${netProfit >= 0 ? "text-emerald-800" : "text-red-800"}`}>
+                      {netProfit.toLocaleString()} ETB
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </div>

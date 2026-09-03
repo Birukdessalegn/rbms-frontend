@@ -46,7 +46,39 @@ function BarReportsPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [reportDate, setReportDate] = useState(new Date().toISOString().split("T")[0]);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [datePreset, setDatePreset] = useState("all");
+
+  const handleApplyPreset = (preset) => {
+    setDatePreset(preset);
+    const today = new Date();
+    const formatDate = (d) => d.toISOString().split("T")[0];
+
+    if (preset === "today") {
+      const todayStr = formatDate(today);
+      setFromDate(todayStr);
+      setToDate(todayStr);
+    } else if (preset === "yesterday") {
+      const y = new Date(today);
+      y.setDate(y.getDate() - 1);
+      const yStr = formatDate(y);
+      setFromDate(yStr);
+      setToDate(yStr);
+    } else if (preset === "week") {
+      const w = new Date(today);
+      w.setDate(w.getDate() - 7);
+      setFromDate(formatDate(w));
+      setToDate(formatDate(today));
+    } else if (preset === "month") {
+      const m = new Date(today.getFullYear(), today.getMonth(), 1);
+      setFromDate(formatDate(m));
+      setToDate(formatDate(today));
+    } else {
+      setFromDate("");
+      setToDate("");
+    }
+  };
 
   const parseRawItems = (itemsInput) => {
     if (!itemsInput) return [];
@@ -65,16 +97,33 @@ function BarReportsPage() {
       setLoading(true);
       setError(null);
 
-      // Multi-endpoint API fetch strategy like POSReportsPage
-      const [barRes, posRes, empRes] = await Promise.all([
+      // Multi-endpoint API fetch strategy like POSReportsPage & KitchenReportsPage
+      const [barRes, posRes, empRes, prodRes] = await Promise.all([
         api("/bar/orders").catch(() => api("/bar").catch(() => [])),
         api("/pos/orders").catch(() => ({ orders: [] })),
         api("/employees").catch(() => []),
+        api("/products").catch(() => []),
       ]);
 
       const barList = Array.isArray(barRes) ? barRes : barRes.orders || barRes.data || [];
       const posList = posRes.orders || posRes.data || (Array.isArray(posRes) ? posRes : []);
       const empList = Array.isArray(empRes) ? empRes : empRes.employees || empRes.data || [];
+      const prodList = Array.isArray(prodRes) ? prodRes : prodRes.products || prodRes.data || [];
+
+      // Create Product lookup map for pricing
+      const productPriceMap = new Map();
+      prodList.forEach((p) => {
+        const price = Number(p.price || p.unit_price || p.selling_price || 0);
+        if (p.id) productPriceMap.set(String(p.id), price);
+        if (p.name) productPriceMap.set(String(p.name).toLowerCase().trim(), price);
+      });
+
+      // Create POS Order lookup map
+      const posOrderMap = new Map();
+      posList.forEach((po) => {
+        posOrderMap.set(String(po.id), po);
+        if (po.order_number) posOrderMap.set(String(po.order_number), po);
+      });
 
       // Create Employee ID -> Name map
       const empMap = new Map();
@@ -86,33 +135,84 @@ function BarReportsPage() {
 
       // Merge and deduplicate bar orders
       const combinedMap = new Map();
-      barList.forEach((item) => {
-        const key = String(item.id || item.order_id || Math.random());
-        combinedMap.set(key, item);
+
+      // 1. Populate with beverage orders from POS (historical completed sales)
+      posList.forEach((posOrder) => {
+        const items = parseRawItems(posOrder.items);
+        const drinkItems = items.filter((i) => {
+          const cat = String(i.category || i.category_name || i.type || "").toLowerCase();
+          const name = String(i.product_name || i.name || "").toLowerCase();
+          return cat.includes("bar") || cat.includes("drink") || cat.includes("beverage") ||
+                 name.includes("beer") || name.includes("wine") || name.includes("whiskey") ||
+                 name.includes("vodka") || name.includes("gin") || name.includes("rum") ||
+                 name.includes("tequila") || name.includes("cocktail") || name.includes("drink") ||
+                 name.includes("soda") || name.includes("water") || name.includes("juice");
+        });
+
+        if (drinkItems.length > 0) {
+          const drinkTotal = drinkItems.reduce((acc, it) => {
+            const qty = Number(it.quantity || it.qty || 1);
+            const pr = Number(
+              it.price ||
+              it.unit_price ||
+              productPriceMap.get(String(it.product_id)) ||
+              productPriceMap.get(String(it.name || it.product_name).toLowerCase().trim()) ||
+              0
+            );
+            return acc + (qty * pr);
+          }, 0);
+
+          combinedMap.set(String(posOrder.id), {
+            ...posOrder,
+            items: drinkItems,
+            total: drinkTotal > 0 ? drinkTotal : Number(posOrder.total || posOrder.total_amount || 0),
+          });
+        }
       });
 
-      // If bar specific endpoint empty, extract drink items from POS orders
-      if (combinedMap.size === 0 && posList.length > 0) {
-        posList.forEach((posOrder) => {
-          const items = parseRawItems(posOrder.items);
-          const drinkItems = items.filter((i) => {
-            const cat = String(i.category || i.category_name || i.type || "").toLowerCase();
-            const name = String(i.product_name || i.name || "").toLowerCase();
-            return cat.includes("bar") || cat.includes("drink") || name.includes("beer") || name.includes("wine") || name.includes("whiskey") || name.includes("drink") || name.includes("soda") || name.includes("water");
-          });
+      // 2. Overlay live/dedicated bar tickets from /bar/orders
+      barList.forEach((item) => {
+        const key = String(item.order_id || item.id || Math.random());
+        const existing = combinedMap.get(key);
 
-          if (drinkItems.length > 0) {
-            combinedMap.set(String(posOrder.id), {
-              ...posOrder,
-              items: drinkItems,
-            });
-          }
+        const items = parseRawItems(item.items);
+        const matchedPos = posOrderMap.get(String(item.order_id || item.id));
+
+        let calcTotal = 0;
+        items.forEach((it) => {
+          const qty = Number(it.quantity || it.qty || 1);
+          const pr = Number(
+            it.unit_price ||
+            it.price ||
+            productPriceMap.get(String(it.product_id)) ||
+            productPriceMap.get(String(it.name || it.product_name).toLowerCase().trim()) ||
+            0
+          );
+          calcTotal += (qty * pr);
         });
-      }
+
+        let finalOrderTotal = Number(item.total || item.total_amount || item.amount || item.order_total || 0);
+        if (finalOrderTotal === 0 && calcTotal > 0) {
+          finalOrderTotal = calcTotal;
+        }
+        if (finalOrderTotal === 0 && matchedPos) {
+          finalOrderTotal = Number(matchedPos.total || matchedPos.total_amount || 0);
+        }
+        if (finalOrderTotal === 0 && existing) {
+          finalOrderTotal = Number(existing.total || 0);
+        }
+
+        combinedMap.set(key, {
+          ...(existing || {}),
+          ...item,
+          items: items.length > 0 ? items : (existing?.items || []),
+          total: finalOrderTotal,
+        });
+      });
 
       const finalOrders = Array.from(combinedMap.values()).map((b) => {
-        const empId = String(b.waiter_id || b.waiterId || b.created_by_id || b.user_id || "");
-        const waiterName = empMap.get(empId) || b.waiter_name || b.waiterName || b.waiter || b.bartender || "Bar Staff";
+        const empId = String(b.waiter_id || b.waiterId || b.created_by_id || b.user_id || b.bartender_id || "");
+        const waiterName = empMap.get(empId) || b.waiter_name || b.waiterName || b.waiter || b.bartender || (b.bartender_first_name ? `${b.bartender_first_name} ${b.bartender_last_name || ""}`.trim() : "Bar Staff");
 
         return {
           ...b,
@@ -140,22 +240,23 @@ function BarReportsPage() {
         ? itemsArr.map((i) => `${i.quantity || i.qty || 1}x ${i.product_name || i.name || "Drink"}`).join(", ")
         : "Bar Beverage Order";
 
-      const createdAtStr = b.created_at || b.createdAt || "";
-      const dateStr = createdAtStr ? createdAtStr.split(/[T ]/)[0] : "";
+      const createdAtStr = b.created_at || b.createdAt || b.date || "";
+      const dateStr = createdAtStr ? String(createdAtStr).split(/[T ]/)[0] : "";
       const timeStr = createdAtStr ? new Date(createdAtStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-";
 
       let statusFormatted = "Ready";
-      if (b.status === "ready" || b.status === "served" || b.status === "completed") {
+      const st = String(b.status || "").toLowerCase();
+      if (st === "ready" || st === "served" || st === "completed") {
         statusFormatted = "Ready";
-      } else if (b.status === "preparing" || b.status === "in_progress" || b.status === "pending") {
+      } else if (st === "preparing" || st === "in_progress" || st === "pending" || st === "new" || st === "confirmed") {
         statusFormatted = "Preparing";
-      } else if (b.status === "cancelled") {
+      } else if (st === "cancelled") {
         statusFormatted = "Cancelled";
       }
 
       return {
-        id: `#B-${b.id || b.order_id}`,
-        table: b.table_name || b.table_number || `Table ${b.table_id || 1}`,
+        id: `#B-${b.id || b.order_id || "101"}`,
+        table: b.table_name || b.table_number || (b.table_id ? `Table ${b.table_id}` : "Bar Counter"),
         items: itemsSummary,
         itemsRaw: itemsArr,
         bartender: b.waiter_name || b.bartender || "Bar Staff",
@@ -180,11 +281,17 @@ function BarReportsPage() {
       const matchesStatus =
         statusFilter === "All" || order.status === statusFilter;
 
-      const matchesDate = !reportDate || !order.date || order.date === reportDate;
+      // Date Range filter
+      if (fromDate || toDate) {
+        const oDate = order.date;
+        if (fromDate && oDate && oDate < fromDate) return false;
+        if (toDate && oDate && oDate > toDate) return false;
+        if (!oDate && (fromDate || toDate)) return false;
+      }
 
-      return matchesSearch && matchesStatus && matchesDate;
+      return matchesSearch && matchesStatus;
     });
-  }, [formattedOrders, search, statusFilter, reportDate]);
+  }, [formattedOrders, search, statusFilter, fromDate, toDate]);
 
   const totalOrdersCount = filteredOrders.length;
   const readyOrders = filteredOrders.filter((o) => o.status === "Ready").length;
@@ -285,47 +392,103 @@ function BarReportsPage() {
       </div>
 
       {/* FILTER & TOOLBAR */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between print:hidden">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search drink, order ID, table #, staff..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-sm outline-none transition focus:border-purple-500 focus:bg-white"
-          />
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs print:hidden space-y-3">
+        {/* TOP ROW: PRESETS + CLEAR */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-400 mr-1">Date Range:</span>
+            {[
+              { id: "all", label: "All Time" },
+              { id: "today", label: "Today" },
+              { id: "yesterday", label: "Yesterday" },
+              { id: "week", label: "Last 7 Days" },
+              { id: "month", label: "This Month" },
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => handleApplyPreset(p.id)}
+                className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
+                  datePreset === p.id
+                    ? "bg-purple-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {(fromDate || toDate) && (
+            <button
+              type="button"
+              onClick={() => handleApplyPreset("all")}
+              className="text-xs font-bold text-purple-600 hover:text-purple-700 underline"
+            >
+              Clear Date Filter
+            </button>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-slate-400" />
+        {/* BOTTOM ROW: SEARCH + FROM/TO DATE + STATUS FILTER */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
-              type="date"
-              value={reportDate}
-              onChange={(e) => setReportDate(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-purple-500"
+              type="text"
+              placeholder="Search drink, order ID, table #, staff..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-sm outline-none transition focus:border-purple-500 focus:bg-white"
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-slate-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-purple-500"
-            >
-              <option value="All">All Statuses</option>
-              <option value="Ready">Ready / Served</option>
-              <option value="Preparing">Preparing</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-500">From:</span>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setDatePreset("custom");
+                }}
+                className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-purple-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-500">To:</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setToDate(e.target.value);
+                  setDatePreset("custom");
+                }}
+                className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-purple-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-purple-500"
+              >
+                <option value="All">All Statuses</option>
+                <option value="Ready">Ready / Served</option>
+                <option value="Preparing">Preparing</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
       {/* PRINTABLE AUDIT REPORT */}
-      <div id="printable-report" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
+      <div id="bar-reports-printable-area" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
         {/* REPORT HEADER */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-5">
           <div>
@@ -333,8 +496,56 @@ function BarReportsPage() {
             <p className="text-xs font-bold text-slate-500 uppercase">Bar & Beverage Sales Audit Report</p>
           </div>
           <div className="text-right">
-            <p className="text-xs font-bold text-slate-500">Audit Date: <span className="text-slate-900">{reportDate || "All Time"}</span></p>
+            <p className="text-xs font-bold text-slate-500">
+              Audit Period:{" "}
+              <span className="text-slate-900">
+                {fromDate && toDate && fromDate === toDate
+                  ? fromDate
+                  : fromDate && toDate
+                  ? `${fromDate} to ${toDate}`
+                  : fromDate
+                  ? `From ${fromDate}`
+                  : toDate
+                  ? `Up to ${toDate}`
+                  : "All Time"}
+              </span>
+            </p>
             <p className="text-xs text-slate-400">Total Bar Orders: {filteredOrders.length}</p>
+          </div>
+        </div>
+
+        {/* EXECUTIVE FINANCIAL & BEVERAGE SUMMARY BOX (Matching Executive Report Format) */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Verified Bar Sales</p>
+            <p className="mt-1 text-xl font-black text-indigo-700">
+              {totalSales.toLocaleString()} ETB
+            </p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Gross drink sales value</p>
+          </div>
+
+          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Total Drink Tickets</p>
+            <p className="mt-1 text-xl font-black text-slate-900">
+              {totalOrdersCount}
+            </p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Bar orders served</p>
+          </div>
+
+          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Orders Ready / Served</p>
+            <p className="mt-1 text-xl font-black text-emerald-600">
+              {readyOrders}
+            </p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Completed drink rounds</p>
+          </div>
+
+          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Average Drink Ticket</p>
+            <p className="mt-1 text-xl font-black text-slate-900">
+              {(totalOrdersCount > 0 ? totalSales / totalOrdersCount : 0).toFixed(2)} ETB
+            </p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Avg spend per beverage order</p>
           </div>
         </div>
 
@@ -423,6 +634,19 @@ function BarReportsPage() {
                   </tr>
                 )}
               </tbody>
+              {/* GRAND TOTAL TFOOT */}
+              {filteredOrders.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
+                    <td colSpan="6" className="px-4 py-3 text-right text-xs uppercase tracking-wider">
+                      Grand Total Bar Sales Revenue:
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm font-black text-indigo-800">
+                      {totalSales.toLocaleString()} ETB
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </div>

@@ -214,10 +214,7 @@ function EmployeesPage() {
   const fetchEmployees = async () => {
     try {
       setLoading(true);
-      const [empRes, usersRes] = await Promise.all([
-        api("/employees").catch(() => []),
-        api("/users").catch(() => api("/auth/users").catch(() => [])),
-      ]);
+      const empRes = await api("/employees");
 
       const list =
         (Array.isArray(empRes) ? empRes : null) ||
@@ -226,36 +223,13 @@ function EmployeesPage() {
         (Array.isArray(empRes?.data) ? empRes.data : null) ||
         [];
 
-      const userList =
-        (Array.isArray(usersRes) ? usersRes : null) ||
-        (Array.isArray(usersRes?.users) ? usersRes.users : null) ||
-        (Array.isArray(usersRes?.data?.users) ? usersRes.data.users : null) ||
-        (Array.isArray(usersRes?.data) ? usersRes.data : null) ||
-        [];
-
-      const userMap = new Map();
-      userList.forEach((u) => {
-        const uName = u.username || u.user_name || u.name;
-        if (u.id) userMap.set(`id_${u.id}`, uName);
-        if (u.employee_id) userMap.set(`emp_${u.employee_id}`, uName);
-        if (u.email) userMap.set(`email_${u.email.toLowerCase()}`, uName);
-        if (u.phone) userMap.set(`phone_${u.phone}`, uName);
-      });
-
       const enriched = list.map((emp) => {
-        const foundUser =
-          userMap.get(`id_${emp.user_id}`) ||
-          userMap.get(`emp_${emp.id}`) ||
-          (emp.email ? userMap.get(`email_${emp.email.toLowerCase()}`) : null) ||
-          (emp.phone ? userMap.get(`phone_${emp.phone}`) : null);
-
         const uName =
           emp.username ||
           emp.user_username ||
           emp.user_name ||
           emp.userName ||
           emp.user?.username ||
-          foundUser ||
           (emp.email ? emp.email.split("@")[0] : null) ||
           (emp.first_name || emp.firstName
             ? `${emp.first_name || emp.firstName}${emp.last_name || emp.lastName || ""}`.toLowerCase().replace(/\s+/g, "")
@@ -333,6 +307,17 @@ function EmployeesPage() {
     const parsedShift = parseShiftStringToTimes(employee.shift);
     const un = getEmployeeUsername(employee);
 
+    const empRoleName = String(employee.role?.name || employee.role_name || employee.role || "").toLowerCase().trim();
+    const matchedRole = roles.find((r) => r.name.toLowerCase() === empRoleName) ||
+                        roles.find((r) => String(r.id) === String(employee.role_id || employee.roleId));
+
+    const empDeptName = String(employee.department?.name || employee.department_name || employee.department || "").toLowerCase().trim();
+    const matchedDept = departments.find((d) => d.name.toLowerCase() === empDeptName) ||
+                        departments.find((d) => String(d.id) === String(employee.department_id || employee.departmentId));
+
+    const rawHireDate = employee.hire_date || employee.hireDate || "";
+    const formattedHireDate = rawHireDate ? String(rawHireDate).split("T")[0] : "";
+
     setForm({
       employeeCode: employee.employee_code || employee.employeeCode || employee.code || "",
       firstName: employee.first_name || employee.firstName || "",
@@ -341,11 +326,11 @@ function EmployeesPage() {
       password: "",
       email: employee.user_email || employee.email || "",
       phone: employee.phone || "",
-      roleId: employee.role_id || employee.roleId ? String(employee.role_id || employee.roleId) : "",
-      departmentId: employee.department_id || employee.departmentId ? String(employee.department_id || employee.departmentId) : "",
+      roleId: matchedRole ? String(matchedRole.id) : (employee.role_id || employee.roleId ? String(employee.role_id || employee.roleId) : ""),
+      departmentId: matchedDept ? String(matchedDept.id) : (employee.department_id || employee.departmentId ? String(employee.department_id || employee.departmentId) : ""),
       shiftStartTime: parsedShift.startTime,
       shiftEndTime: parsedShift.endTime,
-      hireDate: employee.hire_date || employee.hireDate || "",
+      hireDate: formattedHireDate,
       salary: employee.salary !== null && employee.salary !== undefined ? String(employee.salary) : "",
       status: employee.status || "active",
       attendance: employee.attendance || "Present",
@@ -407,6 +392,9 @@ function EmployeesPage() {
         return;
       }
 
+      const selectedRole = roles.find((r) => String(r.id) === String(form.roleId));
+      const selectedDept = departments.find((d) => String(d.id) === String(form.departmentId));
+
       const payload = {
         employeeCode: form.employeeCode.trim(),
         employee_code: form.employeeCode.trim(),
@@ -417,19 +405,23 @@ function EmployeesPage() {
         lastName: form.lastName.trim(),
         last_name: form.lastName.trim(),
 
-        username: form.username.trim(),
+        username: form.username.trim() || null,
 
-        password: form.password,
+        // Only send password if user provided a new one
+        ...(form.password && form.password.trim() ? { password: form.password.trim() } : {}),
 
         email: form.email.trim() || null,
-
         phone: form.phone.trim() || null,
 
         roleId: Number(form.roleId),
         role_id: Number(form.roleId),
+        role: selectedRole?.name || null,
+        roleName: selectedRole?.name || null,
 
         departmentId: Number(form.departmentId),
         department_id: Number(form.departmentId),
+        department: selectedDept?.name || null,
+        departmentName: selectedDept?.name || null,
 
         shift: form.shiftStartTime && form.shiftEndTime
           ? `${formatTimeTo12Hour(form.shiftStartTime)} - ${formatTimeTo12Hour(form.shiftEndTime)}`

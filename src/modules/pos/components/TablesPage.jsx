@@ -11,8 +11,6 @@ function TablesPage() {
 
   const [formData, setFormData] = useState({
     tableNumber: "",
-    capacity: 2,
-    location: "",
   });
 
   const showToast = (message, type = "success") => {
@@ -61,8 +59,6 @@ function TablesPage() {
       // Reset form
       setFormData({
         tableNumber: "",
-        capacity: 2,
-        location: "",
       });
 
       setShowForm(false);
@@ -166,12 +162,12 @@ function TablesPage() {
 
           <form
             onSubmit={handleCreateTable}
-            className="grid gap-4 md:grid-cols-3"
+            className="flex flex-col sm:flex-row sm:items-end gap-4 max-w-xl"
           >
 
             {/* Table Number */}
 
-            <div>
+            <div className="flex-1">
               <label className="mb-1.5 block text-xs font-semibold text-slate-700">
                 Table Number
               </label>
@@ -182,7 +178,6 @@ function TablesPage() {
                 value={formData.tableNumber}
                 onChange={(e) =>
                   setFormData({
-                    ...formData,
                     tableNumber: e.target.value,
                   })
                 }
@@ -192,54 +187,9 @@ function TablesPage() {
             </div>
 
 
-            {/* Capacity */}
-
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-                Capacity
-              </label>
-
-              <input
-                type="number"
-                min="1"
-                value={formData.capacity}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    capacity: Number(e.target.value),
-                  })
-                }
-                required
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
-            </div>
-
-
-            {/* Location */}
-
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-                Location
-              </label>
-
-              <input
-                type="text"
-                placeholder="Main Hall"
-                value={formData.location}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    location: e.target.value,
-                  })
-                }
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
-            </div>
-
-
             {/* Buttons */}
 
-            <div className="md:col-span-3 flex justify-end gap-3">
+            <div className="flex items-center gap-3">
 
               <button
                 type="button"

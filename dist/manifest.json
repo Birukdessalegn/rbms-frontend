@@ -1,0 +1,22 @@
+{
+  "short_name": "Oak Club",
+  "name": "THE OAK CLUB - Club Management System",
+  "icons": [
+    {
+      "src": "/oak-club-logo.png",
+      "type": "image/png",
+      "sizes": "192x192 512x512 1024x1024",
+      "purpose": "any"
+    },
+    {
+      "src": "/oak-club-logo.png",
+      "type": "image/png",
+      "sizes": "192x192 512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "display": "standalone"
+}

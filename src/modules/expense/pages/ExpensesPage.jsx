@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Receipt,
   TrendingUp,
@@ -14,65 +14,11 @@ import {
   X,
   CalendarDays,
   Save,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
-
-const initialExpenses = [
-  {
-    id: 1,
-    date: "2026-08-26",
-    description: "Electricity Bill",
-    category: "Utilities",
-    amount: 12500,
-    paymentMethod: "Bank",
-    status: "Paid",
-    reference: "ELEC-0826",
-    notes: "Monthly electricity bill",
-  },
-  {
-    id: 2,
-    date: "2026-08-25",
-    description: "Plumbing Repair",
-    category: "Maintenance",
-    amount: 4500,
-    paymentMethod: "Cash",
-    status: "Paid",
-    reference: "EXP-0025",
-    notes: "Kitchen sink repair",
-  },
-  {
-    id: 3,
-    date: "2026-08-24",
-    description: "Cleaning Supplies",
-    category: "Cleaning & Supplies",
-    amount: 3200,
-    paymentMethod: "Cash",
-    status: "Pending",
-    reference: "EXP-0024",
-    notes: "Cleaning materials",
-  },
-  {
-    id: 4,
-    date: "2026-08-23",
-    description: "Internet Bill",
-    category: "Utilities",
-    amount: 2000,
-    paymentMethod: "Bank",
-    status: "Paid",
-    reference: "NET-0823",
-    notes: "Monthly internet",
-  },
-  {
-    id: 5,
-    date: "2026-08-22",
-    description: "Transportation",
-    category: "Transportation",
-    amount: 1800,
-    paymentMethod: "Cash",
-    status: "Paid",
-    reference: "EXP-0022",
-    notes: "Supplier transportation",
-  },
-];
+import api from "../../../services/api";
 
 const categories = [
   "Utilities",
@@ -94,22 +40,34 @@ const statusStyles = {
 };
 
 function formatCurrency(amount) {
-  return `${amount.toLocaleString()} ETB`;
+  const num = Number(amount) || 0;
+  return `${num.toLocaleString()} ETB`;
 }
 
 function formatDate(date) {
-  return new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  if (!date) return "-";
+  try {
+    const dStr = typeof date === "string" && date.includes("T") ? date.split("T")[0] : String(date);
+    return new Date(`${dStr}T00:00:00`).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return String(date);
+  }
 }
 
+const getTodayString = () => new Date().toISOString().split("T")[0];
+
 function ExpensesPage() {
+  const [expenses, setExpenses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const [expenses, setExpenses] = useState(initialExpenses);
   const [openMenu, setOpenMenu] = useState(null);
-
   const [showModal, setShowModal] = useState(false);
   const [viewExpense, setViewExpense] = useState(null);
 
@@ -120,17 +78,62 @@ function ExpensesPage() {
     category: "Utilities",
     amount: "",
     paymentMethod: "Cash",
-    date: "2026-08-26",
+    date: getTodayString(),
     reference: "",
     notes: "",
   });
+
+  /* =========================
+     FETCH EXPENSES
+  ========================= */
+
+  const fetchExpenses = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await api("/expenses");
+      const rawList =
+        response?.expenses ||
+        response?.data ||
+        (Array.isArray(response) ? response : []);
+
+      const normalized = rawList.map((item) => ({
+        id: item._id || item.id || Date.now(),
+        description: item.description || "Expense",
+        category: item.category || "Other",
+        amount: Number(item.amount || 0),
+        paymentMethod: item.paymentMethod || "Cash",
+        status: item.status || "Paid",
+        date: item.date
+          ? typeof item.date === "string" && item.date.includes("T")
+            ? item.date.split("T")[0]
+            : item.date
+          : getTodayString(),
+        reference: item.reference || `EXP-${item._id || item.id || Date.now()}`,
+        notes: item.notes || "",
+        raw: item,
+      }));
+
+      setExpenses(normalized);
+    } catch (err) {
+      console.error("Failed to fetch expenses:", err);
+      setError(err.message || "Failed to load expenses from server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchExpenses();
+  }, []);
 
   /* =========================
      STATISTICS
   ========================= */
 
   const totalExpenses = useMemo(
-    () => expenses.reduce((sum, expense) => sum + expense.amount, 0),
+    () => expenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0),
     [expenses]
   );
 
@@ -138,7 +141,7 @@ function ExpensesPage() {
     () =>
       expenses
         .filter((expense) => expense.status === "Paid")
-        .reduce((sum, expense) => sum + expense.amount, 0),
+        .reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0),
     [expenses]
   );
 
@@ -146,102 +149,157 @@ function ExpensesPage() {
     () =>
       expenses
         .filter((expense) => expense.status === "Pending")
-        .reduce((sum, expense) => sum + expense.amount, 0),
+        .reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0),
     [expenses]
   );
+
+  const todayStr = useMemo(() => getTodayString(), []);
 
   const todayExpenses = useMemo(
     () =>
       expenses
-        .filter((expense) => expense.date === "2026-08-26")
-        .reduce((sum, expense) => sum + expense.amount, 0),
-    [expenses]
+        .filter((expense) => expense.date === todayStr)
+        .reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0),
+    [expenses, todayStr]
   );
 
   /* =========================
      SEARCH
   ========================= */
 
-  const filteredExpenses = expenses.filter((expense) => {
-    const query = search.toLowerCase();
+  const filteredExpenses = useMemo(() => {
+    const query = search.toLowerCase().trim();
+    if (!query) return expenses;
 
-    return (
-      expense.description.toLowerCase().includes(query) ||
-      expense.category.toLowerCase().includes(query) ||
-      expense.reference.toLowerCase().includes(query)
-    );
-  });
+    return expenses.filter((expense) => {
+      return (
+        (expense.description || "").toLowerCase().includes(query) ||
+        (expense.category || "").toLowerCase().includes(query) ||
+        (expense.reference || "").toLowerCase().includes(query) ||
+        (expense.paymentMethod || "").toLowerCase().includes(query)
+      );
+    });
+  }, [expenses, search]);
 
   /* =========================
      ADD EXPENSE
   ========================= */
 
-  const handleAddExpense = (event) => {
+  const handleAddExpense = async (event) => {
     event.preventDefault();
 
     if (!form.description || !form.amount || !form.date) {
+      setError("Please provide a description, amount, and date.");
       return;
     }
 
-    const newExpense = {
-      id: Date.now(),
-      description: form.description,
-      category: form.category,
-      amount: Number(form.amount),
-      paymentMethod: form.paymentMethod,
-      date: form.date,
-      status: "Pending",
-      reference: form.reference || `EXP-${Date.now()}`,
-      notes: form.notes,
-    };
+    try {
+      setSubmitting(true);
+      setError("");
 
-    setExpenses((previous) => [newExpense, ...previous]);
+      const payload = {
+        description: form.description,
+        category: form.category,
+        amount: Number(form.amount),
+        paymentMethod: form.paymentMethod,
+        date: form.date,
+        status: "Pending",
+        reference: form.reference || `EXP-${Date.now()}`,
+        notes: form.notes,
+      };
 
-    setForm({
-      description: "",
-      category: "Utilities",
-      amount: "",
-      paymentMethod: "Cash",
-      date: "2026-08-26",
-      reference: "",
-      notes: "",
-    });
+      await api("/expenses", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
 
-    setShowModal(false);
+      setSuccess("Expense recorded successfully!");
+      setTimeout(() => setSuccess(""), 4000);
+
+      setShowModal(false);
+      setForm({
+        description: "",
+        category: "Utilities",
+        amount: "",
+        paymentMethod: "Cash",
+        date: getTodayString(),
+        reference: "",
+        notes: "",
+      });
+
+      await fetchExpenses();
+    } catch (err) {
+      console.error("Failed to add expense:", err);
+      setError(err.message || "Failed to create expense on backend.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   /* =========================
      MARK PAID
   ========================= */
 
-  const markAsPaid = (id) => {
-    setExpenses((previous) =>
-      previous.map((expense) =>
-        expense.id === id
-          ? { ...expense, status: "Paid" }
-          : expense
-      )
-    );
+  const markAsPaid = async (id) => {
+    try {
+      setError("");
 
-    setOpenMenu(null);
+      await api(`/expenses/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "Paid" }),
+      }).catch(() =>
+        api(`/expenses/${id}`, {
+          method: "PUT",
+          body: JSON.stringify({ status: "Paid" }),
+        })
+      );
+
+      setExpenses((previous) =>
+        previous.map((expense) =>
+          expense.id === id ? { ...expense, status: "Paid" } : expense
+        )
+      );
+
+      setSuccess("Expense marked as Paid!");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      console.error("Failed to mark expense as paid:", err);
+      setError(err.message || "Failed to update expense status.");
+    } finally {
+      setOpenMenu(null);
+    }
   };
 
   /* =========================
      DELETE
   ========================= */
 
-  const deleteExpense = (id) => {
+  const deleteExpense = async (id) => {
     const confirmed = window.confirm(
       "Are you sure you want to delete this expense?"
     );
 
     if (!confirmed) return;
 
-    setExpenses((previous) =>
-      previous.filter((expense) => expense.id !== id)
-    );
+    try {
+      setError("");
 
-    setOpenMenu(null);
+      await api(`/expenses/${id}`, {
+        method: "DELETE",
+      });
+
+      setExpenses((previous) =>
+        previous.filter((expense) => expense.id !== id)
+      );
+
+      setSuccess("Expense deleted successfully!");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      console.error("Failed to delete expense:", err);
+      setError(err.message || "Failed to delete expense.");
+    } finally {
+      setOpenMenu(null);
+    }
   };
 
   return (
@@ -272,6 +330,31 @@ function ExpensesPage() {
         </button>
 
       </div>
+
+      {/* BANNERS */}
+      {error && (
+        <div className="flex items-center justify-between rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={18} className="shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button onClick={() => setError("")} className="text-red-500 hover:text-red-700">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {success && (
+        <div className="flex items-center justify-between rounded-xl bg-green-50 border border-green-200 p-4 text-sm text-green-700">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={18} className="shrink-0" />
+            <span>{success}</span>
+          </div>
+          <button onClick={() => setSuccess("")} className="text-green-500 hover:text-green-700">
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* =========================
           STATISTICS
@@ -388,140 +471,119 @@ function ExpensesPage() {
 
             <tbody className="divide-y divide-gray-100">
 
-              {filteredExpenses.map((expense) => (
-
-                <tr
-                  key={expense.id}
-                  className="transition hover:bg-gray-50"
-                >
-
-                  <td className="px-5 py-4 text-sm text-gray-600">
-                    {formatDate(expense.date)}
-                  </td>
-
-                  <td className="px-5 py-4">
-
-                    <p className="font-medium text-gray-900">
-                      {expense.description}
-                    </p>
-
-                    <p className="text-xs text-gray-400">
-                      {expense.reference}
-                    </p>
-
-                  </td>
-
-                  <td className="px-5 py-4 text-sm text-gray-700">
-                    {expense.category}
-                  </td>
-
-                  <td className="px-5 py-4 text-sm font-semibold text-gray-900">
-                    {formatCurrency(expense.amount)}
-                  </td>
-
-                  <td className="px-5 py-4 text-sm text-gray-600">
-                    {expense.paymentMethod}
-                  </td>
-
-                  <td className="px-5 py-4">
-
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        statusStyles[expense.status]
-                      }`}
-                    >
-                      {expense.status}
-                    </span>
-
-                  </td>
-
-                  {/* ACTION */}
-
-                  <td className="relative px-5 py-4">
-
-                    <button
-                      onClick={() =>
-                        setOpenMenu(
-                          openMenu === expense.id
-                            ? null
-                            : expense.id
-                        )
-                      }
-                      className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-                    >
-                      <MoreVertical size={18} />
-                    </button>
-
-                    {openMenu === expense.id && (
-
-                      <div className="absolute right-5 top-12 z-50 w-48 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
-
-                        <button
-                          onClick={() => {
-                            setViewExpense(expense);
-                            setOpenMenu(null);
-                          }}
-                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          <Eye size={16} />
-                          View Details
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            console.log("Edit expense:", expense);
-                            setOpenMenu(null);
-                          }}
-                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          <Pencil size={16} />
-                          Edit Expense
-                        </button>
-
-                        {expense.status === "Pending" && (
-                          <button
-                            onClick={() => markAsPaid(expense.id)}
-                            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            <CheckCircle
-                              size={16}
-                              className="text-green-600"
-                            />
-                            Mark as Paid
-                          </button>
-                        )}
-
-                        <button
-                          onClick={() => deleteExpense(expense.id)}
-                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 size={16} />
-                          Delete
-                        </button>
-
-                      </div>
-
-                    )}
-
-                  </td>
-
-                </tr>
-
-              ))}
-
-              {filteredExpenses.length === 0 && (
-
+              {loading ? (
                 <tr>
-
+                  <td
+                    colSpan="7"
+                    className="px-5 py-12 text-center text-sm text-gray-500"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 size={18} className="animate-spin text-blue-600" />
+                      <span>Loading expenses from server...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredExpenses.length === 0 ? (
+                <tr>
                   <td
                     colSpan="7"
                     className="px-5 py-12 text-center text-sm text-gray-500"
                   >
                     No expenses found.
                   </td>
-
                 </tr>
+              ) : (
+                filteredExpenses.map((expense) => (
+                  <tr
+                    key={expense.id}
+                    className="transition hover:bg-gray-50"
+                  >
+                    <td className="px-5 py-4 text-sm text-gray-600">
+                      {formatDate(expense.date)}
+                    </td>
 
+                    <td className="px-5 py-4">
+                      <p className="font-medium text-gray-900">
+                        {expense.description}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {expense.reference}
+                      </p>
+                    </td>
+
+                    <td className="px-5 py-4 text-sm text-gray-700">
+                      {expense.category}
+                    </td>
+
+                    <td className="px-5 py-4 text-sm font-semibold text-gray-900">
+                      {formatCurrency(expense.amount)}
+                    </td>
+
+                    <td className="px-5 py-4 text-sm text-gray-600">
+                      {expense.paymentMethod}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          statusStyles[expense.status] || "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {expense.status}
+                      </span>
+                    </td>
+
+                    {/* ACTION */}
+                    <td className="relative px-5 py-4">
+                      <button
+                        onClick={() =>
+                          setOpenMenu(
+                            openMenu === expense.id ? null : expense.id
+                          )
+                        }
+                        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                      >
+                        <MoreVertical size={18} />
+                      </button>
+
+                      {openMenu === expense.id && (
+                        <div className="absolute right-5 top-12 z-50 w-48 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
+                          <button
+                            onClick={() => {
+                              setViewExpense(expense);
+                              setOpenMenu(null);
+                            }}
+                            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            <Eye size={16} />
+                            View Details
+                          </button>
+
+                          {expense.status === "Pending" && (
+                            <button
+                              onClick={() => markAsPaid(expense.id)}
+                              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                              <CheckCircle
+                                size={16}
+                                className="text-green-600"
+                              />
+                              Mark as Paid
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => deleteExpense(expense.id)}
+                            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 size={16} />
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
               )}
 
             </tbody>
@@ -810,17 +872,20 @@ function ExpensesPage() {
 
                 <button
                   type="button"
+                  disabled={submitting}
                   onClick={() => setShowModal(false)}
-                  className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+                  disabled={submitting}
+                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Save Expense
+                  {submitting && <Loader2 size={16} className="animate-spin" />}
+                  <span>{submitting ? "Saving..." : "Save Expense"}</span>
                 </button>
 
               </div>

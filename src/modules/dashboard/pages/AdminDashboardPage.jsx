@@ -282,36 +282,85 @@ export default function AdminDashboardPage() {
       .filter((t) => t.isUnpaid)
       .reduce((sum, t) => sum + t.totalAmount, 0);
 
-    const todayGrossRevenue = Number(dashboardStats?.today_sales ?? dashboardStats?.todaySales ?? 0);
+    const todayStr = new Date().toISOString().split("T")[0];
 
-    const lifetimeGrossRevenue = Number(
+    // Helper: Check if an order is paid
+    const isOrderPaid = (ord) => {
+      const st = String(ord.status || "").toLowerCase();
+      const paySt = String(ord.payment_status || "").toLowerCase();
+      return (
+        st === "completed" ||
+        st === "paid" ||
+        paySt === "paid" ||
+        ord.is_paid === true
+      );
+    };
+
+    // Calculate real revenue from today's orders
+    const todayOrdersGross = (orders || []).reduce((sum, ord) => {
+      if (!isOrderPaid(ord)) return sum;
+      const dateVal = ord.created_at || ord.createdAt || ord.order_date || ord.date || ord.paid_at;
+      let isToday = false;
+      if (!dateVal) {
+        isToday = true;
+      } else {
+        try {
+          const ordDate = new Date(dateVal).toISOString().split("T")[0];
+          isToday = ordDate === todayStr;
+        } catch {
+          isToday = true;
+        }
+      }
+      return isToday ? sum + Number(ord.total_amount || ord.total || 0) : sum;
+    }, 0);
+
+    const statsTodaySales = Number(dashboardStats?.today_sales ?? dashboardStats?.todaySales ?? 0);
+    const todayGrossRevenue = statsTodaySales > 0 ? statsTodaySales : todayOrdersGross;
+
+    const lifetimeOrdersGross = (orders || []).reduce((sum, ord) => {
+      if (!isOrderPaid(ord)) return sum;
+      return sum + Number(ord.total_amount || ord.total || 0);
+    }, 0);
+
+    const statsLifetimeSales = Number(
       dashboardStats?.all_time_sales ??
       dashboardStats?.lifetime_sales ??
       dashboardStats?.total_sales ??
       dashboardStats?.allTimeSales ??
       dashboardStats?.lifetimeRevenue ??
-      (orders || []).reduce((sum, ord) => {
-        const isPaid = ord.status === "completed" || ord.status === "paid" || ord.payment_status === "paid" || ord.is_paid === true;
-        return isPaid ? sum + Number(ord.total_amount || ord.total || 0) : sum;
-      }, 0)
+      0
     );
+    const lifetimeGrossRevenue = statsLifetimeSales > 0 ? statsLifetimeSales : (lifetimeOrdersGross || todayGrossRevenue);
 
-    const activeGrossRevenue = timeframe === "lifetime" ? (lifetimeGrossRevenue || todayGrossRevenue) : (todayGrossRevenue || lifetimeGrossRevenue);
+    // Operating expenses: strictly filtered for today vs lifetime
+    const todayExpenses = (expenses || []).reduce((sum, e) => {
+      const dateVal = e.date || e.created_at || e.createdAt || e.expense_date;
+      if (!dateVal) return sum;
+      try {
+        const dStr = String(dateVal).split(/[T ]/)[0];
+        return dStr === todayStr ? sum + Number(e.amount || e.total || 0) : sum;
+      } catch {
+        return sum;
+      }
+    }, 0);
+
+    const lifetimeExpenses = (expenses || []).reduce((sum, e) => sum + Number(e.amount || e.total || 0), 0);
+
+    // Selected Active Gross Revenue & Operating Expenses based strictly on timeframe
+    const activeGrossRevenue = timeframe === "lifetime" ? lifetimeGrossRevenue : todayGrossRevenue;
+    const activeExpenses = timeframe === "lifetime" ? lifetimeExpenses : todayExpenses;
 
     const completedOrders = Number(dashboardStats?.today_orders || dashboardStats?.total_orders || orders.length || 0);
     const activeStaffCount = employees.filter((e) => e.is_active || e.status === "active").length || employees.length;
 
-    // Operating expenses sum
-    const totalExpenses = (expenses || []).reduce((sum, e) => sum + Number(e.amount || e.total || 0), 0);
-
-    // Financial Tax & Net Earnings Calculation
+    // Financial Tax & Net Earnings Calculation strictly derived from active timeframe
     const totalVatTax = Math.round(activeGrossRevenue * 0.15 * 100) / 100;
     const totalServiceCharge = Math.round(activeGrossRevenue * 0.10 * 100) / 100;
-    const netRevenue = Math.max(activeGrossRevenue - totalVatTax - totalServiceCharge - totalExpenses, 0);
+    const netRevenue = Math.max(activeGrossRevenue - totalVatTax - totalServiceCharge - activeExpenses, 0);
 
     const lifetimeVatTax = Math.round(lifetimeGrossRevenue * 0.15 * 100) / 100;
     const lifetimeServiceCharge = Math.round(lifetimeGrossRevenue * 0.10 * 100) / 100;
-    const lifetimeNetRevenue = Math.max(lifetimeGrossRevenue - lifetimeVatTax - lifetimeServiceCharge - totalExpenses, 0);
+    const lifetimeNetRevenue = Math.max(lifetimeGrossRevenue - lifetimeVatTax - lifetimeServiceCharge - lifetimeExpenses, 0);
 
     return {
       totalTablesCount,
@@ -323,7 +372,9 @@ export default function AdminDashboardPage() {
       lifetimeGrossRevenue,
       totalVatTax,
       totalServiceCharge,
-      totalExpenses,
+      totalExpenses: activeExpenses,
+      todayExpenses,
+      lifetimeExpenses,
       netRevenue,
       lifetimeNetRevenue,
       completedOrders,
@@ -948,18 +999,7 @@ export default function AdminDashboardPage() {
       )}
 
       {/* ============================================================
-          SMOOTH WAVE REVENUE LINE CHART (RESTOBOARD STYLE)
-      ============================================================ */}
-      <SmoothMonthlyRevenueChart
-        dashboardStats={dashboardStats}
-        orders={orders}
-        expenses={expenses}
-        metrics={metrics}
-        formatMoney={formatMoney}
-      />
-
-      {/* ============================================================
-          TOP SECTION: REAL-TIME LIVE TABLE FLOOR RADAR & ORDERS MONITOR
+          REAL-TIME LIVE TABLE FLOOR RADAR & ORDERS MONITOR
       ============================================================ */}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-100 pb-4">
@@ -1092,6 +1132,17 @@ export default function AdminDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* ============================================================
+          SMOOTH WAVE REVENUE LINE CHART (RESTOBOARD STYLE)
+      ============================================================ */}
+      <SmoothMonthlyRevenueChart
+        dashboardStats={dashboardStats}
+        orders={orders}
+        expenses={expenses}
+        metrics={metrics}
+        formatMoney={formatMoney}
+      />
 
       {/* ============================================================
           MIDDLE SECTION: PORTION SALES LEADERBOARD (REAL ORDERS DATA)
@@ -1422,51 +1473,23 @@ export default function AdminDashboardPage() {
           BOTTOM SECTION: OWNER FINANCIAL TAX & NET EARNINGS BREAKDOWN
       ============================================================ */}
       <div className="rounded-3xl border border-emerald-300 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 p-6 sm:p-8 text-white shadow-xl space-y-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-5">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-black text-emerald-400 border border-emerald-500/30">
-                👑 OWNER FINANCIAL STATEMENT
-              </span>
-              <span className="text-xs text-slate-400 font-semibold">Government Tax & Take-Home Profit Breakdown</span>
-            </div>
-            <h2 className="mt-2 text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-              <DollarSign className="h-7 w-7 text-emerald-400" />
-              Owner Financial Tax & Net Earnings Breakdown
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Final executive statement: Gross sales, 15% VAT government tax, 10% staff service charge allocation, operating costs, and net owner profit.
-            </p>
+        <div className="flex flex-col gap-2 border-b border-slate-800 pb-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-black text-emerald-400 border border-emerald-500/30">
+              👑 OWNER FINANCIAL STATEMENT
+            </span>
+            <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-amber-300 border border-slate-700">
+              {timeframe === "today" ? "📅 Today's Financials" : "👑 All-Time Journey"}
+            </span>
+            <span className="text-xs text-slate-400 font-semibold hidden sm:inline">Government Tax & Take-Home Profit Breakdown</span>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 bg-slate-800/80 p-1.5 rounded-2xl border border-slate-700">
-            <Link
-              to="/finance/cashier-reconciliation"
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer"
-            >
-              <CreditCard className="h-3.5 w-3.5" />
-              Reconcile Cashiers
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => setTimeframe("today")}
-              className={`rounded-xl px-4 py-2 text-xs font-extrabold transition ${
-                timeframe === "today" ? "bg-emerald-500 text-slate-950 shadow-md" : "text-slate-300 hover:text-white"
-              }`}
-            >
-              Today's Statement
-            </button>
-            <button
-              type="button"
-              onClick={() => setTimeframe("lifetime")}
-              className={`rounded-xl px-4 py-2 text-xs font-extrabold transition ${
-                timeframe === "lifetime" ? "bg-amber-400 text-slate-950 shadow-md" : "text-slate-300 hover:text-white"
-              }`}
-            >
-              👑 All-Time Journey
-            </button>
-          </div>
+          <h2 className="mt-1 text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
+            <DollarSign className="h-7 w-7 text-emerald-400" />
+            Owner Financial Tax & Net Earnings Breakdown
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-400">
+            Final executive statement for {timeframe === "today" ? "today" : "all-time"}: Gross sales, 15% VAT government tax, 10% staff service charge allocation, operating costs, and net owner profit.
+          </p>
         </div>
 
         {/* 5 FINANCIAL BREAKDOWN CARDS */}
@@ -1475,7 +1498,9 @@ export default function AdminDashboardPage() {
           <div className="rounded-xl bg-slate-900/90 p-3.5 border border-slate-800 space-y-1">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gross Business Revenue</p>
             <p className="text-xl font-black text-white">{formatMoney(metrics.grossRevenue)}</p>
-            <p className="text-[10px] text-emerald-400 font-semibold">Total POS Cash & Digital</p>
+            <p className="text-[10px] text-emerald-400 font-semibold">
+              {timeframe === "today" ? "Today's POS & Digital Sales" : "All-Time POS & Digital Sales"}
+            </p>
           </div>
 
           {/* 15% VAT Tax */}
@@ -1496,14 +1521,18 @@ export default function AdminDashboardPage() {
           <div className="rounded-xl bg-slate-900/90 p-3.5 border border-purple-900/40 space-y-1">
             <p className="text-[11px] font-bold text-purple-400 uppercase tracking-wider">Operating & Stock Costs</p>
             <p className="text-xl font-black text-purple-300">-{formatMoney(metrics.totalExpenses || 0)}</p>
-            <p className="text-[10px] text-slate-400">Expenses & Stock POs</p>
+            <p className="text-[10px] text-slate-400">
+              {timeframe === "today" ? "Today's Expenses & Stock" : "All-Time Operating Expenses"}
+            </p>
           </div>
 
           {/* Net Owner Take-Home Profit */}
           <div className="rounded-xl bg-emerald-950 p-3.5 border-2 border-emerald-400 space-y-1 shadow-md">
             <p className="text-[11px] font-extrabold text-emerald-300 uppercase tracking-wider">👑 Owner Net Take-Home</p>
             <p className="text-xl font-black text-emerald-400">{formatMoney(metrics.netRevenue)}</p>
-            <p className="text-[10px] text-emerald-300 font-bold">Pure Net Profit</p>
+            <p className="text-[10px] text-emerald-300 font-bold">
+              {timeframe === "today" ? "Today's Net Profit" : "All-Time Net Profit"}
+            </p>
           </div>
         </div>
       </div>

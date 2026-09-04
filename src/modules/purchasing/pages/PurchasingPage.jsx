@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 import {
@@ -22,6 +22,7 @@ import api from "../../../services/api";
 ===================================================== */
 
 function PurchasingPage() {
+  const navigate = useNavigate();
   /* =====================================================
      STATE
   ===================================================== */
@@ -805,6 +806,68 @@ function PurchasingPage() {
         </div>
       )}
 
+      {/* QUICK ACTIONS */}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+        <div className="mb-4">
+
+          <h2 className="font-bold text-slate-900">
+            Quick Actions
+          </h2>
+
+          <p className="mt-0.5 text-xs text-slate-500">
+            Common purchasing operations
+          </p>
+
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+
+          <QuickAction
+            icon={ShoppingCart}
+            title="New Purchase"
+            description="Create purchase order"
+            onClick={openPurchaseModal}
+          />
+
+          <QuickAction
+            icon={ClipboardList}
+            title="Purchase Orders"
+            description="View all orders"
+            onClick={() => {
+              document.getElementById("recent-purchase-orders")?.scrollIntoView({ behavior: "smooth" });
+            }}
+          />
+
+          <QuickAction
+            icon={PackageCheck}
+            title="Receive Stock"
+            description="Record incoming stock"
+            onClick={() => {
+              const pendingOrder = orders.find((o) => {
+                const s = normalizeStatus(o.status);
+                return s === "ordered" || s === "pending" || s === "draft";
+              });
+              if (pendingOrder) {
+                handleReceiveClick(pendingOrder);
+              } else {
+                document.getElementById("recent-purchase-orders")?.scrollIntoView({ behavior: "smooth" });
+              }
+            }}
+          />
+
+          <QuickAction
+            icon={DollarSign}
+            title="Purchase Reports"
+            description="View purchasing reports"
+            onClick={() => navigate("/purchasing/reports")}
+          />
+
+        </div>
+
+      </div>
+
       {/* STAT CARDS */}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -962,7 +1025,7 @@ function PurchasingPage() {
 
       {/* PURCHASE ORDERS */}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div id="recent-purchase-orders" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
 
@@ -1263,55 +1326,7 @@ function PurchasingPage() {
 
       </div>
 
-      {/* QUICK ACTIONS */}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-        <div className="mb-5">
-
-          <h2 className="font-bold text-slate-900">
-            Quick Actions
-          </h2>
-
-          <p className="mt-1 text-xs text-slate-500">
-            Common purchasing operations
-          </p>
-
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-
-          <QuickAction
-            icon={ShoppingCart}
-            title="New Purchase"
-            description="Create purchase order"
-            onClick={openPurchaseModal}
-          />
-
-          <QuickAction
-            icon={ClipboardList}
-            title="Purchase Orders"
-            description="View all orders"
-            onClick={() => {}}
-          />
-
-          <QuickAction
-            icon={PackageCheck}
-            title="Receive Stock"
-            description="Record incoming stock"
-            onClick={() => {}}
-          />
-
-          <QuickAction
-            icon={DollarSign}
-            title="Purchase Reports"
-            description="View purchasing reports"
-            onClick={() => {}}
-          />
-
-        </div>
-
-      </div>
 
       {/* =================================================
           NEW PURCHASE MODAL

@@ -170,6 +170,7 @@ function CashierReconciliationPage() {
         method: "POST",
         body: JSON.stringify({
           status, // 'verified' or 'discrepancy'
+          verification_notes: verificationNotes,
           notes: verificationNotes,
         }),
       });
@@ -658,6 +659,12 @@ function CashierReconciliationPage() {
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   Sales Channel Breakdown
                 </h4>
+                {Number(selectedShift.opening_cash || 0) > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-600">Opening Cash Float:</span>
+                    <span className="font-semibold text-slate-800">{Number(selectedShift.opening_cash).toLocaleString()} ETB</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-xs">
                   <span className="text-slate-600">Expected Physical Cash:</span>
                   <span className="font-bold text-slate-900">{Number(selectedShift.expected_cash || 0).toLocaleString()} ETB</span>
@@ -665,6 +672,12 @@ function CashierReconciliationPage() {
                 <div className="flex justify-between text-xs">
                   <span className="text-slate-600">Actual Counted Cash:</span>
                   <span className="font-bold text-emerald-700">{Number(selectedShift.actual_cash || 0).toLocaleString()} ETB</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-600">Drawer Variance:</span>
+                  <span className={`font-bold ${Number(selectedShift.shortage_overage || 0) < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                    {Number(selectedShift.shortage_overage || 0) === 0 ? "0 ETB (Balanced)" : `${Number(selectedShift.shortage_overage || 0).toLocaleString()} ETB`}
+                  </span>
                 </div>
                 <div className="flex justify-between text-xs border-t border-slate-100 pt-2">
                   <span className="text-slate-600">Telebirr / Mobile Money:</span>
@@ -674,7 +687,31 @@ function CashierReconciliationPage() {
                   <span className="text-slate-600">Card / POS Terminal:</span>
                   <span className="font-semibold text-slate-800">{Number(selectedShift.total_card_sales || 0).toLocaleString()} ETB</span>
                 </div>
+                {Number(selectedShift.total_credit_sales || 0) > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-600">VIP Credit Tabs:</span>
+                    <span className="font-semibold text-amber-700">{Number(selectedShift.total_credit_sales).toLocaleString()} ETB</span>
+                  </div>
+                )}
               </div>
+
+              {/* Cashier Notes */}
+              {selectedShift.cashier_notes && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-900">
+                  <p className="font-bold uppercase tracking-wider text-[10px] text-amber-800">Cashier Handover Notes</p>
+                  <p className="mt-1">{selectedShift.cashier_notes}</p>
+                </div>
+              )}
+
+              {/* Existing Verification Notes if already verified */}
+              {selectedShift.verified_by_name && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <p className="font-bold text-[10px] uppercase text-slate-500">
+                    Previous Verification by {selectedShift.verified_by_name} {selectedShift.verified_at ? `(${new Date(selectedShift.verified_at).toLocaleDateString()})` : ""}
+                  </p>
+                  <p className="mt-1">{selectedShift.verification_notes || "No audit comment"}</p>
+                </div>
+              )}
 
               {/* Notes Input */}
               <div>

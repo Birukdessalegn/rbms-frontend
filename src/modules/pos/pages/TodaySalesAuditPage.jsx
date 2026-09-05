@@ -14,6 +14,12 @@ import {
   Smartphone,
   Landmark,
   Printer,
+  PlayCircle,
+  Lock,
+  CheckCircle2,
+  AlertTriangle,
+  X,
+  Check,
 } from "lucide-react";
 import api from "../../../services/api";
 import { useAuth } from "../../../context/AuthContext";
@@ -29,6 +35,17 @@ function TodaySalesAuditPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedWaiter, setSelectedWaiter] = useState("all");
   const [selectedProofOrder, setSelectedProofOrder] = useState(null);
+
+  /* Shift Lifecycle State */
+  const [currentShift, setCurrentShift] = useState(null);
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [openingFloat, setOpeningFloat] = useState("0");
+  const [startingShift, setStartingShift] = useState(false);
+  const [countedCash, setCountedCash] = useState("");
+  const [cashierNotes, setCashierNotes] = useState("");
+  const [closingShift, setClosingShift] = useState(false);
+  const [closeError, setCloseError] = useState("");
 
   /* Helper to parse items safely if needed */
   const parseItems = (itemsInput) => {
@@ -122,13 +139,22 @@ function TodaySalesAuditPage() {
       setLoading(true);
       setError("");
 
-      const [posRes, kitchenRes, barRes, tablesRes, empRes] = await Promise.all([
+      const [posRes, kitchenRes, barRes, tablesRes, empRes, shiftRes] = await Promise.all([
         api("/pos/orders").catch(() => ({ orders: [] })),
         api("/kitchen").catch(() => api("/kitchen/orders").catch(() => [])),
         api("/bar/orders").catch(() => []),
         api("/tables").catch(() => api("/pos/tables").catch(() => [])),
         api("/employees").catch(() => []),
+        api("/pos/shifts/current").catch(() => ({ shift: null })),
       ]);
+
+      if (shiftRes && shiftRes.shift) {
+        setCurrentShift(shiftRes.shift);
+      } else if (shiftRes && shiftRes.data) {
+        setCurrentShift(shiftRes.data);
+      } else {
+        setCurrentShift(null);
+      }
 
       const posList = posRes.orders || posRes.data || (Array.isArray(posRes) ? posRes : []);
       const kitchenList = Array.isArray(kitchenRes) ? kitchenRes : (kitchenRes.orders || []);
@@ -217,6 +243,62 @@ function TodaySalesAuditPage() {
       setError("Failed to fetch today's sales and payment audit records.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  /* Start Shift Handler */
+  const handleStartShift = async (e) => {
+    e.preventDefault();
+    try {
+      setStartingShift(true);
+      const res = await api("/pos/shifts/start", {
+        method: "POST",
+        body: JSON.stringify({
+          opening_cash: Number(openingFloat) || 0,
+          terminal_id: 1,
+        }),
+      });
+      if (res?.shift) {
+        setCurrentShift(res.shift);
+      }
+      setShowStartModal(false);
+      await fetchDailyAuditData();
+    } catch (err) {
+      alert(err.message || "Failed to start shift");
+    } finally {
+      setStartingShift(false);
+    }
+  };
+
+  /* Close Daily Audit Handler */
+  const handleCloseShift = async (e) => {
+    e.preventDefault();
+    setCloseError("");
+    if (countedCash === "" || isNaN(Number(countedCash))) {
+      setCloseError("Please enter a valid actual counted cash amount.");
+      return;
+    }
+    try {
+      setClosingShift(true);
+      const res = await api("/pos/shifts/close", {
+        method: "POST",
+        body: JSON.stringify({
+          actual_cash: Number(countedCash),
+          closing_notes: cashierNotes,
+        }),
+      });
+      if (res?.shift) {
+        setCurrentShift(res.shift);
+      }
+      setShowCloseModal(false);
+      setCountedCash("");
+      setCashierNotes("");
+      await fetchDailyAuditData();
+      alert("Daily sales audit closed successfully! Submitted for Finance approval.");
+    } catch (err) {
+      setCloseError(err.message || "Failed to close daily audit.");
+    } finally {
+      setClosingShift(false);
     }
   };
 
@@ -356,6 +438,13 @@ function TodaySalesAuditPage() {
     printReportArea("sales-audit-report-printable", "Today's Sales & Payment Audit");
   };
 
+  const openingCashAmount = Number(currentShift?.opening_cash || 0);
+  const expectedPhysicalCash = Number(
+    currentShift?.expected_cash ?? (openingCashAmount + cashTotal)
+  );
+  const actualCountedAmount = countedCash !== "" ? Number(countedCash) : null;
+  const liveVariance = actualCountedAmount !== null ? actualCountedAmount - expectedPhysicalCash : 0;
+
   return (
     <div className="space-y-6 p-6">
       {/* Action Buttons Bar */}
@@ -374,7 +463,7 @@ function TodaySalesAuditPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={fetchDailyAuditData}
@@ -385,6 +474,38 @@ function TodaySalesAuditPage() {
             <span>Refresh</span>
           </button>
 
+          {/* Start Shift Button if no active shift */}
+          {(!currentShift || currentShift.status !== "open") && currentShift?.status !== "closed_pending_approval" && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpeningFloat("0");
+                setShowStartModal(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:bg-blue-700"
+            >
+              <PlayCircle size={15} />
+              <span>Start Shift</span>
+            </button>
+          )}
+
+          {/* Close Daily Audit Button if shift is open */}
+          {currentShift?.status === "open" && (
+            <button
+              type="button"
+              onClick={() => {
+                setCountedCash("");
+                setCashierNotes("");
+                setCloseError("");
+                setShowCloseModal(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:bg-emerald-700"
+            >
+              <Lock size={14} />
+              <span>Close Daily Audit</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handlePrint}
@@ -394,6 +515,162 @@ function TodaySalesAuditPage() {
             <span>Print Official Report</span>
           </button>
         </div>
+      </div>
+
+      {/* SHIFT STATUS & RECONCILIATION LIFECYCLE BANNER */}
+      <div className="print-hide">
+        {!currentShift && (
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white font-bold shrink-0">
+                <PlayCircle size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-blue-950">No Active Cashier Shift</h3>
+                <p className="text-xs text-blue-700">
+                  Start your shift to record opening drawer float and activate official daily audit closing.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setOpeningFloat("0");
+                setShowStartModal(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-blue-700 transition shrink-0"
+            >
+              <PlayCircle size={14} />
+              <span>Start Cashier Shift</span>
+            </button>
+          </div>
+        )}
+
+        {currentShift?.status === "open" && (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white font-bold shrink-0">
+                <ShieldCheck size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-emerald-950">Active Cashier Shift #{currentShift.id}</h3>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-200/80 px-2 py-0.5 text-[10px] font-extrabold text-emerald-900 animate-pulse">
+                    ● LIVE RECORDING
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-800 mt-0.5">
+                  Started: {currentShift.start_time ? new Date(currentShift.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Active"} • Opening Float: {Number(currentShift.opening_cash || 0).toLocaleString()} ETB • Expected Cash in Till: <strong className="text-emerald-950 font-black">{expectedPhysicalCash.toLocaleString()} ETB</strong>
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCountedCash("");
+                setCashierNotes("");
+                setCloseError("");
+                setShowCloseModal(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm hover:bg-emerald-800 transition shrink-0"
+            >
+              <Lock size={14} />
+              <span>Close Daily Audit & Handover</span>
+            </button>
+          </div>
+        )}
+
+        {currentShift?.status === "closed_pending_approval" && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-600 text-white font-bold shrink-0">
+                <Clock size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-amber-950">Daily Sales Audit Closed (Shift #{currentShift.id})</h3>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/90 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-900">
+                    ⏳ Awaiting Finance Approval
+                  </span>
+                </div>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  Counted Cash: <strong>{Number(currentShift.actual_cash || 0).toLocaleString()} ETB</strong> • Expected Cash: {Number(currentShift.expected_cash || 0).toLocaleString()} ETB • Variance: <strong className={Number(currentShift.shortage_overage || 0) < 0 ? "text-rose-700" : "text-emerald-800"}>{Number(currentShift.shortage_overage || 0) > 0 ? `+${currentShift.shortage_overage}` : currentShift.shortage_overage} ETB</strong>
+                </p>
+                {currentShift.cashier_notes && (
+                  <p className="text-[11px] text-amber-900 mt-1 italic">
+                    Cashier Note: "{currentShift.cashier_notes}"
+                  </p>
+                )}
+              </div>
+            </div>
+            <span className="rounded-xl border border-amber-300 bg-amber-100 px-3.5 py-2 text-xs font-extrabold text-amber-900 shrink-0">
+              Submitted to Finance
+            </span>
+          </div>
+        )}
+
+        {currentShift?.status === "verified" && (
+          <div className="rounded-2xl border border-emerald-300 bg-emerald-50/90 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white font-bold shrink-0">
+                <CheckCircle2 size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-emerald-950">Daily Sales Audit Approved & Reconciled</h3>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-200 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-900">
+                    ✓ Verified by {currentShift.verified_by_name || "Finance Manager"}
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-800 mt-0.5">
+                  Reconciled at: {currentShift.verified_at ? new Date(currentShift.verified_at).toLocaleString() : "Today"} • Approved Cash Handover: <strong>{Number(currentShift.actual_cash || 0).toLocaleString()} ETB</strong>
+                </p>
+                {currentShift.verification_notes && (
+                  <p className="text-[11px] text-emerald-900 mt-1 italic">
+                    Finance Audit Comments: "{currentShift.verification_notes}"
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setOpeningFloat("0");
+                setShowStartModal(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-extrabold text-white hover:bg-slate-800 transition shrink-0"
+            >
+              <PlayCircle size={14} />
+              <span>Start New Shift</span>
+            </button>
+          </div>
+        )}
+
+        {currentShift?.status === "discrepancy" && (
+          <div className="rounded-2xl border border-rose-300 bg-rose-50/90 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-600 text-white font-bold shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-rose-950">Daily Sales Audit Flagged (Discrepancy)</h3>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-200 px-2.5 py-0.5 text-[10px] font-extrabold text-rose-900">
+                    Flagged by {currentShift.verified_by_name || "Finance Manager"}
+                  </span>
+                </div>
+                <p className="text-xs text-rose-800 mt-0.5">
+                  Counted Cash: {Number(currentShift.actual_cash || 0).toLocaleString()} ETB • Discrepancy Variance: <strong className="text-rose-700 font-bold">{Number(currentShift.shortage_overage || 0).toLocaleString()} ETB</strong>
+                </p>
+                {currentShift.verification_notes && (
+                  <p className="text-[11px] text-rose-900 mt-1 font-semibold">
+                    Finance Audit Reason: "{currentShift.verification_notes}"
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* PRINTABLE AREA CONTAINER */}
@@ -742,8 +1019,12 @@ function TodaySalesAuditPage() {
               <p className="text-[10px] text-slate-500 font-normal">Confidential • For Internal Financial Audit Use Only</p>
             </div>
             <div className="text-right">
-              <p>Cashier Signature: ______________________</p>
-              <p className="mt-2">Manager Approval: _______________________</p>
+              <p>
+                Cashier Signature: {currentShift?.cashier_name ? `${currentShift.cashier_name} (Signed)` : "______________________"}
+              </p>
+              <p className="mt-2">
+                Manager Approval: {currentShift?.verified_by_name ? `${currentShift.verified_by_name} (Verified: ${new Date(currentShift.verified_at).toLocaleDateString()})` : "_______________________"}
+              </p>
             </div>
           </div>
         </div>
@@ -755,6 +1036,243 @@ function TodaySalesAuditPage() {
           order={selectedProofOrder}
           onClose={() => setSelectedProofOrder(null)}
         />
+      )}
+
+      {/* START SHIFT MODAL */}
+      {showStartModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 print-hide">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+                  <PlayCircle size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Start Cashier Shift</h3>
+                  <p className="text-xs text-slate-500">Open register till for today's sales</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStartModal(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-200 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleStartShift} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                  Cashier Name
+                </label>
+                <div className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-800">
+                  {user?.fullName || user?.name || user?.username || "Active Cashier"}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                  Opening Cash Float (ETB)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    ETB
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={openingFloat}
+                    onChange={(e) => setOpeningFloat(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full rounded-xl border border-slate-200 pl-12 pr-4 py-2.5 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Physical cash currently in the drawer at the start of your shift.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowStartModal(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={startingShift}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-extrabold text-white shadow-md hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {startingShift ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" />
+                      <span>Starting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <PlayCircle size={14} />
+                      <span>Start Shift</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CLOSE DAILY AUDIT & HANDOVER MODAL */}
+      {showCloseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 print-hide">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                  <Lock size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Close Daily Sales Audit</h3>
+                  <p className="text-xs text-slate-500">Submit drawer handover to Finance for verification</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCloseModal(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-200 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCloseShift} className="p-6 space-y-4">
+              {closeError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700 flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0" />
+                  <span>{closeError}</span>
+                </div>
+              )}
+
+              {/* Breakdown Cards */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2.5">
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                  Sales Channels Breakdown
+                </h4>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-600">Opening Cash Float:</span>
+                  <span className="font-semibold text-slate-900">{openingCashAmount.toLocaleString()} ETB</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-600">Total Cash Sales Collected:</span>
+                  <span className="font-semibold text-slate-900">{cashTotal.toLocaleString()} ETB</span>
+                </div>
+                <div className="flex justify-between text-xs border-t border-slate-200 pt-2 font-bold text-slate-900">
+                  <span>Total Expected Physical Cash:</span>
+                  <span className="text-sm font-black text-emerald-800">{expectedPhysicalCash.toLocaleString()} ETB</span>
+                </div>
+                <div className="flex justify-between text-xs border-t border-slate-100 pt-2 text-slate-500">
+                  <span>Digital Channels (Telebirr, CBE, Card):</span>
+                  <span className="font-semibold text-slate-700">{digitalTotal.toLocaleString()} ETB</span>
+                </div>
+              </div>
+
+              {/* Physical Cash Input */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                  Actual Counted Cash in Drawer *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    ETB
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    autoFocus
+                    value={countedCash}
+                    onChange={(e) => setCountedCash(e.target.value)}
+                    placeholder="Enter counted physical cash..."
+                    className="w-full rounded-xl border border-slate-300 pl-12 pr-4 py-3 text-base font-black text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                  />
+                </div>
+              </div>
+
+              {/* Live Variance Calculation */}
+              {countedCash !== "" && (
+                <div
+                  className={`rounded-xl border p-3.5 flex items-center justify-between text-xs font-bold ${
+                    liveVariance === 0
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : liveVariance < 0
+                      ? "border-rose-200 bg-rose-50 text-rose-800"
+                      : "border-amber-200 bg-amber-50 text-amber-800"
+                  }`}
+                >
+                  <span>Drawer Variance:</span>
+                  <span className="text-sm font-black">
+                    {liveVariance === 0
+                      ? "0.00 ETB (Exact Match ✓)"
+                      : liveVariance < 0
+                      ? `${liveVariance.toLocaleString()} ETB (Shortage ⚠️)`
+                      : `+${liveVariance.toLocaleString()} ETB (Overage)`}
+                  </span>
+                </div>
+              )}
+
+              {/* Notes Input */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                  Cashier Closing Notes (Optional)
+                </label>
+                <textarea
+                  rows="2"
+                  value={cashierNotes}
+                  onChange={(e) => setCashierNotes(e.target.value)}
+                  placeholder="Explain any shortages, till handover comments, or shift notes..."
+                  className="w-full rounded-xl border border-slate-200 p-3 text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                />
+              </div>
+
+              <div className="rounded-xl bg-amber-50/70 border border-amber-200 p-3 text-[11px] text-amber-900 leading-relaxed">
+                ⚠️ <strong>Important:</strong> Closing the daily audit locks today's transactions and submits this record to Finance for cash verification and final approval.
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCloseModal(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={closingShift || countedCash === ""}
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-extrabold text-white shadow-md hover:bg-emerald-700 transition disabled:opacity-50"
+                >
+                  {closingShift ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" />
+                      <span>Closing Audit...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock size={14} />
+                      <span>Close & Submit to Finance</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

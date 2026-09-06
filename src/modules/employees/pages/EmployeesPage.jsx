@@ -30,14 +30,15 @@ import api from "../../../services/api";
 // =====================================================
 
 const roles = [
-  { id: 1, name: "admin" },
-  { id: 2, name: "manager" },
-  { id: 3, name: "hr" },
-  { id: 4, name: "finance" },
-  { id: 5, name: "cashier" },
-  { id: 6, name: "waiter" },
-  { id: 7, name: "chef" },
-  { id: 8, name: "bartender" },
+  { id: 1, name: "admin", label: "Admin" },
+  { id: 2, name: "manager", label: "Manager" },
+  { id: 3, name: "hr", label: "HR" },
+  { id: 4, name: "finance", label: "Finance" },
+  { id: 5, name: "cashier", label: "Cashier" },
+  { id: 6, name: "waiter", label: "Waiter" },
+  { id: 7, name: "chef", label: "Chef" },
+  { id: 8, name: "bartender", label: "Bartender" },
+  { id: 9, name: "fb_controller", label: "F&B Controller / Kitchen Auditor" },
 ];
 
 const departments = [
@@ -48,6 +49,7 @@ const departments = [
   { id: 5, name: "Bar" },
   { id: 6, name: "Finance" },
   { id: 7, name: "Administration" },
+  { id: 8, name: "Food & Beverage" },
 ];
 
 const statusStyles = {
@@ -911,18 +913,18 @@ function EmployeesPage() {
                     {/* ROLE */}
                     <td className="px-5 py-4">
                       <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium capitalize text-blue-700">
-                        {employee.role?.name ||
-                          employee.role_name ||
-                          employee.roleName ||
-                          (typeof employee.role === "string"
-                            ? employee.role
-                            : null) ||
-                          roles.find(
-                            (r) =>
-                              r.id ===
-                              Number(employee.role_id || employee.roleId)
-                          )?.name ||
-                          "-"}
+                        {(() => {
+                          const r =
+                            employee.role?.name ||
+                            employee.role_name ||
+                            employee.roleName ||
+                            (typeof employee.role === "string" ? employee.role : null) ||
+                            roles.find(
+                              (item) => item.id === Number(employee.role_id || employee.roleId)
+                            )?.name ||
+                            "-";
+                          return r.toLowerCase() === "fb_controller" ? "F&B Controller" : r;
+                        })()}
                       </span>
                     </td>
 
@@ -1295,7 +1297,7 @@ function EmployeesPage() {
                       <option value="">Select role</option>
                       {roles.map((role) => (
                         <option key={role.id} value={role.id}>
-                          {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
+                          {role.label || (role.name.charAt(0).toUpperCase() + role.name.slice(1))}
                         </option>
                       ))}
                     </select>
@@ -1500,7 +1502,9 @@ function EmployeesPage() {
                     </p>
                     <div className="mt-1 flex items-center gap-2">
                       <span className="text-sm capitalize text-gray-600">
-                        {selectedEmployee.role || "-"}
+                        {String(selectedEmployee.role || "").toLowerCase() === "fb_controller"
+                          ? "F&B Controller"
+                          : selectedEmployee.role || "-"}
                       </span>
                       <span className="text-gray-300">•</span>
                       <span className="text-sm text-gray-600">

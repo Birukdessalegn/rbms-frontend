@@ -2,8 +2,8 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef } f
 
 const AuthContext = createContext(null);
 
-// Inactivity timeout: 1 minute (60,000 ms)
-export const SESSION_INACTIVITY_TIMEOUT_MS = 1 * 60 * 1000;
+// Inactivity timeout: 12 hours (full restaurant shift) so clients and staff are never abruptly booted out
+export const SESSION_INACTIVITY_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -82,7 +82,7 @@ export function AuthProvider({ children }) {
       window.addEventListener(eventName, recordUserActivity, { passive: true });
     });
 
-    // Check inactivity every 2 seconds
+    // Check inactivity periodically (every 30 seconds)
     const intervalId = setInterval(() => {
       const storedLastActivity = Number(
         localStorage.getItem("session_last_activity") || lastActivityRef.current
@@ -93,7 +93,7 @@ export function AuthProvider({ children }) {
         console.warn(`User inactive for ${elapsed}ms. Auto-logging out...`);
         logout();
       }
-    }, 2000);
+    }, 30000);
 
     // Synchronize cross-tab activity or logout
     const handleStorageChange = (e) => {

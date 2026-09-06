@@ -24,10 +24,12 @@ function POSPage() {
     fetchKitchenOrders,
   } = useRestaurant();
 
+  const isBartender = user?.role?.toUpperCase() === "BARTENDER" || user?.role_id === 8;
+
   const [orderItems, setOrderItems] = useState([]);
   const [orderType, setOrderType] = useState("Dine In");
   const [selectedTable, setSelectedTable] = useState(null);
-  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeCategory, setActiveCategory] = useState(isBartender ? "drinks" : "all");
   const [searchTerm, setSearchTerm] = useState("");
   const [portionModalProduct, setPortionModalProduct] = useState(null);
 
@@ -188,11 +190,14 @@ function POSPage() {
             : "delivery",
 
         tableId,
+        is_bar_order: isBartender || Boolean(selectedTable?.is_bar_seat),
 
         waiterId: user?.employee_id || user?.employeeId || user?.id || 1,
         waiter_id: user?.employee_id || user?.employeeId || user?.id || 1,
         waiterName: user?.username || user?.name || null,
         waiter_name: user?.username || user?.name || null,
+        bartender_id: isBartender ? (user?.employee_id || user?.employeeId || user?.id || 1) : null,
+        bartender_name: isBartender ? (user?.username || user?.name || null) : null,
 
         items: orderItems.map((item) => ({
           productId: item.originalId || item.id,
@@ -240,7 +245,8 @@ function POSPage() {
         fetchKitchenOrders();
       }
 
-      alert("Order sent to kitchen successfully!");
+      const isBarOrder = isBartender || Boolean(selectedTable?.is_bar_seat);
+      alert(isBarOrder ? "Order sent to Bar successfully!" : "Order sent to kitchen successfully!");
 
     } catch (error) {
       console.error("Failed to create order:", error);

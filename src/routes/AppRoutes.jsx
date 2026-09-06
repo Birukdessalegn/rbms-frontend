@@ -45,6 +45,7 @@ function DashboardRoleSwitch() {
 
 import KitchenPage from "../modules/kitchen/pages/KitchenPage";
 import KitchenLiveAssetsPage from "../modules/kitchen/pages/KitchenLiveAssetsPage";
+import KitchenStockAuditPage from "../modules/kitchen/pages/KitchenStockAuditPage";
 import KitchenReportsPage from "../modules/kitchen/pages/KitchenReportsPage";
 
 import POSPage from "../modules/pos/pages/POSPage";
@@ -184,6 +185,17 @@ function AppRoutes() {
                 path="/kitchen/assets"
                 element={<KitchenLiveAssetsPage />}
               />
+
+              <Route
+                element={
+                  <PermissionRoute permission="kitchen_audit" />
+                }
+              >
+                <Route
+                  path="/kitchen/audit"
+                  element={<KitchenStockAuditPage />}
+                />
+              </Route>
 
               <Route
                 path="/kitchen/inventory"

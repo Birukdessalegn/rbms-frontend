@@ -10,6 +10,7 @@ export const ROLES = {
   ACCOUNTANT: "ACCOUNTANT",
   HR: "HR",
   FINANCE: "FINANCE",
+  FB_CONTROLLER: "FB_CONTROLLER",
 };
 
 export const ROLE_PERMISSIONS = {
@@ -22,10 +23,11 @@ export const ROLE_PERMISSIONS = {
     "orders.create",
     "tables.view",
     "kitchen.view",
+    "kitchen_audit.manage",
     "bar.view",
-    "reservations.view",
     "products.view",
     "inventory.view",
+    "transfers.approve",
     "purchasing.view",
     "customers.view",
     "payments.view",
@@ -34,6 +36,15 @@ export const ROLE_PERMISSIONS = {
     "reports.view",
     "finance.view",
     "cashier.reconcile",
+  ],
+
+  [ROLES.FB_CONTROLLER]: [
+    "dashboard.view",
+    "kitchen.view",
+    "kitchen_audit.manage",
+    "inventory.view",
+    "transfers.approve",
+    "reports.view",
   ],
 
   // Waiter permissions
@@ -66,6 +77,9 @@ export const ROLE_PERMISSIONS = {
     "bar.view",
     "bar.update",
     "kitchen.view",
+    "pos.view",
+    "orders.view",
+    "orders.create",
   ],
 
   [ROLES.STOREKEEPER]: [
@@ -112,7 +126,8 @@ export const ROLE_PERMISSIONS = {
 };
 
 export function hasPermission(role, permission) {
-  const permissions = ROLE_PERMISSIONS[role] || [];
+  const normalizedRole = typeof role === "string" ? role.toUpperCase() : "";
+  const permissions = ROLE_PERMISSIONS[normalizedRole] || ROLE_PERMISSIONS[role] || [];
 
   return (
     permissions.includes("*") ||

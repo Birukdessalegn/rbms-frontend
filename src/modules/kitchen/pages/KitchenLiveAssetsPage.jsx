@@ -15,11 +15,20 @@ import {
   Layers,
   ChefHat,
   XCircle,
+  ClipboardCheck,
 } from "lucide-react";
 import api from "../../../services/api";
+import { useAuth } from "../../../context/AuthContext";
 import { formatImageUrl } from "../../products/ProductsPage";
 
 function KitchenLiveAssetsPage() {
+  const { user } = useAuth();
+  const normalizedRole = user?.role ? String(user.role).toUpperCase() : "";
+  const canAudit =
+    normalizedRole === "ADMIN" ||
+    normalizedRole === "MANAGER" ||
+    normalizedRole === "FB_CONTROLLER";
+
   const [products, setProducts] = useState([]);
   const [kitchenStock, setKitchenStock] = useState([]);
   const [kitchenOrders, setKitchenOrders] = useState([]);
@@ -307,6 +316,16 @@ function KitchenLiveAssetsPage() {
               <Package className="h-3.5 w-3.5 text-amber-600" />
               Live Kitchen Assets
             </button>
+
+            {canAudit && (
+              <Link
+                to="/kitchen/audit"
+                className="flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 transition"
+              >
+                <ClipboardCheck className="h-3.5 w-3.5 text-emerald-600" />
+                F&B Stock Audit
+              </Link>
+            )}
           </div>
 
           <button

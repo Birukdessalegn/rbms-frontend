@@ -38,6 +38,9 @@ function RoleRedirect() {
     case "HR":
       return <Navigate to="/employees" replace />;
 
+    case "FB_CONTROLLER":
+      return <Navigate to="/kitchen/audit" replace />;
+
     default:
       return <Navigate to="/dashboard" replace />;
   }

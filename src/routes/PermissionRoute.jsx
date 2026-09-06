@@ -9,8 +9,8 @@ const rolePermissions = {
     "dashboard",
     "pos",
     "kitchen",
+    "kitchen_audit",
     "bar",
-    "reservations",
     "products",
     "inventory",
     "customers",
@@ -24,12 +24,13 @@ const rolePermissions = {
   WAITER: ["pos", "orders"],
   CASHIER: ["pos", "finance"],
   CHEF: ["kitchen"],
-  BARTENDER: ["bar"],
+  BARTENDER: ["bar", "pos"],
   STOREKEEPER: ["inventory", "products"],
   PURCHASING: ["purchasing", "inventory"],
   ACCOUNTANT: ["finance", "expenses", "reports"],
   FINANCE: ["finance", "expenses", "reports", "payments"],
   HR: ["employees"],
+  FB_CONTROLLER: ["kitchen", "kitchen_audit", "inventory", "reports"],
 };
 
 function PermissionRoute({ permission }) {

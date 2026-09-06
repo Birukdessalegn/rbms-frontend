@@ -35,6 +35,7 @@ import {
   User,
   ShieldCheck,
   ClipboardList,
+  ClipboardCheck,
   Clock,
   ArrowLeftRight,
   AlertTriangle,
@@ -108,6 +109,13 @@ const navigationGroups = [
       },
 
       {
+        name: "F&B Audit Board",
+        path: "/kitchen/audit",
+        icon: ClipboardCheck,
+        permission: "kitchen_audit.manage",
+      },
+
+      {
         name: "Kitchen",
         icon: Flame,
         permission: "kitchen.view",
@@ -141,6 +149,11 @@ const navigationGroups = [
             name: "Bar Display",
             path: "/bar",
             icon: Wine,
+          },
+          {
+            name: "Bar Order Terminal",
+            path: "/pos",
+            icon: ShoppingCart,
           },
           {
             name: "Bar Reports",
@@ -578,6 +591,14 @@ function DashboardLayout() {
               );
             }
 
+            if (item.path === "/kitchen/audit" || item.path?.startsWith("/kitchen/audit")) {
+              return (
+                normalizedRole === "ADMIN" ||
+                normalizedRole === "MANAGER" ||
+                normalizedRole === "FB_CONTROLLER"
+              );
+            }
+
             /*
               Normal permission checking.
             */
@@ -615,6 +636,14 @@ function DashboardLayout() {
                   ) {
                     return false;
                   }
+                }
+                // Chefs, Bartenders & non-auditors must never see F&B Stock Audits
+                if (child.path === "/kitchen/audit" || child.path?.startsWith("/kitchen/audit")) {
+                  return (
+                    normalizedRole === "ADMIN" ||
+                    normalizedRole === "MANAGER" ||
+                    normalizedRole === "FB_CONTROLLER"
+                  );
                 }
                 return true;
               });
@@ -988,19 +1017,7 @@ function DashboardLayout() {
             SIDEBAR FOOTER
         =================================================== */}
 
-        <div className="hidden lg:flex shrink-0 items-center justify-between p-3 border-t border-slate-800">
-
-          {!isCollapsed && (
-            <div className="flex items-center gap-2.5 px-2">
-
-              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-
-              <span className="text-xs font-medium text-slate-400">
-                Store #1 Online
-              </span>
-
-            </div>
-          )}
+        <div className="hidden lg:flex shrink-0 items-center justify-end p-3 border-t border-slate-800">
 
           <button
             onClick={() =>

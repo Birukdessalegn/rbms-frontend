@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRestaurant } from "../../../context/RestaurantContext";
 import { useAuth } from "../../../context/AuthContext";
 import TableSelector from "../components/TableSelector";
@@ -9,6 +9,11 @@ import api from "../../../services/api";
 import ActiveOrders from "../components/ActiveOrders";
 import DrinkPortionModal from "../components/DrinkPortionModal";
 import { getCustomShotsMap } from "../../products/ProductsPage";
+import CashierShiftBanner from "../components/CashierShiftBanner";
+import ShiftStartModal from "../components/ShiftStartModal";
+import ShiftCloseModal from "../components/ShiftCloseModal";
+import { getCurrentShift } from "../services/posApi";
+
 
 function POSPage() {
   const { user } = useAuth();
@@ -25,6 +30,29 @@ function POSPage() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [portionModalProduct, setPortionModalProduct] = useState(null);
+
+  const [currentShift, setCurrentShift] = useState(null);
+  const [loadingShift, setLoadingShift] = useState(true);
+  const [isStartShiftModalOpen, setIsStartShiftModalOpen] = useState(false);
+  const [isCloseShiftModalOpen, setIsCloseShiftModalOpen] = useState(false);
+
+  const fetchCurrentShift = async () => {
+    try {
+      setLoadingShift(true);
+      const res = await getCurrentShift();
+      setCurrentShift(res.data || null);
+    } catch (err) {
+      console.warn("Current cashier shift fetch:", err);
+      setCurrentShift(null);
+    } finally {
+      setLoadingShift(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCurrentShift();
+  }, []);
+
 
   // Helper to identify spirit/liquor bottle products that should open the portion serving modal
   const isSpiritOrLiquorProduct = (product) => {
@@ -271,6 +299,14 @@ function POSPage() {
         </div>
       </div>
 
+      {/* Cashier Shift Status Banner */}
+      <CashierShiftBanner
+        currentShift={currentShift}
+        loadingShift={loadingShift}
+        onStartShiftClick={() => setIsStartShiftModalOpen(true)}
+        onCloseShiftClick={() => setIsCloseShiftModalOpen(true)}
+      />
+
       <ActiveOrders />
 
       {/* Order Type */}
@@ -377,6 +413,29 @@ function POSPage() {
         </div>
 
       </div>
+
+            {/* CASHIER SHIFT MANAGEMENT MODALS */}
+      <ShiftStartModal
+        isOpen={isStartShiftModalOpen}
+        onClose={() => setIsStartShiftModalOpen(false)}
+        cashierName={user?.name || user?.username}
+        onShiftStarted={(newShift) => {
+          setCurrentShift(newShift);
+          setIsStartShiftModalOpen(false);
+          fetchCurrentShift();
+        }}
+      />
+
+      <ShiftCloseModal
+        isOpen={isCloseShiftModalOpen}
+        onClose={() => setIsCloseShiftModalOpen(false)}
+        currentShift={currentShift}
+        onShiftClosed={() => {
+          setCurrentShift(null);
+          setIsCloseShiftModalOpen(false);
+          fetchCurrentShift();
+        }}
+      />
 
       {/* DRINK PORTION SELECTOR MODAL */}
       {portionModalProduct && (

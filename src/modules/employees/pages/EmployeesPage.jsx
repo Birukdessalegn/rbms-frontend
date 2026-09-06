@@ -481,6 +481,61 @@ function EmployeesPage() {
     }
   };
 
+  
+  const handleDeleteLoginAccount = async (employee) => {
+    const employeeName =
+      employee.name ||
+      `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
+
+    const confirmed = window.confirm(
+      `Are you sure you want to remove the login account for ${employeeName}?\n\nThis will permanently delete their username/password login credentials, while preserving all of their sales, payments, attendance, and work history.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      setError("");
+
+      await api(`/employees/${employee.id}/login-account`, {
+        method: "DELETE",
+      });
+
+      setEmployeeList((previous) =>
+        previous.map((item) =>
+          item.id === employee.id
+            ? {
+                ...item,
+                user_id: null,
+                username: null,
+              }
+            : item
+        )
+      );
+
+      if (selectedEmployee?.id === employee.id) {
+        setSelectedEmployee((prev) => ({
+          ...prev,
+          user_id: null,
+          username: null,
+        }));
+      }
+
+      showToast(
+        "success",
+        `Login account removed for ${employeeName}. Work history preserved.`
+      );
+    } catch (error) {
+      console.error("Failed to remove login account:", error);
+      showToast(
+        "error",
+        error.message || "Failed to remove login account"
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleDeleteEmployee = async (employee) => {
     const employeeName =
       employee.name ||
@@ -912,6 +967,17 @@ function EmployeesPage() {
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex justify-end gap-2">
+                        {/* Remove Login Account Only (preserves sales/work history) */}
+                        {employee.user_id && (
+                          <button
+                            onClick={() => handleDeleteLoginAccount(employee)}
+                            disabled={deleting}
+                            className="rounded-lg p-2 text-gray-500 hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50"
+                            title="Remove Login Account (Keeps History)"
+                          >
+                            <KeyRound size={17} />
+                          </button>
+                        )}
                         <button
                           onClick={() => openEditForm(employee)}
                           className="rounded-lg p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600"

@@ -3,12 +3,14 @@ import { useRestaurant } from "../../../context/RestaurantContext";
 import { useAuth } from "../../../context/AuthContext";
 import PaymentModal from "./PaymentModal";
 import PaymentProofModal from "./PaymentProofModal";
+import EditOrderModal from "./EditOrderModal";
 import api from "../../../services/api";
 import { User, Eye, ShieldCheck, UserCheck } from "lucide-react";
 
 function ActiveOrders() {
   const [paymentOrder, setPaymentOrder] = useState(null);
   const [selectedProofOrder, setSelectedProofOrder] = useState(null);
+  const [selectedEditOrder, setSelectedEditOrder] = useState(null);
   const [barOrders, setBarOrders] = useState([]);
   const [loadingBarOrders, setLoadingBarOrders] = useState(false);
   const [paidOrderIds, setPaidOrderIds] = useState(new Set());
@@ -962,6 +964,23 @@ function ActiveOrders() {
                                  <Eye size={13} /> Proof Image
                                </button>
                              )}
+
+                            {/* EDIT / ADD ITEMS BUTTON */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const realId = order.order_id || order.id;
+                                const parsedItems = parseOrderItems(order);
+                                setSelectedEditOrder({
+                                  ...order,
+                                  id: realId,
+                                  items: parsedItems,
+                                });
+                              }}
+                              className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 shadow-2xs hover:bg-blue-100 active:scale-95 transition flex items-center gap-1.5 whitespace-nowrap"
+                            >
+                              ✏️ Edit / Add Items
+                            </button>
 
                             {/* COMPLETE PAYMENT BUTTON */}
                             <button

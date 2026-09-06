@@ -30,66 +30,82 @@ function CashierReconciliationPage() {
   const [verificationNotes, setVerificationNotes] = useState("");
   const [verifying, setVerifying] = useState(false);
 
-  /* Load Cashier Shifts & Real Paid Orders */
+  /* Load Real Cashier Shifts from Live Backend Database */
   const fetchShifts = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await api("/finance/cashier-shifts");
-      let fetchedShifts = response.data || response.shifts || (Array.isArray(response) ? response : null);
+      let rawShifts = [];
 
-      // If backend cashier shifts list is empty, dynamically aggregate real paid orders!
-      if (!fetchedShifts || fetchedShifts.length === 0) {
+      // Try live backend endpoints in order
+      const endpoints = [
+        "/finance/cashier-shifts",
+        "/finance/shifts",
+        "/pos/shifts",
+        "/finance/reconciliations",
+      ];
+
+      for (const ep of endpoints) {
         try {
-          const ordersRes = await api("/pos/orders").catch(() => api("/orders").catch(() => ({})));
-          const ordersList = ordersRes.orders || ordersRes.data || (Array.isArray(ordersRes) ? ordersRes : []);
+          const res = await api(ep);
+          const list =
+            res.data?.shifts ||
+            res.shifts ||
+            res.data?.reconciliations ||
+            res.reconciliations ||
+            res.data ||
+            (Array.isArray(res) ? res : null);
 
-          const paidOrders = ordersList.filter(
-            (o) => o.payment_status === "paid" || o.status === "completed" || o.status === "served"
-          );
-
-          if (paidOrders.length > 0) {
-            const totalCash = paidOrders
-              .filter((o) => o.payment_method === "cash" || !o.payment_method)
-              .reduce((acc, curr) => acc + Number(curr.total || 0), 0);
-
-            const totalCard = paidOrders
-              .filter((o) => o.payment_method === "card")
-              .reduce((acc, curr) => acc + Number(curr.total || 0), 0);
-
-            const totalMobile = paidOrders
-              .filter((o) => o.payment_method === "mobile_money" || o.payment_method === "telebirr")
-              .reduce((acc, curr) => acc + Number(curr.total || 0), 0);
-
-            fetchedShifts = [
-              {
-                id: 101,
-                cashier_name: "Active Cashier (Live Shift)",
-                terminal_id: 1,
-                start_time: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
-                end_time: new Date().toISOString(),
-                expected_cash: totalCash,
-                actual_cash: totalCash,
-                shortage_overage: 0,
-                total_card_sales: totalCard,
-                total_mobile_sales: totalMobile,
-                total_sales: totalCash + totalCard + totalMobile,
-                status: "pending",
-                total_orders_count: paidOrders.length,
-              },
-            ];
+          if (Array.isArray(list)) {
+            rawShifts = list;
+            break;
           }
-        } catch (oe) {
-          console.log("Paid orders shift aggregation check:", oe);
+        } catch {
+          // Try next endpoint candidate
         }
       }
 
-      // Fetch Orders to filter Credit / VIP Tab requests
+      // Map real database shift rows
+      const formatted = rawShifts.map((s) => ({
+        id: s.id ?? s.shift_id,
+        cashier_name:
+          s.cashier_name ||
+          s.user_name ||
+          s.employee_name ||
+          s.cashier?.name ||
+          (s.cashier_id || s.user_id ? `Cashier #${s.cashier_id || s.user_id}` : "Cashier"),
+        terminal_id: s.terminal_id || s.terminal_number || 1,
+        start_time: s.start_time || s.opened_at || s.created_at,
+        end_time: s.end_time || s.closed_at || null,
+        opening_cash: Number(s.opening_cash || s.opening_float || 0),
+        expected_cash: Number(s.expected_cash || s.calculated_cash || 0),
+        actual_cash: Number(s.actual_cash || s.actual_cash_counted || s.counted_cash || 0),
+        shortage_overage: Number(
+          s.shortage_overage ??
+            s.variance ??
+            (s.actual_cash !== undefined && s.expected_cash !== undefined
+              ? Number(s.actual_cash) - Number(s.expected_cash)
+              : 0)
+        ),
+        total_card_sales: Number(s.total_card_sales || s.card_sales || 0),
+        total_mobile_sales: Number(s.total_mobile_sales || s.mobile_sales || 0),
+        total_credit_sales: Number(s.total_credit_sales || s.credit_sales || 0),
+        total_sales: Number(s.total_sales || s.total_revenue || 0),
+        cashier_notes: s.cashier_notes || s.notes || "",
+        verification_notes: s.verification_notes || s.audit_notes || "",
+        verified_by_name: s.verified_by_name || s.verified_by || "",
+        verified_at: s.verified_at || null,
+        status: (s.status || s.verification_status || "pending").toLowerCase(),
+      }));
+
+      setShifts(formatted);
+
+      // Fetch Real Orders for Credit / VIP tab requests
       try {
         const ordersRes = await api("/pos/orders").catch(() => api("/orders").catch(() => ({})));
         const ordersList = ordersRes.orders || ordersRes.data || (Array.isArray(ordersRes) ? ordersRes : []);
-        
+
         const creditList = ordersList.filter(
           (o) =>
             o.payment_method === "credit" ||
@@ -98,16 +114,9 @@ function CashierReconciliationPage() {
             o.reference?.includes("VIP_CREDIT")
         );
 
-        // Fallback demo credit orders if DB empty
         setCreditOrders(creditList);
       } catch (ce) {
         console.log("Credit orders fetch notice:", ce);
-      }
-
-      if (fetchedShifts && fetchedShifts.length > 0) {
-        setShifts(fetchedShifts);
-      } else {
-        setShifts([]);
       }
     } catch (err) {
       console.warn("Backend cashier shifts endpoint notice:", err.message);
@@ -163,37 +172,64 @@ function CashierReconciliationPage() {
 
   /* Verification Handler */
   const handleVerifyShift = async (shiftId, status) => {
+    if (selectedShift?.is_synthetic || shiftId === "LIVE") {
+      alert("This is a live preview of ongoing active sales. The cashier must first close their shift from the POS Terminal (Shift Close) before physical cash can be audited and verified.");
+      return;
+    }
+
     try {
       setVerifying(true);
 
-      await api(`/finance/cashier-shifts/${shiftId}/verify`, {
-        method: "POST",
-        body: JSON.stringify({
-          status, // 'verified' or 'discrepancy'
-          verification_notes: verificationNotes,
-          notes: verificationNotes,
-        }),
-      });
+      const payload = {
+        status, // 'verified' or 'discrepancy'
+        status_upper: status.toUpperCase(),
+        verification_status: status,
+        verification_notes: verificationNotes || "",
+        notes: verificationNotes || "",
+      };
 
-      alert(`Shift record successfully marked as ${status}.`);
+      let success = false;
+      let lastErrorMessage = "";
+
+      // Try candidate endpoints and methods to match backend route
+      const candidates = [
+        { url: `/finance/cashier-shifts/${shiftId}/verify`, method: "POST" },
+        { url: `/finance/cashier-shifts/${shiftId}/verify`, method: "PUT" },
+        { url: `/finance/cashier-shifts/${shiftId}/verify`, method: "PATCH" },
+        { url: `/finance/shifts/${shiftId}/verify`, method: "POST" },
+        { url: `/finance/shifts/${shiftId}/verify`, method: "PUT" },
+        { url: `/pos/shifts/${shiftId}/verify`, method: "POST" },
+        { url: `/pos/shifts/${shiftId}/verify`, method: "PUT" },
+      ];
+
+      for (const candidate of candidates) {
+        try {
+          await api(candidate.url, {
+            method: candidate.method,
+            body: JSON.stringify(payload),
+          });
+          success = true;
+          break;
+        } catch (e) {
+          lastErrorMessage = e.message || "Request failed";
+          // If session is unauthenticated or forbidden, break immediately
+          if (e.message && (e.message.includes("401") || e.message.includes("Forbidden"))) {
+            break;
+          }
+        }
+      }
+
+      if (!success) {
+        throw new Error(lastErrorMessage || "Failed to verify shift on server.");
+      }
+
+      alert(`Shift #${shiftId} successfully marked as ${status}.`);
       setSelectedShift(null);
       setVerificationNotes("");
       await fetchShifts();
     } catch (err) {
-      console.error("Verification failed, updating locally:", err);
-      
-      /* Local state fallback update for instant UI feedback */
-      setShifts((prev) =>
-        prev.map((s) =>
-          s.id === shiftId
-            ? { ...s, status, verification_notes: verificationNotes }
-            : s
-        )
-      );
-
-      alert(`Shift status updated to ${status}.`);
-      setSelectedShift(null);
-      setVerificationNotes("");
+      console.error("Verification failed:", err);
+      alert(`Verification Failed: ${err.message || "Server rejected verification."}`);
     } finally {
       setVerifying(false);
     }
@@ -541,8 +577,9 @@ function CashierReconciliationPage() {
                 {filteredShifts.map((shift) => {
                   const variance = Number(shift.shortage_overage) || 0;
                   const isPending =
-                    shift.status?.toLowerCase() === "pending" ||
-                    shift.status?.toLowerCase() === "closed_pending_approval";
+                    shift.status === "pending" ||
+                    shift.status === "closed_pending_approval" ||
+                    shift.status === "closed";
 
                   return (
                     <tr key={shift.id} className="hover:bg-slate-50 transition">
@@ -554,7 +591,7 @@ function CashierReconciliationPage() {
                         <p className="text-xs text-slate-400">Terminal POS #{shift.terminal_id || 1}</p>
                       </td>
                       <td className="px-5 py-4 text-xs text-slate-500">
-                        {new Date(shift.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -{" "}
+                        {shift.start_time ? new Date(shift.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "—"} -{" "}
                         {shift.end_time ? new Date(shift.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Active"}
                       </td>
                       <td className="px-5 py-4 text-right font-medium text-slate-700">
@@ -600,7 +637,11 @@ function CashierReconciliationPage() {
                         <button
                           type="button"
                           onClick={() => setSelectedShift(shift)}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition"
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                            isPending
+                              ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                              : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
+                          }`}
                         >
                           <ShieldCheck className="h-4 w-4" />
                           {isPending ? "Audit & Verify" : "View Details"}
@@ -649,7 +690,7 @@ function CashierReconciliationPage() {
                 <div className="flex justify-between text-xs text-slate-500">
                   <span>Shift Date</span>
                   <span className="font-semibold text-slate-700">
-                    {new Date(selectedShift.start_time).toLocaleDateString()}
+                    {selectedShift.start_time ? new Date(selectedShift.start_time).toLocaleDateString() : "—"}
                   </span>
                 </div>
               </div>
@@ -766,51 +807,6 @@ function CashierReconciliationPage() {
       )}
     </div>
   );
-}
-
-/* Fallback Demo Data for instant UI preview if backend endpoint is initializing */
-function getFallbackDemoShifts() {
-  return [
-    {
-      id: 101,
-      cashier_name: "Abebe Kebede",
-      terminal_id: 1,
-      start_time: "2026-08-27T08:00:00Z",
-      end_time: "2026-08-27T16:00:00Z",
-      expected_cash: 4500.0,
-      actual_cash: 4500.0,
-      shortage_overage: 0.0,
-      total_card_sales: 1200.0,
-      total_mobile_sales: 3400.0,
-      status: "pending",
-    },
-    {
-      id: 102,
-      cashier_name: "Tigist Haile",
-      terminal_id: 2,
-      start_time: "2026-08-27T16:00:00Z",
-      end_time: "2026-08-27T22:00:00Z",
-      expected_cash: 8200.0,
-      actual_cash: 8000.0,
-      shortage_overage: -200.0,
-      total_card_sales: 2500.0,
-      total_mobile_sales: 5100.0,
-      status: "discrepancy",
-    },
-    {
-      id: 103,
-      cashier_name: "Mewael Berhe",
-      terminal_id: 1,
-      start_time: "2026-08-26T08:00:00Z",
-      end_time: "2026-08-26T16:00:00Z",
-      expected_cash: 6100.0,
-      actual_cash: 6100.0,
-      shortage_overage: 0.0,
-      total_card_sales: 1800.0,
-      total_mobile_sales: 4200.0,
-      status: "verified",
-    },
-  ];
 }
 
 export default CashierReconciliationPage;

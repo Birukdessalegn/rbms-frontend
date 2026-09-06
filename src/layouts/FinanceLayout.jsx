@@ -240,23 +240,12 @@ function FinanceLayout() {
       <div className="ml-64 flex min-h-screen min-w-0 flex-1 flex-col">
 
         {/* Header */}
-
-        <div className="ml-64 flex min-h-screen min-w-0 flex-1 flex-col">
-
-          <AppHeader
-            title="Finance Dashboard"
-            description="Manage finances and transactions"
-          />
-
-          <main className="min-w-0 flex-1 p-6">
-            <Outlet />
-          </main>
-
-        </div>
-
+        <AppHeader
+          title={getPageTitle()}
+          description={getPageDescription()}
+        />
 
         {/* Content */}
-
         <main className="min-w-0 flex-1 p-6">
           <Outlet />
         </main>

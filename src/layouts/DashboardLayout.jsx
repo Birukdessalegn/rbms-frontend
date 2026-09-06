@@ -40,6 +40,7 @@ import {
   AlertTriangle,
   Wallet,
   CreditCard,
+  TrendingUp,
   Volume2,
   VolumeX,
   Palette,
@@ -168,6 +169,11 @@ const navigationGroups = [
         permission: "finance.view",
 
         children: [
+          {
+            name: "Sales Ledger",
+            path: "/finance/sales",
+            icon: TrendingUp,
+          },
           {
             name: "Cashier Reconciliation",
             path: "/finance/cashier-reconciliation",

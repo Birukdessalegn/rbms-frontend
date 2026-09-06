@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
 import { BarChart3, Package, Flame, UtensilsCrossed } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import api from "../../../services/api";
 import audioService from "../../../services/audioService";
 import NewOrderAlertModal from "../../../components/common/NewOrderAlertModal";
 
-function KitchenPage() {
+function KitchenPage({ filterStatus = "all", pageTitle = null }) {
   const [kitchenOrders, setKitchenOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -14,6 +14,30 @@ function KitchenPage() {
   const [activeTab, setActiveTab] = useState("orders"); // "orders" | "inventory"
 
   const prevOrdersRef = useRef(null);
+
+  const displayedOrders = useMemo(() => {
+    if (!filterStatus || filterStatus === "all") return kitchenOrders;
+    const fs = filterStatus.toLowerCase();
+    if (fs === "new" || fs === "pending") {
+      return kitchenOrders.filter((o) => {
+        const s = (o.status || "").toLowerCase();
+        return s === "pending" || s === "new" || s === "confirmed";
+      });
+    }
+    if (fs === "preparing") {
+      return kitchenOrders.filter((o) => (o.status || "").toLowerCase() === "preparing");
+    }
+    if (fs === "ready") {
+      return kitchenOrders.filter((o) => (o.status || "").toLowerCase() === "ready");
+    }
+    if (fs === "completed" || fs === "history") {
+      return kitchenOrders.filter((o) => {
+        const s = (o.status || "").toLowerCase();
+        return s === "completed" || s === "served" || s === "ready";
+      });
+    }
+    return kitchenOrders;
+  }, [kitchenOrders, filterStatus]);
 
   const fetchKitchenOrders = async () => {
     try {
@@ -192,7 +216,7 @@ function KitchenPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Kitchen Display (KDS)
+            {pageTitle || "Kitchen Display (KDS)"}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
             Manage live food orders and dish preparation tickets.
@@ -311,9 +335,9 @@ function KitchenPage() {
           </p>
         </div>
 
-        {kitchenOrders.length === 0 ? (
+        {displayedOrders.length === 0 ? (
           <div className="flex h-48 items-center justify-center text-gray-400">
-            No kitchen orders yet.
+            No {filterStatus !== "all" ? filterStatus : "kitchen"} orders at this moment.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -334,7 +358,7 @@ function KitchenPage() {
 
               <tbody className="divide-y divide-gray-100">
 
-                {[...kitchenOrders]
+                {[...displayedOrders]
                   .sort((a, b) => {
                     if (
                       a.status === "pending" &&

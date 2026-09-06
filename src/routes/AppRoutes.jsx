@@ -61,6 +61,7 @@ import InventoryLowStockPage from "../modules/inventory/pages/InventoryLowStockP
 import InventoryTransactionsPage from "../modules/inventory/pages/InventoryTransactionsPage";
 import InventoryReportsPage from "../modules/inventory/pages/InventoryReportsPage";
 import CashierReconciliationPage from "../modules/finance/pages/CashierReconciliationPage";
+import FinanceSalesPage from "../modules/finance/pages/FinanceSalesPage";
 
 
 function AppRoutes() {
@@ -191,17 +192,17 @@ function AppRoutes() {
 
               <Route
                 path="/kitchen/new"
-                element={<KitchenPage />}
+                element={<KitchenPage filterStatus="new" pageTitle="New Kitchen Orders" />}
               />
 
               <Route
                 path="/kitchen/preparing"
-                element={<KitchenPage />}
+                element={<KitchenPage filterStatus="preparing" pageTitle="Preparing Orders" />}
               />
 
               <Route
                 path="/kitchen/ready"
-                element={<KitchenPage />}
+                element={<KitchenPage filterStatus="ready" pageTitle="Ready Orders" />}
               />
 
               <Route
@@ -401,7 +402,7 @@ function AppRoutes() {
               />
               <Route
                 path="/finance/sales"
-                element={<h1>Sales</h1>}
+                element={<FinanceSalesPage />}
               />
               <Route
                 path="/finance/expenses"
@@ -449,22 +450,22 @@ function AppRoutes() {
 
               <Route
                 path="/chef/kitchen/new"
-                element={<h1>New Kitchen Orders</h1>}
+                element={<KitchenPage filterStatus="new" pageTitle="New Kitchen Orders" />}
               />
 
               <Route
                 path="/chef/kitchen/preparing"
-                element={<h1>Preparing Orders</h1>}
+                element={<KitchenPage filterStatus="preparing" pageTitle="Preparing Orders" />}
               />
 
               <Route
                 path="/chef/kitchen/ready"
-                element={<h1>Ready Orders</h1>}
+                element={<KitchenPage filterStatus="ready" pageTitle="Ready Orders" />}
               />
 
               <Route
                 path="/chef/kitchen/history"
-                element={<h1>Order History</h1>}
+                element={<KitchenReportsPage />}
               />
 
               <Route path="/chef/kitchen/reports" element={<KitchenReportsPage />} />

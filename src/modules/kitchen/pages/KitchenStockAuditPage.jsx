@@ -511,29 +511,29 @@ export default function KitchenStockAuditPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 lg:p-8 text-slate-900 font-sans">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="space-y-4 sm:space-y-6 pb-8 text-slate-900 font-sans">
+      <div className="space-y-4 sm:space-y-6">
 
         {/* ========================================================
             HEADER BANNER
         ======================================================== */}
-        <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+        <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-200 p-4 sm:p-6 shadow-sm">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="space-y-1.5">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-sm">
-                  <ClipboardCheck className="h-6 w-6" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-sm">
+                  <ClipboardCheck className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
                       F&B Audit Board
                     </h1>
-                    <span className="px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="px-2 py-0.5 text-[10px] sm:text-xs font-semibold uppercase tracking-wider rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                       Kitchen & Bar Gatekeeper
                     </span>
                   </div>
-                  <p className="text-xs md:text-sm text-slate-500">
+                  <p className="text-xs md:text-sm text-slate-500 mt-0.5">
                     Physical on-line inspection to verify depleted stock, restore falsely depleted items, and approve store requisitions.
                   </p>
                 </div>
@@ -541,47 +541,47 @@ export default function KitchenStockAuditPage() {
             </div>
 
             {/* Quick Actions & Sync */}
-            <div className="flex items-center gap-3 w-full md:w-auto justify-end flex-wrap">
+            <div className="grid grid-cols-3 sm:flex sm:items-center gap-2 w-full md:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
               <Link
                 to="/fb/reports"
-                className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition shadow-sm"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition shadow-sm text-center"
               >
-                <FileText className="h-4 w-4 text-emerald-400" />
-                <span>F&B Reports</span>
-                <ArrowUpRight className="h-3.5 w-3.5 opacity-60" />
+                <FileText className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>Reports</span>
+                <ArrowUpRight className="h-3 w-3 opacity-60 hidden xs:inline" />
               </Link>
 
               <Link
                 to="/kitchen/assets"
-                className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition shadow-sm"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition shadow-sm text-center"
               >
-                <Flame className="h-4 w-4 text-orange-500" />
-                <span>Kitchen Assets</span>
-                <ArrowUpRight className="h-3.5 w-3.5 opacity-60" />
+                <Flame className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                <span>Assets</span>
+                <ArrowUpRight className="h-3 w-3 opacity-60 hidden xs:inline" />
               </Link>
 
               <button
                 onClick={() => loadData(true)}
                 disabled={refreshing || loading}
-                className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm disabled:opacity-50 text-center"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-                <span>{refreshing ? "Syncing..." : "Refresh"}</span>
+                <RefreshCw className={`h-3.5 w-3.5 shrink-0 ${refreshing ? "animate-spin" : ""}`} />
+                <span>{refreshing ? "Syncing" : "Refresh"}</span>
               </button>
             </div>
           </div>
 
           {/* Feedback Toast */}
           {successMsg && (
-            <div className="mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center gap-3 animate-fade-in shadow-sm">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+            <div className="mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-center gap-2.5 animate-fade-in shadow-sm">
+              <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 shrink-0" />
               <span className="font-medium">{successMsg}</span>
             </div>
           )}
 
           {error && (
-            <div className="mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />
+            <div className="mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-center gap-2.5">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-rose-600 shrink-0" />
               <span>{error}</span>
             </div>
           )}
@@ -590,33 +590,29 @@ export default function KitchenStockAuditPage() {
         {/* ========================================================
             PRIMARY OUTLET FILTER: KITCHEN VS. BAR SEPARATION
         ======================================================== */}
-        <div className="bg-white border border-slate-200 p-2.5 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-2 hidden sm:inline">
-              Department Outlet:
-            </span>
-
+        <div className="bg-white border border-slate-200 p-2.5 sm:p-3 rounded-2xl shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          <div className="grid grid-cols-3 gap-1.5 sm:flex sm:items-center sm:gap-2 w-full sm:w-auto">
             {/* Kitchen Button */}
             <button
               onClick={() => {
                 setOutletFilter("kitchen");
                 setSearchParams({ outlet: "kitchen" });
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm ${
+              className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm text-center ${
                 outletFilter === "kitchen"
                   ? "bg-orange-500 text-white shadow-sm ring-2 ring-orange-400/50"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
               }`}
             >
-              <UtensilsCrossed className="h-4 w-4" />
-              <span>🍳 Kitchen (Food)</span>
+              <UtensilsCrossed className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Kitchen</span>
               {kitchenDepletedCount > 0 && (
                 <span
-                  className={`px-1.5 py-0.2 text-[10px] font-black rounded-full ${
+                  className={`px-1.5 py-0.2 text-[10px] font-black rounded-full shrink-0 ${
                     outletFilter === "kitchen" ? "bg-white text-orange-600" : "bg-rose-500 text-white"
                   }`}
                 >
-                  {kitchenDepletedCount} out
+                  {kitchenDepletedCount}
                 </span>
               )}
             </button>
@@ -627,21 +623,21 @@ export default function KitchenStockAuditPage() {
                 setOutletFilter("bar");
                 setSearchParams({ outlet: "bar" });
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm ${
+              className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm text-center ${
                 outletFilter === "bar"
                   ? "bg-purple-600 text-white shadow-sm ring-2 ring-purple-400/50"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
               }`}
             >
-              <Wine className="h-4 w-4" />
-              <span>🍸 Bar (Beverages)</span>
+              <Wine className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Bar</span>
               {barDepletedCount > 0 && (
                 <span
-                  className={`px-1.5 py-0.2 text-[10px] font-black rounded-full ${
+                  className={`px-1.5 py-0.2 text-[10px] font-black rounded-full shrink-0 ${
                     outletFilter === "bar" ? "bg-white text-purple-600" : "bg-rose-500 text-white"
                   }`}
                 >
-                  {barDepletedCount} out
+                  {barDepletedCount}
                 </span>
               )}
             </button>
@@ -652,17 +648,17 @@ export default function KitchenStockAuditPage() {
                 setOutletFilter("all");
                 setSearchParams({});
               }}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+              className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-semibold transition text-center ${
                 outletFilter === "all"
                   ? "bg-slate-900 text-white shadow-sm"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
               }`}
             >
-              <span>🌐 All Outlets</span>
+              <span className="truncate">All Outlets</span>
             </button>
           </div>
 
-          <div className="text-xs text-slate-500 pr-2">
+          <div className="text-[11px] sm:text-xs text-slate-500 text-center sm:text-right px-1">
             Showing:{" "}
             <strong className="text-slate-900 capitalize">
               {outletFilter === "all" ? "Combined Kitchen & Bar" : `${outletFilter} Department`}
@@ -674,56 +670,56 @@ export default function KitchenStockAuditPage() {
         {/* ========================================================
             METRIC KPI CARDS
         ======================================================== */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center justify-between hover:shadow transition">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-rose-600">
-                Depleted / Stock-Out
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-sm flex items-center justify-between hover:shadow transition">
+            <div className="min-w-0 flex-1 mr-1">
+              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-rose-600 truncate">
+                Depleted Stock
               </p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{depletedCount}</h3>
-              <p className="text-[11px] text-slate-500">Requires line verification</p>
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5 sm:mt-1">{depletedCount}</h3>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Verification needed</p>
             </div>
-            <div className="h-11 w-11 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
-              <AlertTriangle className="h-5 w-5" />
+            <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center justify-between hover:shadow transition">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-amber-600">
-                Critical Low Stock
+          <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-sm flex items-center justify-between hover:shadow transition">
+            <div className="min-w-0 flex-1 mr-1">
+              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-600 truncate">
+                Low Stock Alert
               </p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{lowStockCount}</h3>
-              <p className="text-[11px] text-slate-500">&le; minimum threshold</p>
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5 sm:mt-1">{lowStockCount}</h3>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">&le; Min threshold</p>
             </div>
-            <div className="h-11 w-11 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
-              <Package className="h-5 w-5" />
+            <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center justify-between hover:shadow transition">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">
-                Store Requisitions
+          <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-sm flex items-center justify-between hover:shadow transition">
+            <div className="min-w-0 flex-1 mr-1">
+              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-indigo-600 truncate">
+                Requisitions
               </p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{pendingRequisitionsCount}</h3>
-              <p className="text-[11px] text-slate-500">Pending F&B release</p>
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5 sm:mt-1">{pendingRequisitionsCount}</h3>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Pending F&B release</p>
             </div>
-            <div className="h-11 w-11 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
-              <Boxes className="h-5 w-5" />
+            <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0">
+              <Boxes className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center justify-between hover:shadow transition">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-emerald-600">
-                Audits Conducted Today
+          <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-sm flex items-center justify-between hover:shadow transition">
+            <div className="min-w-0 flex-1 mr-1">
+              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-600 truncate">
+                Today Audits
               </p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{todayAuditsCount}</h3>
-              <p className="text-[11px] text-slate-500">Verified & logged</p>
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5 sm:mt-1">{todayAuditsCount}</h3>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Verified & logged</p>
             </div>
-            <div className="h-11 w-11 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
-              <ShieldCheck className="h-5 w-5" />
+            <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0">
+              <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
           </div>
         </div>
@@ -731,19 +727,19 @@ export default function KitchenStockAuditPage() {
         {/* ========================================================
             NAVIGATION TABS (INSPECTION, REQUISITIONS, LOG)
         ======================================================== */}
-        <div className="flex border-b border-slate-200 pb-1 gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar border-b border-slate-200 pb-2 -mx-1 px-1">
           <button
             onClick={() => setActiveTab("audit")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-medium text-xs sm:text-sm transition shrink-0 whitespace-nowrap ${
               activeTab === "audit"
                 ? "bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm font-semibold"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             }`}
           >
-            <ClipboardCheck className="h-4 w-4" />
+            <ClipboardCheck className="h-4 w-4 shrink-0" />
             <span>Line Inspection ({scopedItems.length})</span>
             {depletedCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 text-xs font-bold rounded-full bg-rose-500 text-white">
+              <span className="ml-0.5 px-1.5 py-0.2 text-[10px] sm:text-xs font-bold rounded-full bg-rose-500 text-white">
                 {depletedCount}
               </span>
             )}
@@ -751,16 +747,16 @@ export default function KitchenStockAuditPage() {
 
           <button
             onClick={() => setActiveTab("requisitions")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-medium text-xs sm:text-sm transition shrink-0 whitespace-nowrap ${
               activeTab === "requisitions"
                 ? "bg-indigo-50 text-indigo-800 border border-indigo-200 shadow-sm font-semibold"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             }`}
           >
-            <Boxes className="h-4 w-4" />
+            <Boxes className="h-4 w-4 shrink-0" />
             <span>Restock Requisitions</span>
             {pendingRequisitionsCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 text-xs font-bold rounded-full bg-indigo-600 text-white">
+              <span className="ml-0.5 px-1.5 py-0.2 text-[10px] sm:text-xs font-bold rounded-full bg-indigo-600 text-white">
                 {pendingRequisitionsCount}
               </span>
             )}
@@ -775,15 +771,15 @@ export default function KitchenStockAuditPage() {
                 return n;
               });
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-medium text-xs sm:text-sm transition shrink-0 whitespace-nowrap ${
               activeTab === "history"
                 ? "bg-slate-100 text-slate-900 border border-slate-300 shadow-sm font-semibold"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             }`}
           >
-            <FileText className="h-4 w-4" />
+            <FileText className="h-4 w-4 shrink-0" />
             <span>Audit History Log</span>
-            <span className="text-xs text-slate-500">({filteredAudits.length})</span>
+            <span className="text-[11px] sm:text-xs text-slate-500">({filteredAudits.length})</span>
           </button>
 
           <button
@@ -795,13 +791,13 @@ export default function KitchenStockAuditPage() {
                 return n;
               });
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-medium text-xs sm:text-sm transition shrink-0 whitespace-nowrap ${
               activeTab === "reports"
                 ? "bg-purple-50 text-purple-800 border border-purple-200 shadow-sm font-semibold"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             }`}
           >
-            <TrendingUp className="h-4 w-4 text-purple-600" />
+            <TrendingUp className="h-4 w-4 text-purple-600 shrink-0" />
             <span>F&B Analysis & Reports</span>
           </button>
         </div>
@@ -824,10 +820,10 @@ export default function KitchenStockAuditPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto pb-1 sm:pb-0">
                 <button
                   onClick={() => setStockFilter("all")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 whitespace-nowrap ${
                     stockFilter === "all"
                       ? "bg-slate-900 text-white font-semibold"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -837,7 +833,7 @@ export default function KitchenStockAuditPage() {
                 </button>
                 <button
                   onClick={() => setStockFilter("depleted")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                     stockFilter === "depleted"
                       ? "bg-rose-100 text-rose-800 border border-rose-300 font-semibold"
                       : "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
@@ -848,7 +844,7 @@ export default function KitchenStockAuditPage() {
                 </button>
                 <button
                   onClick={() => setStockFilter("low")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                     stockFilter === "low"
                       ? "bg-amber-100 text-amber-800 border border-amber-300 font-semibold"
                       : "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
@@ -858,7 +854,7 @@ export default function KitchenStockAuditPage() {
                 </button>
                 <button
                   onClick={() => setStockFilter("healthy")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 whitespace-nowrap ${
                     stockFilter === "healthy"
                       ? "bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -1000,11 +996,11 @@ export default function KitchenStockAuditPage() {
                             setDepletionModalItem(item);
                             setAuditNotes("");
                           }}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition shadow-sm"
+                          className="flex-1 flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 sm:px-3 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition shadow-sm text-center truncate"
                           title={`Confirm zero stock in ${isBar ? "bar counter" : "kitchen"}`}
                         >
-                          <Check className="h-3.5 w-3.5 text-emerald-600" />
-                          <span>Approve Depleted</span>
+                          <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">Approve Depleted</span>
                         </button>
 
                         <button
@@ -1013,11 +1009,11 @@ export default function KitchenStockAuditPage() {
                             setStockFoundCount("");
                             setAuditNotes("");
                           }}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition shadow-sm"
+                          className="flex-1 flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 sm:px-3 text-xs font-semibold rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition shadow-sm text-center truncate"
                           title={`Physically found stock in ${isBar ? "bar counter" : "kitchen"}? Restore it immediately`}
                         >
-                          <Search className="h-3.5 w-3.5 text-amber-600" />
-                          <span>Stock Found</span>
+                          <Search className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                          <span className="truncate">Stock Found</span>
                         </button>
                       </div>
                     </div>
@@ -1035,20 +1031,20 @@ export default function KitchenStockAuditPage() {
           <div className="space-y-4">
             {/* Filter */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white border border-slate-200 p-3 rounded-2xl shadow-sm">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto pb-1 sm:pb-0">
                 <button
                   onClick={() => setReqFilter("pending")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 whitespace-nowrap ${
                     reqFilter === "pending"
                       ? "bg-amber-100 text-amber-800 border border-amber-300 font-semibold"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  Pending Approval ({pendingRequisitionsCount})
+                  Pending ({pendingRequisitionsCount})
                 </button>
                 <button
                   onClick={() => setReqFilter("completed")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 whitespace-nowrap ${
                     reqFilter === "completed"
                       ? "bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -1058,7 +1054,7 @@ export default function KitchenStockAuditPage() {
                 </button>
                 <button
                   onClick={() => setReqFilter("cancelled")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 whitespace-nowrap ${
                     reqFilter === "cancelled"
                       ? "bg-rose-100 text-rose-800 border border-rose-300 font-semibold"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -1068,7 +1064,7 @@ export default function KitchenStockAuditPage() {
                 </button>
                 <button
                   onClick={() => setReqFilter("all")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 whitespace-nowrap ${
                     reqFilter === "all"
                       ? "bg-slate-900 text-white font-semibold"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -1078,7 +1074,7 @@ export default function KitchenStockAuditPage() {
                 </button>
               </div>
 
-              <span className="text-xs text-slate-500">
+              <span className="text-[11px] sm:text-xs text-slate-500">
                 Filtered for: <strong className="text-slate-900 capitalize">{outletFilter}</strong> requisitions
               </span>
             </div>
@@ -1208,14 +1204,14 @@ export default function KitchenStockAuditPage() {
         ======================================================== */}
         {activeTab === "history" && (
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="p-3.5 sm:p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Physical Verification Records</h3>
                 <p className="text-xs text-slate-500">
                   History of stock inspections conducted by the F&B Controller across Kitchen and Bar.
                 </p>
               </div>
-              <span className="text-xs text-slate-500">{filteredAudits.length} recorded audits</span>
+              <span className="text-xs text-slate-500 shrink-0">{filteredAudits.length} recorded audits</span>
             </div>
 
             {filteredAudits.length === 0 ? (
@@ -1226,7 +1222,7 @@ export default function KitchenStockAuditPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-700">
+                <table className="w-full min-w-[640px] text-left text-xs text-slate-700">
                   <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-200">
                     <tr>
                       <th className="py-3 px-4">Date & Time</th>
@@ -1342,35 +1338,35 @@ export default function KitchenStockAuditPage() {
 
             <div id="fb-audit-reports-tab-area" className="space-y-6">
               {/* Executive Metrics Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Total In-Line Inventory Units
+                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                      Inventory Units
                     </p>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200">
-                      <Package className="h-5 w-5" />
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
+                      <Package className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900 mt-2">
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-1 sm:mt-2">
                     {allClassifiedItems.reduce((sum, it) => sum + it.currentStock, 0).toLocaleString()}{" "}
-                    <span className="text-sm font-semibold text-slate-500">units</span>
+                    <span className="text-xs sm:text-sm font-semibold text-slate-500">units</span>
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Combined across Kitchen & Bar line inventory
+                  <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 sm:mt-1 truncate">
+                    Kitchen & Bar line stock
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Stock Health Index
+                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                      Health Index
                     </p>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-200">
-                      <Activity className="h-5 w-5" />
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-200 shrink-0">
+                      <Activity className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900 mt-2">
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-1 sm:mt-2">
                     {allClassifiedItems.length > 0
                       ? Math.round(
                           (allClassifiedItems.filter((i) => !i.isDepleted && !i.isLow).length /
@@ -1380,51 +1376,51 @@ export default function KitchenStockAuditPage() {
                       : 100}
                     %
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 sm:mt-1 truncate">
                     {allClassifiedItems.filter((i) => !i.isDepleted && !i.isLow).length} healthy items
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
                       Depleted Lines
                     </p>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
-                      <AlertTriangle className="h-5 w-5" />
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600 border border-rose-200 shrink-0">
+                      <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                   </div>
-                  <h3 className="text-2xl font-black text-rose-600 mt-2">
+                  <h3 className="text-xl sm:text-2xl font-black text-rose-600 mt-1 sm:mt-2">
                     {allClassifiedItems.filter((i) => i.isDepleted).length}{" "}
-                    <span className="text-sm font-normal text-slate-500">items</span>
+                    <span className="text-xs sm:text-sm font-normal text-slate-500">items</span>
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Requiring store requisition or prep
+                  <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 sm:mt-1 truncate">
+                    Needs requisition or prep
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Active Orders In-Prep
+                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                      Orders In-Prep
                     </p>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600 border border-purple-200">
-                      <TrendingUp className="h-5 w-5" />
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600 border border-purple-200 shrink-0">
+                      <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900 mt-2">
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-1 sm:mt-2">
                     {kitchenOrders.length + barOrders.length}{" "}
-                    <span className="text-sm font-normal text-slate-500">tickets</span>
+                    <span className="text-xs sm:text-sm font-normal text-slate-500">tickets</span>
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 sm:mt-1 truncate">
                     Kitchen: {kitchenOrders.length} &bull; Bar: {barOrders.length}
                   </p>
                 </div>
               </div>
 
               {/* Department Comparative Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="rounded-2xl bg-white border border-slate-200 p-4 sm:p-6 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <div className="h-9 w-9 rounded-lg bg-orange-50 text-orange-600 border border-orange-200 flex items-center justify-center">
@@ -1532,15 +1528,15 @@ export default function KitchenStockAuditPage() {
           MODAL 1: CONFIRM DEPLETION APPROVAL
       ======================================================== */}
       {depletionModalItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-3.5 sm:space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+              <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0">
                 <ClipboardCheck className="h-5 w-5" />
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Approve Depleted Stock</h3>
-                <p className="text-xs text-slate-500">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-slate-900 truncate">Approve Depleted Stock</h3>
+                <p className="text-xs text-slate-500 truncate">
                   Confirm physical check in {depletionModalItem.outlet === "bar" ? "Bar Counter" : "Kitchen"}
                 </p>
               </div>
@@ -1582,18 +1578,18 @@ export default function KitchenStockAuditPage() {
               💡 Confirms this item is genuinely finished, legitimizing restock requests from Central Store.
             </p>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
                 onClick={() => setDepletionModalItem(null)}
                 disabled={submittingAction}
-                className="px-4 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                className="w-full sm:w-auto px-4 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition text-center"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmDepleted}
                 disabled={submittingAction}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm disabled:opacity-50"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm disabled:opacity-50"
               >
                 <Check className="h-4 w-4" />
                 <span>{submittingAction ? "Submitting..." : "Confirm Depletion Approval"}</span>
@@ -1607,17 +1603,17 @@ export default function KitchenStockAuditPage() {
           MODAL 2: STOCK FOUND IN OUTLET (REJECT DEPLETION)
       ======================================================== */}
       {stockFoundModalItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border border-amber-300 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white border border-amber-300 rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-3.5 sm:space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+              <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
                 <Search className="h-5 w-5" />
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-slate-900 truncate">
                   Stock Found in {stockFoundModalItem.outlet === "bar" ? "Bar" : "Kitchen"}
                 </h3>
-                <p className="text-xs text-amber-700">Restore item & make available for orders</p>
+                <p className="text-xs text-amber-700 truncate">Restore item & make available for orders</p>
               </div>
             </div>
 
@@ -1665,18 +1661,18 @@ export default function KitchenStockAuditPage() {
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
                 onClick={() => setStockFoundModalItem(null)}
                 disabled={submittingAction}
-                className="px-4 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                className="w-full sm:w-auto px-4 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition text-center"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRestoreStockFound}
                 disabled={submittingAction}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition shadow-sm disabled:opacity-50"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition shadow-sm disabled:opacity-50"
               >
                 <CheckCircle2 className="h-4 w-4" />
                 <span>{submittingAction ? "Restoring..." : "Restore Sub-Store Stock"}</span>
@@ -1690,17 +1686,17 @@ export default function KitchenStockAuditPage() {
           MODAL 3: REJECT REQUISITION MODAL
       ======================================================== */}
       {rejectReqItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border border-rose-300 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white border border-rose-300 rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-3.5 sm:space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <div className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+              <div className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
                 <XCircle className="h-5 w-5" />
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-slate-900 truncate">
                   Reject {rejectReqItem.to_location === "bar" ? "Bar" : "Kitchen"} Requisition #{rejectReqItem.transfer_number}
                 </h3>
-                <p className="text-xs text-rose-600">Decline restock request</p>
+                <p className="text-xs text-rose-600 truncate">Decline restock request</p>
               </div>
             </div>
 
@@ -1715,18 +1711,18 @@ export default function KitchenStockAuditPage() {
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
                 onClick={() => setRejectReqItem(null)}
                 disabled={submittingAction}
-                className="px-4 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                className="w-full sm:w-auto px-4 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition text-center"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRejectRequisition}
                 disabled={submittingAction}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition shadow-sm disabled:opacity-50"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition shadow-sm disabled:opacity-50"
               >
                 <XCircle className="h-4 w-4" />
                 <span>{submittingAction ? "Rejecting..." : "Confirm Rejection"}</span>

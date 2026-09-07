@@ -32,7 +32,6 @@ export const ROLE_PERMISSIONS = {
     "customers.view",
     "payments.view",
     "expenses.view",
-    "employees.view",
     "reports.view",
     "finance.view",
     "cashier.reconcile",

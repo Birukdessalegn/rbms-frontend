@@ -15,12 +15,16 @@ import {
   ShieldCheck,
   Check,
   Boxes,
-  FileText,
-  AlertCircle,
   ArrowUpRight,
   Sparkles,
+  TrendingUp,
+  DollarSign,
+  Activity,
+  Printer,
+  FileText,
 } from "lucide-react";
 import api from "../../../services/api";
+import { printReportArea } from "../../../utils/printHelper";
 
 // Robust image resolution helper for uploaded or absolute image URLs
 export const resolveImageUrl = (url) => {
@@ -45,8 +49,9 @@ export const resolveImageUrl = (url) => {
 export default function KitchenStockAuditPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialOutlet = searchParams.get("outlet") || "all";
+  const initialTab = searchParams.get("tab") || "audit";
 
-  const [activeTab, setActiveTab] = useState("audit"); // "audit" | "requisitions" | "history"
+  const [activeTab, setActiveTab] = useState(initialTab); // "audit" | "requisitions" | "history" | "reports"
   const [outletFilter, setOutletFilter] = useState(initialOutlet); // "all" | "kitchen" | "bar"
 
   // Data states
@@ -536,7 +541,16 @@ export default function KitchenStockAuditPage() {
             </div>
 
             {/* Quick Actions & Sync */}
-            <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+            <div className="flex items-center gap-3 w-full md:w-auto justify-end flex-wrap">
+              <Link
+                to="/fb/reports"
+                className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition shadow-sm"
+              >
+                <FileText className="h-4 w-4 text-emerald-400" />
+                <span>F&B Reports</span>
+                <ArrowUpRight className="h-3.5 w-3.5 opacity-60" />
+              </Link>
+
               <Link
                 to="/kitchen/assets"
                 className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition shadow-sm"
@@ -753,7 +767,14 @@ export default function KitchenStockAuditPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab("history")}
+            onClick={() => {
+              setActiveTab("history");
+              setSearchParams((prev) => {
+                const n = new URLSearchParams(prev);
+                n.set("tab", "history");
+                return n;
+              });
+            }}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition ${
               activeTab === "history"
                 ? "bg-slate-100 text-slate-900 border border-slate-300 shadow-sm font-semibold"
@@ -763,6 +784,25 @@ export default function KitchenStockAuditPage() {
             <FileText className="h-4 w-4" />
             <span>Audit History Log</span>
             <span className="text-xs text-slate-500">({filteredAudits.length})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab("reports");
+              setSearchParams((prev) => {
+                const n = new URLSearchParams(prev);
+                n.set("tab", "reports");
+                return n;
+              });
+            }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition ${
+              activeTab === "reports"
+                ? "bg-purple-50 text-purple-800 border border-purple-200 shadow-sm font-semibold"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+            }`}
+          >
+            <TrendingUp className="h-4 w-4 text-purple-600" />
+            <span>F&B Analysis & Reports</span>
           </button>
         </div>
 
@@ -1257,6 +1297,232 @@ export default function KitchenStockAuditPage() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 4: LIVE F&B ANALYSIS & REPORTS
+        ======================================================== */}
+        {activeTab === "reports" && (
+          <div className="space-y-6">
+            {/* Action Bar */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Live F&B Intelligence & Operational Report
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Calculated from live database inventory, POS order tickets, and verified physical audits.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <Link
+                  to="/fb/reports"
+                  className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition"
+                >
+                  <span>Open Full Page Report</span>
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+
+                <button
+                  onClick={() =>
+                    printReportArea(
+                      "fb-audit-reports-tab-area",
+                      "F&B Operational Intelligence Report"
+                    )
+                  }
+                  className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition shadow-sm"
+                >
+                  <Printer className="h-4 w-4" />
+                  <span>Print Analysis</span>
+                </button>
+              </div>
+            </div>
+
+            <div id="fb-audit-reports-tab-area" className="space-y-6">
+              {/* Executive Metrics Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Total In-Line Inventory Units
+                    </p>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200">
+                      <Package className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 mt-2">
+                    {allClassifiedItems.reduce((sum, it) => sum + it.currentStock, 0).toLocaleString()}{" "}
+                    <span className="text-sm font-semibold text-slate-500">units</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Combined across Kitchen & Bar line inventory
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Stock Health Index
+                    </p>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-200">
+                      <Activity className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 mt-2">
+                    {allClassifiedItems.length > 0
+                      ? Math.round(
+                          (allClassifiedItems.filter((i) => !i.isDepleted && !i.isLow).length /
+                            allClassifiedItems.length) *
+                            100
+                        )
+                      : 100}
+                    %
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {allClassifiedItems.filter((i) => !i.isDepleted && !i.isLow).length} healthy items
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Depleted Lines
+                    </p>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-black text-rose-600 mt-2">
+                    {allClassifiedItems.filter((i) => i.isDepleted).length}{" "}
+                    <span className="text-sm font-normal text-slate-500">items</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Requiring store requisition or prep
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Active Orders In-Prep
+                    </p>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600 border border-purple-200">
+                      <TrendingUp className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 mt-2">
+                    {kitchenOrders.length + barOrders.length}{" "}
+                    <span className="text-sm font-normal text-slate-500">tickets</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Kitchen: {kitchenOrders.length} &bull; Bar: {barOrders.length}
+                  </p>
+                </div>
+              </div>
+
+              {/* Department Comparative Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-9 w-9 rounded-lg bg-orange-50 text-orange-600 border border-orange-200 flex items-center justify-center">
+                        <UtensilsCrossed className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900">Kitchen Line Inventory</h4>
+                        <p className="text-xs text-slate-500">Food, starters, steaks, dishes</p>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                      {allClassifiedItems.filter((i) => i.outlet === "kitchen").length} items
+                    </span>
+                  </div>
+
+                  <div className="mt-5 pt-4 border-t border-slate-100 space-y-3">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Depleted Items:</span>
+                      <strong className="text-rose-600 font-bold">
+                        {allClassifiedItems.filter((i) => i.outlet === "kitchen" && i.isDepleted).length} dishes
+                      </strong>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Low Stock Warnings:</span>
+                      <strong className="text-amber-600 font-bold">
+                        {allClassifiedItems.filter((i) => i.outlet === "kitchen" && i.isLow).length} dishes
+                      </strong>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Active Cooking Load:</span>
+                      <strong className="text-emerald-600 font-bold">
+                        {kitchenOrders.length} active orders
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-9 w-9 rounded-lg bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center">
+                        <Wine className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900">Bar Counter Inventory</h4>
+                        <p className="text-xs text-slate-500">Liquor, wines, beers, cocktails, softs</p>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                      {allClassifiedItems.filter((i) => i.outlet === "bar").length} items
+                    </span>
+                  </div>
+
+                  <div className="mt-5 pt-4 border-t border-slate-100 space-y-3">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Depleted Items:</span>
+                      <strong className="text-rose-600 font-bold">
+                        {allClassifiedItems.filter((i) => i.outlet === "bar" && i.isDepleted).length} lines
+                      </strong>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Low Stock Warnings:</span>
+                      <strong className="text-amber-600 font-bold">
+                        {allClassifiedItems.filter((i) => i.outlet === "bar" && i.isLow).length} lines
+                      </strong>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Active Drink Orders:</span>
+                      <strong className="text-purple-600 font-bold">
+                        {barOrders.length} active tickets
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Full Report Link Callout */}
+              <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">Comprehensive F&B Stock & Audit Report</h4>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Inspect all kitchen and bar items with live stock counts, valuations, POS consumption, and audit history.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  to="/fb/reports"
+                  className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition shrink-0 shadow-sm"
+                >
+                  <span>Open Full F&B Reports</span>
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
           </div>
         )}
 

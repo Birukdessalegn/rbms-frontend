@@ -260,27 +260,18 @@ function KitchenReportsPage() {
     ).length;
     const cancelled = filteredOrders.filter((o) => o.status === "cancelled").length;
 
-    let totalRevenue = 0;
+    let totalPortions = 0;
 
-    // Production counts per dish & revenue
+    // Production counts per dish
     const itemMap = new Map();
     filteredOrders.forEach((o) => {
-      let orderTotal = Number(o.total || o.total_amount || o.amount || 0);
-      let calcTotal = 0;
-
       const items = parseRawItems(o.items || o.order_items);
       items.forEach((item) => {
         const name = item.product_name || item.name || "Kitchen Dish";
         const qty = Number(item.quantity || item.qty || 1);
-        const price = Number(item.price || item.unit_price || 0);
-        calcTotal += price * qty;
+        totalPortions += qty;
         itemMap.set(name, (itemMap.get(name) || 0) + qty);
       });
-
-      if (orderTotal === 0 && calcTotal > 0) {
-        orderTotal = calcTotal;
-      }
-      totalRevenue += orderTotal;
     });
 
     const popularDishes = Array.from(itemMap.entries())
@@ -289,7 +280,7 @@ function KitchenReportsPage() {
 
     return {
       totalOrders,
-      totalRevenue,
+      totalPortions,
       completed,
       pending,
       cancelled,
@@ -372,10 +363,10 @@ function KitchenReportsPage() {
       {/* KPI SUMMARY CARDS */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <ReportStatCard
-          title="Verified Food Sales Revenue"
-          value={loading ? "..." : `${reportSummary.totalRevenue.toLocaleString()} ETB`}
-          description="Gross kitchen food sales"
-          icon={TrendingUp}
+          title="Total Portions Cooked"
+          value={loading ? "..." : `${reportSummary.totalPortions} portions`}
+          description="Total dish portions prepared"
+          icon={Utensils}
           colorClass="text-emerald-700"
           bgClass="bg-emerald-50"
         />
@@ -536,14 +527,14 @@ function KitchenReportsPage() {
           </div>
         </div>
 
-        {/* EXECUTIVE FINANCIAL & PRODUCTION SUMMARY (Matching Executive Report Format) */}
+        {/* EXECUTIVE PRODUCTION SUMMARY (Matching Executive Report Format) */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
           <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
-            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Verified Sales Revenue</p>
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Total Portions Cooked</p>
             <p className="mt-1 text-xl font-black text-emerald-700">
-              {reportSummary.totalRevenue.toLocaleString()} ETB
+              {reportSummary.totalPortions} Portions
             </p>
-            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Gross kitchen production value</p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Gross kitchen production</p>
           </div>
 
           <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
@@ -563,15 +554,13 @@ function KitchenReportsPage() {
           </div>
 
           <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
-            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Average Ticket Value</p>
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Avg Portions Per Ticket</p>
             <p className="mt-1 text-xl font-black text-slate-900">
               {(reportSummary.totalOrders > 0
-                ? reportSummary.totalRevenue / reportSummary.totalOrders
-                : 0
-              ).toFixed(2)}{" "}
-              ETB
+                ? (reportSummary.totalPortions / reportSummary.totalOrders).toFixed(1)
+                : "0.0")}
             </p>
-            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Average food order spend</p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Dishes per kitchen ticket</p>
           </div>
         </div>
 
@@ -633,7 +622,7 @@ function KitchenReportsPage() {
                   <th className="px-4 py-3">Ordered Items</th>
                   <th className="px-4 py-3 text-center">Status</th>
                   <th className="px-4 py-3 text-right">Time</th>
-                  <th className="px-4 py-3 text-right">Total Amount</th>
+                  <th className="px-4 py-3 text-right">Portions Count</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -650,10 +639,7 @@ function KitchenReportsPage() {
                     const rawTime = o.created_at || o.createdAt;
                     const timeStr = rawTime ? new Date(rawTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-";
 
-                    let orderTotal = Number(o.total || o.total_amount || o.amount || 0);
-                    if (orderTotal === 0 && items.length > 0) {
-                      orderTotal = items.reduce((acc, i) => acc + (Number(i.price || 0) * Number(i.quantity || i.qty || 1)), 0);
-                    }
+                    const portionsCount = items.reduce((acc, i) => acc + Number(i.quantity || i.qty || 1), 0);
 
                     return (
                       <tr key={o.id || Math.random()} className="hover:bg-slate-50/80">
@@ -664,7 +650,7 @@ function KitchenReportsPage() {
                         <td className="px-4 py-3 text-center">{getStatusBadge(o.status)}</td>
                         <td className="px-4 py-3 text-right font-mono text-slate-500">{timeStr}</td>
                         <td className="px-4 py-3 text-right font-black text-slate-900">
-                          {orderTotal.toLocaleString()} ETB
+                          {portionsCount} portion(s)
                         </td>
                       </tr>
                     );
@@ -680,10 +666,10 @@ function KitchenReportsPage() {
                 <tfoot>
                   <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
                     <td colSpan="6" className="px-4 py-3 text-right text-xs uppercase tracking-wider">
-                      Grand Total Kitchen Production Revenue:
+                      Total Portions Prepared Across Tickets:
                     </td>
                     <td className="px-4 py-3 text-right text-sm font-black text-emerald-800">
-                      {reportSummary.totalRevenue.toLocaleString()} ETB
+                      {reportSummary.totalPortions} Portions
                     </td>
                   </tr>
                 </tfoot>

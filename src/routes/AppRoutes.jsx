@@ -46,6 +46,7 @@ function DashboardRoleSwitch() {
 import KitchenPage from "../modules/kitchen/pages/KitchenPage";
 import KitchenLiveAssetsPage from "../modules/kitchen/pages/KitchenLiveAssetsPage";
 import KitchenStockAuditPage from "../modules/kitchen/pages/KitchenStockAuditPage";
+import FBAuditReportsPage from "../modules/kitchen/pages/FBAuditReportsPage";
 import KitchenReportsPage from "../modules/kitchen/pages/KitchenReportsPage";
 
 import POSPage from "../modules/pos/pages/POSPage";
@@ -194,6 +195,14 @@ function AppRoutes() {
                 <Route
                   path="/kitchen/audit"
                   element={<KitchenStockAuditPage />}
+                />
+                <Route
+                  path="/fb/reports"
+                  element={<FBAuditReportsPage />}
+                />
+                <Route
+                  path="/kitchen/audit/reports"
+                  element={<FBAuditReportsPage />}
                 />
               </Route>
 
@@ -354,13 +363,19 @@ function AppRoutes() {
 
 
             {/* -------------------------
-                EMPLOYEES
+                HUMAN RESOURCES (ADMIN / HR)
             -------------------------- */}
 
             <Route
-              path="/employees"
-              element={<EmployeesPage />}
-            />
+              element={
+                <PermissionRoute permission="employees" />
+              }
+            >
+              <Route
+                path="/employees"
+                element={<EmployeesPage />}
+              />
+            </Route>
 
             <Route
               path="/employees/attendance"

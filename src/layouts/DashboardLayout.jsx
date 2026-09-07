@@ -45,6 +45,7 @@ import {
   Volume2,
   VolumeX,
   Palette,
+  FileText,
 } from "lucide-react";
 
 /* =========================================================
@@ -109,10 +110,22 @@ const navigationGroups = [
       },
 
       {
-        name: "F&B Audit Board",
-        path: "/kitchen/audit",
-        icon: ClipboardCheck,
-        permission: "kitchen_audit.manage",
+        name: "F&B",
+        icon: UtensilsCrossed,
+        permission: "kitchen.view",
+
+        children: [
+          {
+            name: "F&B Audit Board",
+            path: "/kitchen/audit",
+            icon: ClipboardCheck,
+          },
+          {
+            name: "F&B Reports",
+            path: "/fb/reports",
+            icon: FileText,
+          },
+        ],
       },
 
       {
@@ -591,7 +604,11 @@ function DashboardLayout() {
               );
             }
 
-            if (item.path === "/kitchen/audit" || item.path?.startsWith("/kitchen/audit")) {
+            if (
+              item.path === "/kitchen/audit" ||
+              item.path?.startsWith("/kitchen/audit") ||
+              item.path === "/fb/reports"
+            ) {
               return (
                 normalizedRole === "ADMIN" ||
                 normalizedRole === "MANAGER" ||
@@ -637,8 +654,12 @@ function DashboardLayout() {
                     return false;
                   }
                 }
-                // Chefs, Bartenders & non-auditors must never see F&B Stock Audits
-                if (child.path === "/kitchen/audit" || child.path?.startsWith("/kitchen/audit")) {
+                // Chefs, Bartenders & non-auditors must never see F&B Stock Audits or Reports
+                if (
+                  child.path === "/kitchen/audit" ||
+                  child.path?.startsWith("/kitchen/audit") ||
+                  child.path === "/fb/reports"
+                ) {
                   return (
                     normalizedRole === "ADMIN" ||
                     normalizedRole === "MANAGER" ||

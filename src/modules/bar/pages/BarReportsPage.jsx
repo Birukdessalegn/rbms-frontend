@@ -296,7 +296,11 @@ function BarReportsPage() {
   const totalOrdersCount = filteredOrders.length;
   const readyOrders = filteredOrders.filter((o) => o.status === "Ready").length;
   const preparingOrders = filteredOrders.filter((o) => o.status === "Preparing").length;
-  const totalSales = filteredOrders.reduce((sum, o) => sum + o.total, 0);
+  const totalDrinkUnits = useMemo(() => {
+    return filteredOrders.reduce((sum, o) => {
+      return sum + o.itemsRaw.reduce((iSum, i) => iSum + Number(i.quantity || i.qty || 1), 0);
+    }, 0);
+  }, [filteredOrders]);
 
   // Top Drinks Prepared
   const topDrinks = useMemo(() => {
@@ -315,7 +319,7 @@ function BarReportsPage() {
   }, [filteredOrders]);
 
   const handlePrint = () => {
-    printReportArea("bar-reports-printable-area", "Bar Sales & Drink Audit Report");
+    printReportArea("bar-reports-printable-area", "Bar Operations & Drink Audit Report");
   };
 
   return (
@@ -382,9 +386,9 @@ function BarReportsPage() {
           bgClass="bg-amber-50"
         />
         <ReportStatCard
-          title="Total Drink Sales"
-          value={loading ? "..." : `${totalSales.toLocaleString()} ETB`}
-          description="Gross bar sales value"
+          title="Total Drinks Served"
+          value={loading ? "..." : `${totalDrinkUnits.toLocaleString()} drinks`}
+          description="Beverage units dispensed"
           icon={TrendingUp}
           colorClass="text-indigo-600"
           bgClass="bg-indigo-50"
@@ -514,14 +518,14 @@ function BarReportsPage() {
           </div>
         </div>
 
-        {/* EXECUTIVE FINANCIAL & BEVERAGE SUMMARY BOX (Matching Executive Report Format) */}
+        {/* EXECUTIVE BEVERAGE SUMMARY BOX */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
           <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
-            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Verified Bar Sales</p>
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Total Drinks Dispensed</p>
             <p className="mt-1 text-xl font-black text-indigo-700">
-              {totalSales.toLocaleString()} ETB
+              {totalDrinkUnits.toLocaleString()} Drinks
             </p>
-            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Gross drink sales value</p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Total beverage units served</p>
           </div>
 
           <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
@@ -541,11 +545,11 @@ function BarReportsPage() {
           </div>
 
           <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
-            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Average Drink Ticket</p>
+            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Avg Drinks Per Ticket</p>
             <p className="mt-1 text-xl font-black text-slate-900">
-              {(totalOrdersCount > 0 ? totalSales / totalOrdersCount : 0).toFixed(2)} ETB
+              {(totalOrdersCount > 0 ? (totalDrinkUnits / totalOrdersCount).toFixed(1) : 0)} items
             </p>
-            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Avg spend per beverage order</p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Avg drink volume per order</p>
           </div>
         </div>
 
@@ -598,7 +602,7 @@ function BarReportsPage() {
                   <th className="px-4 py-3">Staff</th>
                   <th className="px-4 py-3 text-center">Status</th>
                   <th className="px-4 py-3 text-right">Time</th>
-                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-right">Drink Count</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -625,7 +629,9 @@ function BarReportsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-slate-500">{order.time}</td>
-                      <td className="px-4 py-3 text-right font-bold text-slate-900">{order.total.toLocaleString()} ETB</td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-900">
+                        {order.itemsRaw.reduce((sum, i) => sum + Number(i.quantity || i.qty || 1), 0)} items
+                      </td>
                     </tr>
                   ))
                 ) : (
@@ -638,11 +644,11 @@ function BarReportsPage() {
               {filteredOrders.length > 0 && (
                 <tfoot>
                   <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
-                    <td colSpan="6" className="px-4 py-3 text-right text-xs uppercase tracking-wider">
-                      Grand Total Bar Sales Revenue:
+                    <td colSpan="6" className="px-4 py-3 text-right text-xs uppercase tracking-wider font-bold">
+                      Total Beverage Units Dispensed:
                     </td>
                     <td className="px-4 py-3 text-right text-sm font-black text-indigo-800">
-                      {totalSales.toLocaleString()} ETB
+                      {totalDrinkUnits.toLocaleString()} drinks
                     </td>
                   </tr>
                 </tfoot>

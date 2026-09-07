@@ -17,8 +17,12 @@ import {
   Filter,
 } from "lucide-react";
 import api from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 export default function VipCustomersPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role?.toUpperCase() === "ADMIN";
+
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -78,6 +82,10 @@ export default function VipCustomersPage() {
 
   // Open Create / Edit Modal
   const openCreateModal = () => {
+    if (!isAdmin) {
+      setError("Permission denied: Only System Administrators are authorized to register VIP customers.");
+      return;
+    }
     setEditingCustomer(null);
     setForm({
       name: "",
@@ -92,6 +100,10 @@ export default function VipCustomersPage() {
   };
 
   const openEditModal = (cust) => {
+    if (!isAdmin) {
+      setError("Permission denied: Only System Administrators are authorized to edit VIP profiles.");
+      return;
+    }
     setEditingCustomer(cust);
     setForm({
       name: cust.name || "",
@@ -122,6 +134,10 @@ export default function VipCustomersPage() {
   const handleSubmitCustomer = async (e) => {
     e.preventDefault();
     setError("");
+    if (!isAdmin) {
+      setError("Permission denied: Only System Administrators are authorized to register or edit VIP customers.");
+      return;
+    }
     if (!form.name.trim()) return setError("Customer name is required");
     if (!form.phone.trim()) return setError("Phone number is required");
 
@@ -233,6 +249,10 @@ export default function VipCustomersPage() {
 
   // Delete Customer
   const handleDeleteCustomer = async (id) => {
+    if (!isAdmin) {
+      setError("Permission denied: Only System Administrators are authorized to delete VIP customer profiles.");
+      return;
+    }
     if (window.confirm("Are you sure you want to delete this VIP Customer profile?")) {
       try {
         await api(`/vip-customers/${id}`, { method: "DELETE" });
@@ -282,14 +302,16 @@ export default function VipCustomersPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:from-amber-600 hover:to-amber-700 active:scale-98 cursor-pointer"
-        >
-          <Plus className="h-4 w-4" />
-          Register VIP Customer
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:from-amber-600 hover:to-amber-700 active:scale-98 cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            Register VIP Customer
+          </button>
+        )}
       </div>
 
       {/* Alert Messages */}
@@ -508,23 +530,27 @@ export default function VipCustomersPage() {
                             </button>
                           )}
 
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(cust)}
-                            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
-                            title="Edit VIP Profile"
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </button>
+                          {isAdmin && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openEditModal(cust)}
+                                className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+                                title="Edit VIP Profile"
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCustomer(cust.id)}
-                            className="rounded-md p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 cursor-pointer"
-                            title="Delete Profile"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCustomer(cust.id)}
+                                className="rounded-md p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 cursor-pointer"
+                                title="Delete Profile"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

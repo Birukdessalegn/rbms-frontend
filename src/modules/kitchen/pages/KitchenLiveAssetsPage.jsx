@@ -554,8 +554,8 @@ function KitchenLiveAssetsPage() {
                       </span>
                     )}
 
-                    <span className="text-xs font-black text-slate-800">
-                      {Number(dish.price || 0).toLocaleString()} ETB
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Portion: {dish.unit}
                     </span>
                   </div>
                 </div>
@@ -613,7 +613,7 @@ function KitchenLiveAssetsPage() {
                 <tr>
                   <th className="px-5 py-3.5">Dish / Asset</th>
                   <th className="px-5 py-3.5">Category</th>
-                  <th className="px-5 py-3.5">Price</th>
+                  <th className="px-5 py-3.5">Portion Unit</th>
                   <th className="px-5 py-3.5">In Prep</th>
                   <th className="px-5 py-3.5">Live Stock</th>
                   <th className="px-5 py-3.5">Availability Radar</th>
@@ -643,8 +643,8 @@ function KitchenLiveAssetsPage() {
 
                     <td className="px-5 py-3.5 text-slate-600">{dish.subCategory}</td>
 
-                    <td className="px-5 py-3.5 font-bold text-slate-900">
-                      {Number(dish.price || 0).toLocaleString()} ETB / {dish.unit}
+                    <td className="px-5 py-3.5 font-bold text-slate-700 uppercase">
+                      {dish.unit}
                     </td>
 
                     <td className="px-5 py-3.5">

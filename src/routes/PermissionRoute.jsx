@@ -15,7 +15,6 @@ const rolePermissions = {
     "inventory",
     "customers",
     "purchasing",
-    "employees",
     "expenses",
     "reports",
     "finance",

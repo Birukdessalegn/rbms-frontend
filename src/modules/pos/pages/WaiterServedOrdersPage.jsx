@@ -33,15 +33,20 @@ function WaiterServedOrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "served" | "ready" | "completed"
   const [shiftFilter, setShiftFilter] = useState("all"); // "all" | "day" | "night"
+  const [dateRangeFilter, setDateRangeFilter] = useState("today"); // "today" | "week" | "month" | "custom"
+  const [customStartDate, setCustomStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split("T")[0]);
+  const [waiterScope, setWaiterScope] = useState("mine"); // "mine" | "all"
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [selectedOrderDetail, setSelectedOrderDetail] = useState(null);
   const [selectedProofOrder, setSelectedProofOrder] = useState(null);
 
+  const userRole = (user?.role || "").toLowerCase();
   const userIdStr = String(user?.id || user?.user_id || user?.userId || "");
   const employeeIdStr = String(user?.employee_id || user?.employeeId || "");
-  const userNameLower = (user?.username || user?.name || "").toLowerCase();
-  const userFirstName = (user?.first_name || user?.firstName || "").toLowerCase();
-  const userLastName = (user?.last_name || user?.lastName || "").toLowerCase();
+  const userNameLower = (user?.username || user?.name || "").toLowerCase().trim();
+  const userFirstName = (user?.first_name || user?.firstName || "").toLowerCase().trim();
+  const userLastName = (user?.last_name || user?.lastName || "").toLowerCase().trim();
   const userFullName = `${userFirstName} ${userLastName}`.trim();
 
   /* =========================================================
@@ -170,7 +175,11 @@ function WaiterServedOrdersPage() {
           customer_id: custId,
           waiter_first_name: item.waiter_first_name || existing.waiter_first_name || "",
           waiter_last_name: item.waiter_last_name || existing.waiter_last_name || "",
+          waiter_name: item.waiter_name || existing.waiter_name || "",
           waiter_id: item.waiter_id || existing.waiter_id,
+          employee_id: item.employee_id || item.employeeId || existing.employee_id || existing.employeeId,
+          user_id: item.user_id || existing.user_id,
+          created_by: item.created_by || existing.created_by,
           created_at: item.created_at || item.createdAt || existing.created_at || new Date().toISOString(),
           items: uniqueItems,
         });
@@ -201,16 +210,19 @@ function WaiterServedOrdersPage() {
   ========================================================= */
 
   const myTodayOrders = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
-
     return orders.filter((order) => {
-      // 1. Scoped to logged in waiter (or unassigned fallback)
+      // 1. Scoped strictly to logged-in waiter
       const orderWaiterId = String(
-        order.waiter_id ||
-        order.waiterId ||
-        order.user_id ||
-        order.userId ||
-        order.created_by ||
+        order.waiter_id ??
+        order.waiterId ??
+        order.employee_id ??
+        order.employeeId ??
+        ""
+      );
+      const orderUserId = String(
+        order.user_id ??
+        order.userId ??
+        order.created_by ??
         ""
       );
 
@@ -225,18 +237,28 @@ function WaiterServedOrdersPage() {
         order.waiterName ||
         order.server_name ||
         ""
-      ).toLowerCase();
+      ).trim().toLowerCase();
 
-      const matchesId =
-        (userIdStr && orderWaiterId === userIdStr) ||
-        (employeeIdStr && orderWaiterId === employeeIdStr);
+      // Check ID match against employee_id and user_id
+      const matchesId = Boolean(
+        (employeeIdStr && (orderWaiterId === employeeIdStr || orderUserId === employeeIdStr)) ||
+        (userIdStr && (orderWaiterId === userIdStr || orderUserId === userIdStr))
+      );
 
-      const matchesName =
+      // Check Name match
+      const matchesName = Boolean(
         (userNameLower && orderWaiterName.includes(userNameLower)) ||
-        (userFirstName && orderWaiterName.includes(userFirstName)) ||
-        (userFullName && orderWaiterName.includes(userFullName));
+        (userFullName && (orderWaiterName.includes(userFullName) || userFullName.includes(orderWaiterName))) ||
+        (userFirstName && userFirstName.length >= 2 && orderWaiterName.includes(userFirstName))
+      );
 
-      const isMyOrder = matchesId || matchesName || !orderWaiterId || true;
+      const isMyOrder = matchesId || matchesName;
+
+      // For privileged roles (admin / manager), allow scoping to "all" if requested; default is strictly "mine"
+      const isPrivileged = userRole === "admin" || userRole === "superadmin" || userRole === "manager";
+      if ((!isPrivileged || waiterScope === "mine") && !isMyOrder) {
+        return false;
+      }
 
       // 2. Status filter: Exclude cancelled orders
       const statusLower = (order.status || "").toLowerCase();
@@ -244,21 +266,63 @@ function WaiterServedOrdersPage() {
         return false;
       }
 
-      // 3. Flexible Date check: created today (supports YYYY-MM-DD, ISO T format, and space format)
+      // 3. Date check: based on dateRangeFilter ("today", "week", "month", "custom")
       const rawDate = order.created_at || order.createdAt || order.date;
-      if (!rawDate) return true; // Include if date missing
+      if (!rawDate) return false;
 
       const orderDate = new Date(rawDate);
-      const now = new Date();
-      const isToday =
-        isNaN(orderDate.getTime()) ||
-        (orderDate.getFullYear() === now.getFullYear() &&
-          orderDate.getMonth() === now.getMonth() &&
-          orderDate.getDate() === now.getDate());
+      if (isNaN(orderDate.getTime())) return false;
 
-      return isMyOrder && (isToday || true);
+      const now = new Date();
+
+      if (dateRangeFilter === "today") {
+        return (
+          orderDate.getFullYear() === now.getFullYear() &&
+          orderDate.getMonth() === now.getMonth() &&
+          orderDate.getDate() === now.getDate()
+        );
+      }
+
+      if (dateRangeFilter === "week") {
+        // Current week (starting from Monday 00:00:00 to Sunday 23:59:59)
+        const currentDay = now.getDay();
+        const distanceToMonday = (currentDay + 6) % 7;
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - distanceToMonday, 0, 0, 0, 0);
+        const endOfWeek = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate() + 6, 23, 59, 59, 999);
+        return orderDate >= startOfWeek && orderDate <= endOfWeek;
+      }
+
+      if (dateRangeFilter === "month") {
+        return (
+          orderDate.getFullYear() === now.getFullYear() &&
+          orderDate.getMonth() === now.getMonth()
+        );
+      }
+
+      if (dateRangeFilter === "custom") {
+        const start = customStartDate ? new Date(`${customStartDate}T00:00:00`) : null;
+        const end = customEndDate ? new Date(`${customEndDate}T23:59:59.999`) : null;
+
+        if (start && !isNaN(start.getTime()) && orderDate < start) return false;
+        if (end && !isNaN(end.getTime()) && orderDate > end) return false;
+        return true;
+      }
+
+      return true;
     });
-  }, [orders, userIdStr, employeeIdStr, userNameLower, userFirstName, userFullName]);
+  }, [
+    orders,
+    userIdStr,
+    employeeIdStr,
+    userNameLower,
+    userFirstName,
+    userFullName,
+    userRole,
+    waiterScope,
+    dateRangeFilter,
+    customStartDate,
+    customEndDate,
+  ]);
 
   /* =========================================================
      FILTERED BY USER SEARCH & SHIFT PINS
@@ -498,10 +562,18 @@ function WaiterServedOrdersPage() {
                 My Served Orders
               </h1>
               <p className="text-xs text-slate-500 font-medium">
-                Today's delivered tickets for Waiter:{" "}
+                {dateRangeFilter === "today" && "Today's delivered tickets for Waiter: "}
+                {dateRangeFilter === "week" && "This week's delivered tickets for Waiter: "}
+                {dateRangeFilter === "month" && "This month's delivered tickets for Waiter: "}
+                {dateRangeFilter === "custom" && `Delivered tickets (${customStartDate} to ${customEndDate}) for Waiter: `}
                 <span className="text-blue-600 font-semibold">
                   {userFullName || user?.username || "Staff"}
                 </span>
+                {waiterScope === "all" && (userRole === "admin" || userRole === "manager") && (
+                  <span className="ml-1.5 rounded bg-purple-100 text-purple-800 text-[10px] font-extrabold px-1.5 py-0.5 uppercase tracking-wide">
+                    All Waiters View
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -534,7 +606,10 @@ function WaiterServedOrdersPage() {
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Served Today
+              {dateRangeFilter === "today" && "Served Today"}
+              {dateRangeFilter === "week" && "Served This Week"}
+              {dateRangeFilter === "month" && "Served This Month"}
+              {dateRangeFilter === "custom" && "Served In Range"}
             </span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
               <CheckCircle2 className="h-4 w-4" />
@@ -545,7 +620,8 @@ function WaiterServedOrdersPage() {
               {metrics.totalServedCount}
             </p>
             <p className="mt-1 text-[11px] font-medium text-emerald-600 flex items-center gap-1">
-              <ArrowUpRight className="h-3 w-3" /> Active Shift Deliveries
+              <ArrowUpRight className="h-3 w-3" />
+              {dateRangeFilter === "today" ? "Active Shift Deliveries" : "Filtered Deliveries"}
             </p>
           </div>
         </div>
@@ -618,8 +694,111 @@ function WaiterServedOrdersPage() {
       {/* =========================================================
           FILTER TOOLBAR
       ========================================================= */}
-      <div className="mb-6 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="mb-6 space-y-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+        {/* ROW 1: Date Range Filters & Waiter Scope Toggle */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          {/* Date Range Options */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500 mr-1">
+              <Calendar className="h-3.5 w-3.5 text-blue-600" />
+              Period:
+            </span>
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setDateRangeFilter("today")}
+                className={`rounded-lg px-3 py-1.5 transition ${dateRangeFilter === "today"
+                    ? "bg-white text-blue-600 shadow-sm font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                  }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateRangeFilter("week")}
+                className={`rounded-lg px-3 py-1.5 transition ${dateRangeFilter === "week"
+                    ? "bg-white text-blue-600 shadow-sm font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                  }`}
+              >
+                This Week
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateRangeFilter("month")}
+                className={`rounded-lg px-3 py-1.5 transition ${dateRangeFilter === "month"
+                    ? "bg-white text-blue-600 shadow-sm font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                  }`}
+              >
+                This Month
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateRangeFilter("custom")}
+                className={`rounded-lg px-3 py-1.5 transition ${dateRangeFilter === "custom"
+                    ? "bg-white text-blue-600 shadow-sm font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                  }`}
+              >
+                Custom Date
+              </button>
+            </div>
+
+            {/* Custom Date Pickers */}
+            {dateRangeFilter === "custom" && (
+              <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50/50 px-3 py-1 text-xs animate-fadeIn">
+                <span className="text-[11px] font-semibold text-slate-600">From:</span>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+                <span className="text-[11px] font-semibold text-slate-600">To:</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Admin / Manager Waiter Scope Toggle */}
+          {(userRole === "admin" || userRole === "manager") && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500">Scope:</span>
+              <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setWaiterScope("mine")}
+                  className={`rounded-lg px-2.5 py-1 transition ${waiterScope === "mine"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                    }`}
+                >
+                  My Orders Only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWaiterScope("all")}
+                  className={`rounded-lg px-2.5 py-1 transition ${waiterScope === "all"
+                      ? "bg-purple-600 text-white shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                    }`}
+                >
+                  All Waiters
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ROW 2: Search, Status, and Shift Filters */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           {/* Search Box */}
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -637,6 +816,7 @@ function WaiterServedOrdersPage() {
             {/* Status Pills */}
             <div className="flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
               <button
+                type="button"
                 onClick={() => setStatusFilter("all")}
                 className={`rounded-lg px-3 py-1.5 transition ${statusFilter === "all"
                     ? "bg-white text-slate-900 shadow-sm"
@@ -646,6 +826,7 @@ function WaiterServedOrdersPage() {
                 All Status
               </button>
               <button
+                type="button"
                 onClick={() => setStatusFilter("served")}
                 className={`rounded-lg px-3 py-1.5 transition ${statusFilter === "served"
                     ? "bg-emerald-600 text-white shadow-sm"
@@ -655,6 +836,7 @@ function WaiterServedOrdersPage() {
                 Served
               </button>
               <button
+                type="button"
                 onClick={() => setStatusFilter("ready")}
                 className={`rounded-lg px-3 py-1.5 transition ${statusFilter === "ready"
                     ? "bg-blue-600 text-white shadow-sm"
@@ -664,6 +846,7 @@ function WaiterServedOrdersPage() {
                 Ready
               </button>
               <button
+                type="button"
                 onClick={() => setStatusFilter("completed")}
                 className={`rounded-lg px-3 py-1.5 transition ${statusFilter === "completed"
                     ? "bg-purple-600 text-white shadow-sm"
@@ -708,8 +891,8 @@ function WaiterServedOrdersPage() {
               No Served Orders Found
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              {searchQuery || statusFilter !== "all"
-                ? "No orders match your filter criteria."
+              {searchQuery || statusFilter !== "all" || shiftFilter !== "all" || dateRangeFilter !== "today"
+                ? "No orders match your filter criteria for this period."
                 : "You haven't served any orders today yet."}
             </p>
           </div>

@@ -62,18 +62,32 @@ function TodaySalesAuditPage() {
 
   /* Helper to compute total for an order */
   const getOrderTotal = (order) => {
-    if (order.total_amount && Number(order.total_amount) > 0) {
-      return Number(order.total_amount);
-    }
-    if (order.total && Number(order.total) > 0) {
-      return Number(order.total);
-    }
+    if (!order) return 0;
+    const dbTotal = Number(
+      order.total_amount ??
+      order.total ??
+      order.grand_total ??
+      order.grandTotal ??
+      0
+    );
+    if (dbTotal > 0) return dbTotal;
+
     const items = parseItems(order.items || order.order_items);
-    return items.reduce((sum, item) => {
+    const subtotal = items.reduce((sum, item) => {
       const qty = Number(item.quantity || item.qty || 1);
       const price = Number(item.unit_price || item.price || 0);
       return sum + qty * price;
     }, 0);
+
+    const tax = Number(order.tax ?? order.tax_amount ?? 0);
+    const service = Number(order.service_charge ?? order.service_charge_amount ?? 0);
+    const discount = Number(order.discount ?? order.discount_amount ?? 0);
+
+    if (tax > 0 || service > 0) {
+      return Math.max(subtotal - discount + tax + service, 0);
+    }
+    const vat = Number((subtotal * 0.15).toFixed(2));
+    return Math.max(subtotal - discount + vat, 0);
   };
 
   const extractFullName = (first, last) => {
@@ -326,6 +340,7 @@ function TodaySalesAuditPage() {
   const creditOrders = orders.filter((o) => o.payment_status === "credit_pending");
 
   const totalRevenue = paidOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
+  const totalPaidRevenue = totalRevenue;
   const pendingCreditTotal = creditOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
 
   /* Breakdown by payment method */
@@ -389,6 +404,10 @@ function TodaySalesAuditPage() {
 
     return matchesSearch && matchesStatus && matchesWaiter;
   });
+
+  const filteredPaidRevenue = filteredOrders
+    .filter((o) => o.payment_status === "paid" || o.status === "completed")
+    .reduce((sum, o) => sum + getOrderTotal(o), 0);
 
   const getMethodBadge = (method) => {
     const m = (method || "").toLowerCase();
@@ -996,11 +1015,17 @@ function TodaySalesAuditPage() {
                 {filteredOrders.length > 0 && (
                   <tfoot>
                     <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
-                      <td colSpan="3" className="px-3 py-3.5 text-right text-xs uppercase tracking-wider">
-                        Grand Total Verified Sales Revenue:
+                      <td colSpan="2" className="px-3 py-3.5 text-right text-xs uppercase tracking-wider">
+                        {statusFilter !== "all" || selectedWaiter !== "all" || searchTerm.trim()
+                          ? "Filtered Verified Sales Revenue:"
+                          : "Grand Total Verified Sales Revenue:"}
                       </td>
-                      <td className="px-3 py-3.5 font-black text-sm text-emerald-800">
-                        {totalPaidRevenue.toLocaleString()} ETB
+                      <td className="px-3 py-3.5 font-black text-sm text-emerald-800 whitespace-nowrap">
+                        {(statusFilter !== "all" || selectedWaiter !== "all" || searchTerm.trim()
+                          ? filteredPaidRevenue
+                          : totalPaidRevenue
+                        ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                        ETB
                       </td>
                       <td colSpan="2"></td>
                     </tr>

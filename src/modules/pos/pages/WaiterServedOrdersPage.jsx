@@ -15,9 +15,13 @@ import {
   Table as TableIcon,
   ChevronDown,
   ChevronUp,
+  Printer,
+  Eye,
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../services/api";
+import { printOrderReceipt } from "../../../utils/printHelper";
+import PaymentProofModal from "../components/PaymentProofModal";
 
 function WaiterServedOrdersPage() {
   const { user } = useAuth();
@@ -31,6 +35,7 @@ function WaiterServedOrdersPage() {
   const [shiftFilter, setShiftFilter] = useState("all"); // "all" | "day" | "night"
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [selectedOrderDetail, setSelectedOrderDetail] = useState(null);
+  const [selectedProofOrder, setSelectedProofOrder] = useState(null);
 
   const userIdStr = String(user?.id || user?.user_id || user?.userId || "");
   const employeeIdStr = String(user?.employee_id || user?.employeeId || "");
@@ -149,10 +154,19 @@ function WaiterServedOrdersPage() {
           order_number: orderNum || existing.order_number || `#${key}`,
           table_number: item.table_number || existing.table_number || "T1",
           table_id: item.table_id || existing.table_id,
+          total: item.total ?? item.total_amount ?? existing.total ?? existing.total_amount ?? 0,
+          total_amount: item.total_amount ?? item.total ?? existing.total_amount ?? existing.total ?? 0,
+          grand_total: item.grand_total ?? existing.grand_total ?? 0,
+          tax: item.tax ?? item.tax_amount ?? existing.tax ?? existing.tax_amount ?? 0,
+          tax_amount: item.tax_amount ?? item.tax ?? existing.tax_amount ?? existing.tax ?? 0,
+          service_charge: item.service_charge ?? item.service_charge_amount ?? existing.service_charge ?? existing.service_charge_amount ?? 0,
+          discount: item.discount ?? item.discount_amount ?? existing.discount ?? existing.discount_amount ?? 0,
           status: item.status || existing.status || "served",
           payment_status: item.payment_status || existing.payment_status || "unpaid",
           payment_method: pm,
           reference: ref,
+          receipt_image: item.receipt_image || item.receiptImage || existing.receipt_image || existing.receiptImage || null,
+          payments: (item.payments && item.payments.length > 0) ? item.payments : (existing.payments || []),
           customer_id: custId,
           waiter_first_name: item.waiter_first_name || existing.waiter_first_name || "",
           waiter_last_name: item.waiter_last_name || existing.waiter_last_name || "",
@@ -281,6 +295,49 @@ function WaiterServedOrdersPage() {
   }, [myTodayOrders, statusFilter, shiftFilter, searchQuery]);
 
   /* =========================================================
+     GROSS TOTAL (INCL. VAT) HELPER
+  ========================================================= */
+
+  const calculateOrderGrossTotal = (order) => {
+    if (!order) return 0;
+    const dbTotal = Number(
+      order.total_amount ??
+      order.total ??
+      order.grand_total ??
+      order.grandTotal ??
+      0
+    );
+    if (dbTotal > 0) return dbTotal;
+
+    const items = Array.isArray(order.items) ? order.items : [];
+    const itemsSubtotal = items.reduce((sum, i) => {
+      const q = Number(i.quantity ?? i.qty ?? 1);
+      const p = Number(i.unit_price ?? i.price ?? i.product_price ?? 0);
+      return sum + q * p;
+    }, 0);
+
+    const tax = Number(order.tax ?? order.tax_amount ?? 0);
+    const service = Number(order.service_charge ?? order.service_charge_amount ?? 0);
+    const discount = Number(order.discount ?? order.discount_amount ?? 0);
+
+    if (tax > 0 || service > 0) {
+      return Math.max(itemsSubtotal - discount + tax + service, 0);
+    }
+
+    // Standard 15% VAT fallback if not explicitly stored
+    const vat = Number((itemsSubtotal * 0.15).toFixed(2));
+    return Math.max(itemsSubtotal - discount + vat, 0);
+  };
+
+  const handlePrintOrder = (order) => {
+    if (!order) return;
+    printOrderReceipt(order, {
+      waiterName: userFullName || user?.username,
+      restaurantName: "THE OAK CLUB",
+    });
+  };
+
+  /* =========================================================
      METRICS CALCULATION
   ========================================================= */
 
@@ -288,15 +345,7 @@ function WaiterServedOrdersPage() {
     const totalServedCount = myTodayOrders.length;
 
     const totalSalesRevenue = myTodayOrders.reduce((sum, order) => {
-      const items = Array.isArray(order.items) ? order.items : [];
-      const itemSum = items.reduce((acc, i) => {
-        const q = Number(i.quantity ?? i.qty ?? 1);
-        const p = Number(i.unit_price ?? i.price ?? i.product_price ?? 0);
-        return acc + q * p;
-      }, 0);
-
-      const dbTotal = Number(order.total_amount ?? order.total ?? order.grand_total ?? 0);
-      return sum + (dbTotal > 0 ? dbTotal : itemSum);
+      return sum + calculateOrderGrossTotal(order);
     }, 0);
 
     let totalFoodItems = 0;
@@ -671,15 +720,7 @@ function WaiterServedOrdersPage() {
               {filteredOrders.map((order) => {
                 const isExpanded = expandedOrderId === order.id;
                 const items = Array.isArray(order.items) ? order.items : [];
-                const itemsSum = items.reduce((sum, i) => {
-                  const q = Number(i.quantity ?? i.qty ?? 1);
-                  const p = Number(i.unit_price ?? i.price ?? i.product_price ?? 0);
-                  return sum + q * p;
-                }, 0);
-                const dbTotal = Number(
-                  order.total_amount ?? order.total ?? order.grand_total ?? 0
-                );
-                const displayTotal = itemsSum > 0 ? itemsSum : (dbTotal > 0 ? dbTotal : 0);
+                const displayTotal = calculateOrderGrossTotal(order);
                 const orderTimeStr = order.created_at
                   ? new Date(order.created_at).toLocaleTimeString([], {
                     hour: "2-digit",
@@ -688,7 +729,14 @@ function WaiterServedOrdersPage() {
                   : "Today";
 
                 return (
-                  <div key={`mobile-card-${order.id}`} className="p-4 space-y-3 bg-white hover:bg-slate-50/60 transition">
+                  <div
+                    key={`mobile-card-${order.id}`}
+                    onClick={() => {
+                      setSelectedOrderDetail(order);
+                      handlePrintOrder(order);
+                    }}
+                    className="p-4 space-y-3 bg-white hover:bg-slate-50/60 transition cursor-pointer"
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 font-extrabold text-blue-800 text-sm">
@@ -704,9 +752,14 @@ function WaiterServedOrdersPage() {
                         </div>
                       </div>
 
-                      <span className="text-sm font-black text-slate-900">
-                        {displayTotal.toFixed(2)} ETB
-                      </span>
+                      <div className="text-right">
+                        <span className="text-sm font-black text-slate-900 block">
+                          {displayTotal.toFixed(2)} ETB
+                        </span>
+                        <span className="text-[10px] font-semibold text-emerald-600 block">
+                          Incl. VAT
+                        </span>
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
@@ -720,13 +773,36 @@ function WaiterServedOrdersPage() {
                         </span>
                       </div>
 
-                      <button
-                        onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100"
-                      >
-                        <span>{items.length} items</span>
-                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      </button>
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {(order.receipt_image || order.receiptImage || (Array.isArray(order.payments) && order.payments.some(p => p.receipt_image || p.receiptImage || p.image_url || p.imageUrl))) && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProofOrder(order)}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700 hover:bg-indigo-100 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 cursor-pointer shadow-2xs"
+                            title="View Mobile Payment Confirmation Photo"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Proof</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handlePrintOrder(order)}
+                          className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:bg-blue-100 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 cursor-pointer shadow-2xs"
+                          title="Print Receipt Slip"
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                          <span>Print</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 cursor-pointer"
+                        >
+                          <span>{items.length} items</span>
+                          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
                     </div>
 
                     {isExpanded && items.length > 0 && (
@@ -760,25 +836,24 @@ function WaiterServedOrdersPage() {
                     <th className="px-5 py-3.5">Items Delivered</th>
                     <th className="px-5 py-3.5">Payment Status</th>
                     <th className="px-5 py-3.5">Payment Method</th>
-                    <th className="px-5 py-3.5 text-right">Amount (ETB)</th>
-                    <th className="px-5 py-3.5 text-center">Details</th>
+                    <th className="px-5 py-3.5 text-right">Amount (Incl. VAT) (ETB)</th>
+                    <th className="px-5 py-3.5 text-center">Print / Details</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {filteredOrders.map((order) => {
                     const isExpanded = expandedOrderId === order.id;
                     const items = Array.isArray(order.items) ? order.items : [];
-                    const itemsSum = items.reduce((sum, i) => sum + (Number(i.quantity ?? i.qty ?? 1) * Number(i.unit_price ?? i.price ?? i.product_price ?? 0)), 0);
-                    const dbTotal = Number(
-                      order.total_amount ?? order.total ?? order.grand_total ?? 0
-                    );
-                    const displayTotal = itemsSum > 0 ? itemsSum : (dbTotal > 0 ? dbTotal : 0);
+                    const displayTotal = calculateOrderGrossTotal(order);
                     const pmObj = formatPaymentMethodObj(order);
 
                     return (
                       <React.Fragment key={order.id}>
                         <tr
-                          onClick={() => setSelectedOrderDetail(order)}
+                          onClick={() => {
+                            setSelectedOrderDetail(order);
+                            handlePrintOrder(order);
+                          }}
                           className="transition hover:bg-purple-50/40 cursor-pointer"
                         >
                           {/* Table & Order */}
@@ -811,7 +886,7 @@ function WaiterServedOrdersPage() {
                           {/* Status */}
                           <td className="px-5 py-4">
                             <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${getStatusBadgeClass(
                                 order.status
                               )}`}
                             >
@@ -822,31 +897,11 @@ function WaiterServedOrdersPage() {
                             </span>
                           </td>
 
-                          {/* Items */}
+                          {/* Items Delivered count */}
                           <td className="px-5 py-4">
-                            <div className="flex flex-wrap gap-1">
-                              {items.length > 0 ? (
-                                items.map((item, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 border border-slate-200/60"
-                                  >
-                                    <span>
-                                      {item.quantity || item.qty || 1}x
-                                    </span>
-                                    <span>
-                                      {item.name ||
-                                        item.product_name ||
-                                        item.title ||
-                                        "Item"}
-                                    </span>
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-slate-400 italic">
-                                  {order.items_summary || "Delivered items"}
-                                </span>
-                              )}
+                            <div className="flex items-center gap-1.5 font-bold text-slate-700">
+                              <Utensils className="h-3.5 w-3.5 text-slate-400" />
+                              <span>{items.length} items</span>
                             </div>
                           </td>
 
@@ -864,33 +919,66 @@ function WaiterServedOrdersPage() {
 
                           {/* Payment Method Column */}
                           <td className="px-5 py-4">
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${pmObj.class}`}>
-                              {pmObj.label}
-                            </span>
+                            <div className="flex flex-col gap-1 items-start">
+                              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${pmObj.class}`}>
+                                {pmObj.label}
+                              </span>
+                              {(order.receipt_image || order.receiptImage || (Array.isArray(order.payments) && order.payments.some(p => p.receipt_image || p.receiptImage || p.image_url || p.imageUrl))) && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedProofOrder(order);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-[10px] font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md cursor-pointer transition shadow-2xs"
+                                  title="View Mobile Payment Confirmation Photo"
+                                >
+                                  <Eye className="h-3 w-3" />
+                                  <span>View Proof</span>
+                                </button>
+                              )}
+                            </div>
                           </td>
 
                           {/* Amount */}
-                          <td className="px-5 py-4 text-right font-extrabold text-slate-900">
-                            {displayTotal.toFixed(2)} ETB
+                          <td className="px-5 py-4 text-right">
+                            <span className="font-extrabold text-slate-900 block">
+                              {displayTotal.toFixed(2)} ETB
+                            </span>
+                            <span className="text-[10px] font-medium text-emerald-600 block">
+                              Incl. 15% VAT
+                            </span>
                           </td>
 
-                          {/* Details Toggle */}
+                          {/* Details & Print Actions */}
                           <td className="px-5 py-4 text-center" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={() =>
-                                setExpandedOrderId(
-                                  isExpanded ? null : order.id
-                                )
-                              }
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                              title="Toggle order details"
-                            >
-                              {isExpanded ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
-                            </button>
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handlePrintOrder(order)}
+                                className="inline-flex items-center gap-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 px-2.5 py-1 text-xs font-bold transition border border-blue-200 cursor-pointer shadow-2xs"
+                                title="Print Order Receipt / Slip"
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                                <span>Print</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedOrderId(
+                                    isExpanded ? null : order.id
+                                  )
+                                }
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+                                title="Toggle itemized details"
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
                           </td>
                         </tr>
 
@@ -965,13 +1053,24 @@ function WaiterServedOrdersPage() {
                   <p className="text-xs text-slate-300">Table #{selectedOrderDetail.table_number || "Counter"}</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedOrderDetail(null)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition cursor-pointer"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePrintOrder(selectedOrderDetail)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                  title="Print Order Receipt / Slip"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  <span>Print Slip</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrderDetail(null)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Modal Body */}
@@ -991,6 +1090,36 @@ function WaiterServedOrdersPage() {
                   </span>
                 </div>
               </div>
+
+              {/* Mobile Payment Confirmation Picture Banner if Available */}
+              {(selectedOrderDetail.receipt_image ||
+                selectedOrderDetail.receiptImage ||
+                (Array.isArray(selectedOrderDetail.payments) &&
+                  selectedOrderDetail.payments.some((p) => p.receipt_image || p.receiptImage || p.image_url || p.imageUrl))) && (
+                <div className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-3.5 flex items-center justify-between shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs">
+                      <Eye className="h-4.5 w-4.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-extrabold text-indigo-950">
+                        Mobile Payment Confirmation Attached
+                      </p>
+                      <p className="text-[11px] text-indigo-700">
+                        {selectedOrderDetail.payment_method?.toUpperCase() || "MOBILE"} receipt photo uploaded
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProofOrder(selectedOrderDetail)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>View Picture</span>
+                  </button>
+                </div>
+              )}
 
               {/* Items Breakdown */}
               <div>
@@ -1029,23 +1158,61 @@ function WaiterServedOrdersPage() {
               {/* Total Calculation */}
               {(() => {
                 const detailItems = Array.isArray(selectedOrderDetail.items) ? selectedOrderDetail.items : [];
-                const detailItemsSum = detailItems.reduce((sum, i) => sum + (Number(i.quantity ?? i.qty ?? 1) * Number(i.unit_price ?? i.price ?? i.product_price ?? 0)), 0);
-                const dbTotal = Number(selectedOrderDetail.total_amount ?? selectedOrderDetail.total ?? selectedOrderDetail.grand_total ?? 0);
-                const modalDisplayTotal = detailItemsSum > 0 ? detailItemsSum : (dbTotal > 0 ? dbTotal : 0);
+                const netSubtotal = detailItems.reduce(
+                  (sum, i) => sum + (Number(i.quantity ?? i.qty ?? 1) * Number(i.unit_price ?? i.price ?? i.product_price ?? 0)),
+                  0
+                );
+                const grossTotal = calculateOrderGrossTotal(selectedOrderDetail);
+                const recordedTax = Number(selectedOrderDetail.tax ?? selectedOrderDetail.tax_amount ?? 0);
+                const vatAmount = recordedTax > 0 ? recordedTax : Number((netSubtotal * 0.15).toFixed(2));
+                const serviceCharge = Number(selectedOrderDetail.service_charge ?? selectedOrderDetail.service_charge_amount ?? 0);
 
                 return (
-                  <div className="rounded-2xl bg-slate-900 p-4 text-white flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Total Order Amount</span>
-                    <span className="text-xl font-black text-emerald-400">
-                      {modalDisplayTotal.toFixed(2)} ETB
-                    </span>
+                  <div className="space-y-2">
+                    <div className="rounded-xl bg-slate-50 p-3 border border-slate-200 text-xs space-y-1.5">
+                      <div className="flex justify-between text-slate-600">
+                        <span>Items Subtotal (Excl. VAT):</span>
+                        <span className="font-mono font-medium">{netSubtotal.toFixed(2)} ETB</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>VAT (15%):</span>
+                        <span className="font-mono font-medium text-emerald-700">+{vatAmount.toFixed(2)} ETB</span>
+                      </div>
+                      {serviceCharge > 0 && (
+                        <div className="flex justify-between text-slate-600">
+                          <span>Service Charge:</span>
+                          <span className="font-mono font-medium text-slate-700">+{serviceCharge.toFixed(2)} ETB</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="rounded-2xl bg-slate-900 p-4 text-white flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
+                          Total Order Amount
+                        </span>
+                        <span className="text-[10px] text-emerald-400 font-medium">
+                          (Including 15% VAT)
+                        </span>
+                      </div>
+                      <span className="text-xl font-black text-emerald-400">
+                        {grossTotal.toFixed(2)} ETB
+                      </span>
+                    </div>
                   </div>
                 );
               })()}
             </div>
 
             {/* Modal Footer */}
-            <div className="border-t border-slate-200 bg-slate-50 px-6 py-3 text-right">
+            <div className="border-t border-slate-200 bg-slate-50 px-6 py-3 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => handlePrintOrder(selectedOrderDetail)}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-4 py-2 text-xs font-bold hover:bg-blue-700 transition shadow-xs active:scale-95 cursor-pointer"
+              >
+                <Printer className="h-4 w-4" />
+                <span>Print Receipt Slip</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setSelectedOrderDetail(null)}
@@ -1056,6 +1223,14 @@ function WaiterServedOrdersPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* PAYMENT PROOF PICTURE MODAL */}
+      {selectedProofOrder && (
+        <PaymentProofModal
+          order={selectedProofOrder}
+          onClose={() => setSelectedProofOrder(null)}
+        />
       )}
     </div>
   );

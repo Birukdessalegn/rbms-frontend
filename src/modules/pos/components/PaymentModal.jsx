@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import {
   X,
   Banknote,
@@ -15,8 +15,11 @@ import {
   Minus,
   Plus,
   Sparkles,
+  Users,
+  Printer,
 } from "lucide-react";
 import api from "../../../services/api";
+import { printThermalReceipt } from "../../../utils/printHelper";
 
 function PaymentModal({
   order,
@@ -24,7 +27,8 @@ function PaymentModal({
   onPaymentSuccess,
 }) {
   const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [paymentMode, setPaymentMode] = useState("full"); // "full" | "split"
+  const [paymentMode, setPaymentMode] = useState("full"); // "full" | "split_items" | "split_equal"
+  const [splitWays, setSplitWays] = useState(2);
   const [selectedQuantities, setSelectedQuantities] = useState({});
   const [paidQuantities, setPaidQuantities] = useState({});
   const [shareSuccessMessage, setShareSuccessMessage] = useState("");
@@ -198,127 +202,130 @@ function PaymentModal({
     };
   }, []);
 
-  useEffect(() => {
-    const loadOrder = async () => {
-      try {
-        setLoadingOrder(true);
+  const loadOrder = useCallback(async () => {
+    try {
+      setLoadingOrder(true);
 
-        const response = await api(
-          `/pos/orders/${order.order_id || order.id}`
-        );
+      const response = await api(
+        `/pos/orders/${order.order_id || order.id}`
+      );
 
-        const loadedOrder =
-          response?.order ||
-          response?.data?.order ||
-          response?.data ||
-          response;
+      const loadedOrder =
+        response?.order ||
+        response?.data?.order ||
+        response?.data ||
+        response;
 
-        console.log("PAYMENT ORDER RESPONSE:", response);
-        console.log("LOADED ORDER:", loadedOrder);
-        console.log("ORDER ITEMS:", loadedOrder?.items);
-        console.log("ORDER TOTAL:", loadedOrder?.total_amount);
+      console.log("PAYMENT ORDER RESPONSE:", response);
+      console.log("LOADED ORDER:", loadedOrder);
+      console.log("ORDER ITEMS:", loadedOrder?.items);
+      console.log("ORDER TOTAL:", loadedOrder?.total_amount);
 
-        setFullOrder(loadedOrder);
+      setFullOrder(loadedOrder);
 
-        /* 
-         * Calculate subtotal from actual order items. 
-         */
-        const calculatedSubtotal = (
-          loadedOrder.items || []
-        ).reduce((sum, item) => {
-          const quantity = Number(
-            item.quantity ??
-            item.qty ??
-            0
-          );
+      // Initialize paid quantities directly from backend order items
+      const initialPaid = {};
+      (loadedOrder?.items || []).forEach((item, idx) => {
+        initialPaid[idx] = Number(item.paid_quantity || 0);
+      });
+      setPaidQuantities(initialPaid);
 
-          const unitPrice = Number(
-            item.unit_price ??
-            item.unitPrice ??
-            item.price ??
-            item.product_price ??
-            item.productPrice ??
-            item.product?.price ??
-            item.product?.unit_price ??
-            0
-          );
-
-          console.log("PAYMENT ITEM:", item);
-          console.log("QUANTITY:", quantity);
-          console.log("UNIT PRICE:", unitPrice);
-
-          return sum + quantity * unitPrice;
-        }, 0);
-
-        const discount = Number(
-          loadedOrder.discount ??
-          loadedOrder.discount_amount ??
+      /* 
+       * Calculate subtotal from actual order items. 
+       */
+      const calculatedSubtotal = (
+        loadedOrder.items || []
+      ).reduce((sum, item) => {
+        const quantity = Number(
+          item.quantity ??
+          item.qty ??
           0
         );
 
-        // Tax amount from backend order payload (0 if VAT is already included in product prices)
-        const loadedTax = Number(
-          loadedOrder.tax ??
-          loadedOrder.tax_amount ??
+        const unitPrice = Number(
+          item.unit_price ??
+          item.unitPrice ??
+          item.price ??
+          item.product_price ??
+          item.productPrice ??
+          item.product?.price ??
+          item.product?.unit_price ??
           0
         );
 
-        const tax = loadedTax;
+        return sum + quantity * unitPrice;
+      }, 0);
 
-        const backendTotal = Number(
-          loadedOrder.total_amount ??
-          loadedOrder.totalAmount ??
-          loadedOrder.total ??
-          loadedOrder.grand_total ??
-          loadedOrder.grandTotal ??
+      const discount = Number(
+        loadedOrder.discount ??
+        loadedOrder.discount_amount ??
+        0
+      );
+
+      // Tax amount from backend order payload (0 if VAT is already included in product prices)
+      const loadedTax = Number(
+        loadedOrder.tax ??
+        loadedOrder.tax_amount ??
+        0
+      );
+
+      const tax = loadedTax;
+
+      const backendTotal = Number(
+        loadedOrder.total_amount ??
+        loadedOrder.totalAmount ??
+        loadedOrder.total ??
+        loadedOrder.grand_total ??
+        loadedOrder.grandTotal ??
+        0
+      );
+
+      const calculatedTotal = calculatedSubtotal > 0
+        ? Math.max(
+          calculatedSubtotal - discount + tax,
           0
-        );
-
-        const calculatedTotal = calculatedSubtotal > 0
-          ? Math.max(
-            calculatedSubtotal - discount + tax,
-            0
-          )
-          : (backendTotal > 0 ? backendTotal : Math.max(calculatedSubtotal - discount + tax, 0));
-
-        const paid = (
-          loadedOrder.payments || []
         )
-          .filter(
-            (payment) =>
-              payment.status === "paid"
-          )
-          .reduce(
-            (sum, payment) =>
-              sum + Number(payment.amount ?? 0),
-            0
-          );
+        : (backendTotal > 0 ? backendTotal : Math.max(calculatedSubtotal - discount + tax, 0));
 
-        const remaining = Math.max(
-          calculatedTotal - paid,
+      const paid = (
+        loadedOrder.payments || []
+      )
+        .filter(
+          (payment) =>
+            payment.status === "paid"
+        )
+        .reduce(
+          (sum, payment) =>
+            sum + Number(payment.amount ?? 0),
           0
         );
 
-        setAmount(remaining.toFixed(2));
+      const remaining = Math.max(
+        calculatedTotal - paid,
+        0
+      );
 
-      } catch (err) {
-        console.error(
-          "Failed to load order:",
-          err
-        );
+      setAmount(remaining.toFixed(2));
 
-        setError(
-          err.message ||
-          "Failed to load order details"
-        );
+    } catch (err) {
+      console.error(
+        "Failed to load order:",
+        err
+      );
 
-      } finally {
-        setLoadingOrder(false);
-      }
-    };
+      setError(
+        err.message ||
+        "Failed to load order details"
+      );
 
-    loadOrder();
+    } finally {
+      setLoadingOrder(false);
+    }
   }, [order.order_id, order.id]);
+
+  useEffect(() => {
+    loadOrder();
+  }, [loadOrder]);
 
   // Helper to extract item unit price
   const getItemUnitPrice = (item) => {
@@ -348,12 +355,13 @@ function PaymentModal({
       const initial = {};
       displayItems.forEach((item, idx) => {
         const maxQty = Number(item.quantity ?? item.qty ?? 1);
-        const alreadyPaid = Number(paidQuantities[idx] || 0);
-        initial[idx] = Math.max(maxQty - alreadyPaid, 0);
+        const alreadyPaid = Number(item.paid_quantity ?? paidQuantities[idx] ?? 0);
+        // Default to 0 selected so the user can easily check what this customer is paying for
+        initial[idx] = 0;
       });
       setSelectedQuantities(initial);
     }
-  }, [fullOrder?.id, displayItems.length, paidQuantities]);
+  }, [fullOrder?.id, displayItems.length]);
 
   // Compute Split Bill Itemized Share Summary
   const selectedItemsSummary = useMemo(() => {
@@ -363,7 +371,7 @@ function PaymentModal({
 
     displayItems.forEach((item, idx) => {
       const maxQty = Number(item.quantity ?? item.qty ?? 1);
-      const alreadyPaid = Number(paidQuantities[idx] || 0);
+      const alreadyPaid = Number(item.paid_quantity ?? paidQuantities[idx] ?? 0);
       const unpaidQty = Math.max(maxQty - alreadyPaid, 0);
 
       const selQty = Math.min(Math.max(Number(selectedQuantities[idx] ?? 0), 0), unpaidQty);
@@ -375,32 +383,55 @@ function PaymentModal({
         totalSelectedQty += selQty;
         selectedList.push({
           ...item,
+          id: item.id,
+          order_item_id: item.id,
           itemIndex: idx,
+          name: item.product_name || item.name,
+          unit_price: unitPrice,
           selectedQuantity: selQty,
           selectedTotal: lineTotal,
         });
       }
     });
 
-    const service = Number(fullOrder?.service_charge ?? fullOrder?.service_charge_amount ?? 0);
-    const vatTax = Number(fullOrder?.tax ?? fullOrder?.tax_amount ?? 0);
-    const grand = Math.max(sub + service + vatTax, 0);
+    // Calculate total order items subtotal to derive the exact tax and service charge ratio
+    const totalOrderSubtotal = displayItems.reduce((sum, item) => {
+      const q = Number(item.quantity ?? item.qty ?? 1);
+      const p = getItemUnitPrice(item);
+      return sum + q * p;
+    }, 0);
+
+    const ratio = totalOrderSubtotal > 0 ? (sub / totalOrderSubtotal) : 0;
+
+    const orderTotalTax = Number(fullOrder?.tax ?? fullOrder?.tax_amount ?? 0);
+    const orderTotalService = Number(fullOrder?.service_charge ?? fullOrder?.service_charge_amount ?? 0);
+
+    // Calculate proportional tax and service charge strictly for the selected items
+    const selectedTax = orderTotalTax > 0
+      ? Number((orderTotalTax * ratio).toFixed(2))
+      : 0;
+
+    const selectedServiceCharge = orderTotalService > 0
+      ? Number((orderTotalService * ratio).toFixed(2))
+      : 0;
+
+    const grand = Math.max(Number((sub + selectedServiceCharge + selectedTax).toFixed(2)), 0);
 
     return {
       selectedSubtotal: sub,
-      selectedServiceCharge: service,
-      selectedTax: vatTax,
+      selectedServiceCharge,
+      selectedTax,
       selectedGrandTotal: grand,
       totalSelectedQty,
       selectedList,
     };
-  }, [displayItems, selectedQuantities, paidQuantities]);
+  }, [displayItems, selectedQuantities, paidQuantities, fullOrder]);
 
   const selectAllItems = () => {
     const allSel = {};
     displayItems.forEach((item, idx) => {
       const maxQty = Number(item.quantity ?? item.qty ?? 1);
-      const alreadyPaid = Number(paidQuantities[idx] || 0);
+      const alreadyPaid = Number(item.paid_quantity ?? paidQuantities[idx] ?? 0);
       allSel[idx] = Math.max(maxQty - alreadyPaid, 0);
     });
     setSelectedQuantities(allSel);
@@ -418,7 +449,7 @@ function PaymentModal({
     const item = displayItems[idx];
     if (!item) return;
     const maxQty = Number(item.quantity ?? item.qty ?? 1);
-    const alreadyPaid = Number(paidQuantities[idx] || 0);
+    const alreadyPaid = Number(item.paid_quantity ?? paidQuantities[idx] ?? 0);
     const unpaidQty = Math.max(maxQty - alreadyPaid, 0);
     const validQty = Math.min(Math.max(Number(qty || 0), 0), unpaidQty);
     setSelectedQuantities((prev) => ({ ...prev, [idx]: validQty }));
@@ -459,33 +490,46 @@ function PaymentModal({
     0
   );
 
-  const total = calculatedSubtotal > 0
-    ? Math.max(calculatedSubtotal - discount, 0)
-    : (dbTotal > 0 ? dbTotal : 0);
+  const orderTotalTax = Number(fullOrder?.tax ?? fullOrder?.tax_amount ?? order?.tax ?? 0);
+  const orderTotalService = Number(
+    fullOrder?.service_charge ??
+    fullOrder?.service_charge_amount ??
+    order?.service_charge ??
+    order?.service_charge_amount ??
+    0
+  );
 
-  // Tax / VAT (15% included)
-  const tax = total * (15 / 115);
-  const subtotal = Math.max(total - tax, 0);
+  const total = dbTotal > 0
+    ? dbTotal
+    : Math.max(calculatedSubtotal - discount + orderTotalTax + orderTotalService, 0);
+
+  // Tax / VAT (15% included or explicit)
+  const tax = orderTotalTax > 0 ? orderTotalTax : (total * (15 / 115));
+  const subtotal = Math.max(total - tax - orderTotalService, 0);
 
   /* 
    * Already paid 
    */
-  const paidAmount = (
-    fullOrder?.payments || order?.payments || []
-  )
-    .filter((payment) => payment.status === "paid")
-    .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+  const paidAmount = Number(
+    fullOrder?.paid_amount ??
+    order?.paid_amount ??
+    (fullOrder?.payments || order?.payments || [])
+      .filter((payment) => payment.status === "paid")
+      .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0)
+  );
 
   /* 
    * Remaining 
    */
-  const remainingAmount = Math.max(total - paidAmount, 0);
+  const remainingAmount = Math.max(Number((total - paidAmount).toFixed(2)), 0);
 
-  const payableAmount = paymentMode === "split"
+  const payableAmount = (paymentMode === "split" || paymentMode === "split_items")
     ? selectedItemsSummary.selectedGrandTotal
-    : (remainingAmount > 0
-      ? remainingAmount
-      : (total > 0 ? total : Number(order?.calculatedTotal || 0)));
+    : paymentMode === "split_equal"
+      ? Math.min(Number((remainingAmount / Math.max(splitWays, 1)).toFixed(2)), remainingAmount)
+      : (remainingAmount > 0
+        ? remainingAmount
+        : (total > 0 ? total : Number(order?.calculatedTotal || 0)));
 
   /* 
    * PAYMENT 
@@ -493,7 +537,7 @@ function PaymentModal({
   const handlePayment = async () => {
     setError("");
 
-    if (paymentMode === "split" && selectedItemsSummary.totalSelectedQty <= 0) {
+    if ((paymentMode === "split" || paymentMode === "split_items") && selectedItemsSummary.totalSelectedQty <= 0) {
       setError("Please select at least 1 item/quantity to pay for this customer share.");
       return;
     }
@@ -541,6 +585,20 @@ function PaymentModal({
       const realOrderId = getRealNumericDbOrderId();
       let response;
 
+      const currentSplitItems = (paymentMode === "split" || paymentMode === "split_items")
+        ? selectedItemsSummary.selectedList
+        : null;
+
+      const currentReference = (paymentMode === "split" || paymentMode === "split_items")
+        ? `SPLIT_ITEMS:${selectedItemsSummary.totalSelectedQty}_ITEMS`
+        : paymentMode === "split_equal"
+          ? `EQUAL_SPLIT:${payableAmount.toFixed(2)}_ETB_OF_${splitWays}_WAYS`
+          : (selectedVip?.name || customerName.trim())
+            ? `VIP_CREDIT:${selectedVip?.name || customerName.trim()}`
+            : receiptImage
+              ? "IMAGE_ATTACHED"
+              : (reference.trim() || "PAYMENT");
+
       if (realOrderId) {
         try {
           response = await api(
@@ -557,17 +615,11 @@ function PaymentModal({
                 customer_name: selectedVip?.name || customerName.trim() || null,
                 customerPhone: customerPhone.trim() || null,
                 creditReason: creditReason.trim() || null,
-                reference: paymentMode === "split"
-                  ? `SPLIT_SHARE:${selectedItemsSummary.totalSelectedQty}_ITEMS`
-                  : (selectedVip?.name || customerName.trim())
-                    ? `VIP_CREDIT:${selectedVip?.name || customerName.trim()}`
-                    : receiptImage
-                      ? "IMAGE_ATTACHED"
-                      : "PAYMENT",
+                reference: currentReference,
                 receiptImage: receiptImage || null,
                 imageUrl: receiptImage || null,
                 status: "paid",
-                splitItems: paymentMode === "split" ? selectedItemsSummary.selectedList : null,
+                splitItems: currentSplitItems,
               }),
             }
           );
@@ -637,43 +689,52 @@ function PaymentModal({
         response = { success: true, message: "Payment processed successfully" };
       }
 
-      // Calculate remaining balance after this payment
-      const newPaidAmount = paidAmount + payableAmount;
-      const remainingAfterThisPayment = Math.max(total - newPaidAmount, 0);
+      // Check whether backend confirmed order is fully settled or has remaining tab
+      const isBackendFullyPaid = Boolean(
+        response?.is_fully_paid ??
+        response?.data?.is_fully_paid ??
+        (response?.remaining_balance !== undefined ? Number(response.remaining_balance) <= 0.05 : false)
+      );
 
-      // PARTIAL SPLIT PAYMENT (Remaining tab > 0)
-      if (paymentMode === "split" && remainingAfterThisPayment > 0.01) {
+      const returnedRemaining = response?.remaining_balance !== undefined
+        ? Number(response.remaining_balance)
+        : Math.max(Number((remainingAmount - payableAmount).toFixed(2)), 0);
+
+      const isSplitOrPartial =
+        paymentMode === "split" ||
+        paymentMode === "split_items" ||
+        paymentMode === "split_equal" ||
+        payableAmount < (remainingAmount - 0.05);
+
+      // PARTIAL SHARE PAYMENT (Order has remaining balance or is in split mode)
+      if (!isBackendFullyPaid || (isSplitOrPartial && returnedRemaining > 0.05)) {
         // 1. Record paid quantities locally for items selected in this share
-        const newPaidQuantities = { ...paidQuantities };
-        selectedItemsSummary.selectedList.forEach((st) => {
-          const idx = st.itemIndex;
-          newPaidQuantities[idx] = (newPaidQuantities[idx] || 0) + st.selectedQuantity;
-        });
-        setPaidQuantities(newPaidQuantities);
+        if (selectedItemsSummary?.selectedList?.length > 0) {
+          const newPaidQuantities = { ...paidQuantities };
+          selectedItemsSummary.selectedList.forEach((st) => {
+            const idx = st.itemIndex;
+            newPaidQuantities[idx] = (newPaidQuantities[idx] || 0) + st.selectedQuantity;
+          });
+          setPaidQuantities(newPaidQuantities);
+        }
 
         // 2. Set partial success popup payload
         setPartialSuccessData({
           amount: payableAmount,
-          remaining: remainingAfterThisPayment,
+          remaining: returnedRemaining,
           orderNumber: fullOrder?.order_number || fullOrder?.id || order?.id,
+          tableNumber: fullOrder?.table_number || order?.table_number,
+          paymentMethod,
+          paidItems: (paymentMode === "split" || paymentMode === "split_items") ? selectedItemsSummary.selectedList : [],
+          isEqualSplit: paymentMode === "split_equal",
+          splitWays,
+          reference: currentReference,
           response,
         });
         return;
       }
 
-      // FULL BILL SETTLEMENT (Remaining tab <= 0)
-      if (realOrderId) {
-        try {
-          await Promise.allSettled([
-            api(`/kitchen/orders/${realOrderId}/status`, { method: "PUT", body: JSON.stringify({ status: "completed", payment_status: "paid" }) }),
-            api(`/bar/orders/${realOrderId}/status`, { method: "PUT", body: JSON.stringify({ status: "completed", payment_status: "paid" }) }),
-            api(`/pos/orders/${realOrderId}/status`, { method: "PUT", body: JSON.stringify({ status: "completed", payment_status: "paid" }) }),
-          ]);
-        } catch (compErr) {
-          console.log("Order completion status notice:", compErr);
-        }
-      }
-
+      // FULL BILL SETTLEMENT (Backend confirms order is 100% settled)
       const rawTableToFree = order?.table_id || fullOrder?.table_id || order?.table_number || fullOrder?.table_number;
       if (rawTableToFree) {
         const cleanTId = String(rawTableToFree).replace(/^t/i, "");
@@ -688,7 +749,7 @@ function PaymentModal({
       }
 
       console.log(
-        "Payment successful:",
+        "Payment successful (Full Bill Settled):",
         response
       );
 
@@ -702,7 +763,8 @@ function PaymentModal({
         if (onPaymentSuccess) {
           onPaymentSuccess(
             response,
-            order
+            order,
+            true
           );
         }
 
@@ -745,50 +807,106 @@ function PaymentModal({
   if (partialSuccessData) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-        <div className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-2xl border border-slate-100 space-y-4">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-2xl font-bold text-white shadow-md">
+        <div className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 text-center shadow-2xl border border-slate-100 space-y-4">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-xl font-bold text-white shadow-md">
               ✓
             </div>
           </div>
 
-          <h2 className="text-xl font-extrabold text-slate-900">
-            Partial Share Payment Received!
-          </h2>
+          <div>
+            <h2 className="text-xl font-extrabold text-slate-900">
+              Share Payment Received!
+            </h2>
+            <p className="text-xs text-slate-500 font-medium mt-1">
+              Customer share payment processed successfully
+            </p>
+          </div>
 
-          <p className="text-xs text-slate-600 font-medium">
-            Customer share payment of{" "}
-            <span className="font-extrabold text-slate-900">
-              {partialSuccessData.amount.toFixed(2)} ETB
-            </span>{" "}
-            received successfully.
-          </p>
-
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-1.5 text-xs text-left">
-            <div className="flex justify-between text-amber-900 font-medium">
-              <span>Order Number</span>
-              <span className="font-bold">#{partialSuccessData.orderNumber}</span>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-2 text-xs text-left">
+            <div className="flex justify-between text-emerald-950 font-extrabold text-base">
+              <span>Paid This Share:</span>
+              <span className="text-emerald-700 font-black">{partialSuccessData.amount.toFixed(2)} ETB</span>
             </div>
-            <div className="flex justify-between text-amber-950 font-extrabold text-sm border-t border-amber-200/80 pt-2 mt-1">
-              <span>Remaining Unpaid Tab</span>
+            <div className="flex justify-between text-slate-600 font-medium pt-1 border-t border-emerald-200/60">
+              <span>Payment Method:</span>
+              <span className="font-bold uppercase text-slate-800">{partialSuccessData.paymentMethod}</span>
+            </div>
+            <div className="flex justify-between text-slate-600 font-medium">
+              <span>Order Number:</span>
+              <span className="font-bold text-slate-800">#{partialSuccessData.orderNumber}</span>
+            </div>
+            {partialSuccessData.tableNumber && (
+              <div className="flex justify-between text-slate-600 font-medium">
+                <span>Table:</span>
+                <span className="font-bold text-slate-800">Table {partialSuccessData.tableNumber}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-amber-950 font-extrabold text-sm border-t border-emerald-200/60 pt-2 mt-1">
+              <span>Remaining Unpaid Tab:</span>
               <span className="text-amber-700 font-black">
                 {partialSuccessData.remaining.toFixed(2)} ETB
               </span>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              if (onPaymentSuccess) {
-                onPaymentSuccess(partialSuccessData.response, fullOrder);
-              }
-              window.location.reload();
-            }}
-            className="w-full rounded-2xl bg-emerald-600 py-3.5 text-base font-extrabold text-white hover:bg-emerald-700 shadow-lg active:scale-95 transition"
-          >
-            OK / Reload Page
-          </button>
+          {/* Action buttons */}
+          <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                printThermalReceipt({
+                  restaurantName: "RESTAURANT & BAR",
+                  title: partialSuccessData.isEqualSplit
+                    ? `EQUAL SHARE (${partialSuccessData.splitWays} WAYS)`
+                    : "SPLIT SHARE RECEIPT",
+                  orderNumber: partialSuccessData.orderNumber,
+                  tableNumber: partialSuccessData.tableNumber,
+                  paymentMethod: partialSuccessData.paymentMethod,
+                  items: partialSuccessData.paidItems,
+                  totalPaid: partialSuccessData.amount,
+                  remainingBalance: partialSuccessData.remaining,
+                  reference: partialSuccessData.reference,
+                });
+              }}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 bg-slate-50 py-3 text-sm font-bold text-slate-800 hover:bg-slate-100 hover:border-slate-300 transition shadow-xs active:scale-98"
+            >
+              <Printer className="h-4 w-4 text-slate-600" />
+              Print Share Receipt (Slip)
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                if (onPaymentSuccess) {
+                  onPaymentSuccess(partialSuccessData.response, fullOrder, false);
+                }
+                const settledAmount = partialSuccessData.amount;
+                const rem = partialSuccessData.remaining;
+                setPartialSuccessData(null);
+                setShareSuccessMessage(`Share payment of ${settledAmount.toFixed(2)} ETB recorded. Remaining tab: ${rem.toFixed(2)} ETB.`);
+                await loadOrder();
+                clearAllItems();
+              }}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3.5 text-sm font-extrabold text-white hover:bg-emerald-700 shadow-lg transition active:scale-98"
+            >
+              <Utensils className="h-4 w-4" />
+              Settle Next Share ({partialSuccessData.remaining.toFixed(2)} ETB Left)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (onPaymentSuccess) {
+                  onPaymentSuccess(partialSuccessData.response, fullOrder, false);
+                }
+                onClose();
+              }}
+              className="w-full rounded-xl py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition"
+            >
+              Done / Keep Order Open
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -875,29 +993,41 @@ function PaymentModal({
         </div>
 
         {/* PAYMENT MODE SELECTION TABS */}
-        <div className="mx-4 mt-4 sm:mx-6 flex items-center rounded-2xl bg-slate-100 p-1.5 text-xs font-bold shadow-inner">
+        <div className="mx-4 mt-4 sm:mx-6 grid grid-cols-3 gap-1.5 rounded-2xl bg-slate-100 p-1.5 text-xs font-bold shadow-inner">
           <button
             type="button"
             onClick={() => setPaymentMode("full")}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 transition ${paymentMode === "full"
+            className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 transition text-center ${paymentMode === "full"
                 ? "bg-blue-600 text-white shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
               }`}
           >
-            <CreditCard className="h-4 w-4" />
-            Full Bill Payment ({remainingAmount.toFixed(2)} ETB)
+            <CreditCard className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Full ({remainingAmount.toFixed(0)} ETB)</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setPaymentMode("split")}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 transition ${paymentMode === "split"
+            onClick={() => setPaymentMode("split_items")}
+            className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 transition text-center ${paymentMode === "split_items" || paymentMode === "split"
                 ? "bg-amber-600 text-white shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
               }`}
           >
-            <Utensils className="h-4 w-4" />
-            Split / Shared Item Payment
+            <Utensils className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Split Items</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPaymentMode("split_equal")}
+            className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 transition text-center ${paymentMode === "split_equal"
+                ? "bg-purple-600 text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+              }`}
+          >
+            <Users className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Equal ({splitWays} Ways)</span>
           </button>
         </div>
 
@@ -921,8 +1051,8 @@ function PaymentModal({
             </div>
           )}
 
-          {/* SPLIT / SHARED BILL SELECTION */}
-          {paymentMode === "split" ? (
+          {/* SPLIT BY ITEMS VIEW */}
+          {(paymentMode === "split" || paymentMode === "split_items") ? (
             <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 sm:p-5 space-y-4">
               <div className="flex items-center justify-between border-b border-amber-200/80 pb-3">
                 <div>
@@ -939,14 +1069,14 @@ function PaymentModal({
                   <button
                     type="button"
                     onClick={selectAllItems}
-                    className="rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-bold text-white shadow-xs hover:bg-amber-700"
+                    className="rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-bold text-white shadow-xs hover:bg-amber-700 active:scale-95 transition"
                   >
                     Select All
                   </button>
                   <button
                     type="button"
                     onClick={clearAllItems}
-                    className="rounded-lg bg-white border border-amber-300 px-2.5 py-1 text-xs font-bold text-amber-900 hover:bg-amber-100"
+                    className="rounded-lg bg-white border border-amber-300 px-2.5 py-1 text-xs font-bold text-amber-900 hover:bg-amber-100 active:scale-95 transition"
                   >
                     Clear
                   </button>
@@ -957,7 +1087,7 @@ function PaymentModal({
               <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
                 {displayItems.map((item, idx) => {
                   const maxQty = Number(item.quantity ?? item.qty ?? 1);
-                  const alreadyPaidQty = Number(paidQuantities[idx] || 0);
+                  const alreadyPaidQty = Number(item.paid_quantity ?? paidQuantities[idx] ?? 0);
                   const unpaidQty = Math.max(maxQty - alreadyPaidQty, 0);
                   const isFullyPaid = unpaidQty === 0;
 
@@ -970,10 +1100,10 @@ function PaymentModal({
                     <div
                       key={item.id || idx}
                       className={`flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border p-3 transition ${isFullyPaid
-                          ? "border-emerald-200 bg-emerald-50/50 opacity-80"
+                          ? "border-emerald-200 bg-emerald-50/60 opacity-75"
                           : isSomeSelected
                             ? "border-amber-400 bg-white shadow-sm ring-1 ring-amber-400/20"
-                            : "border-slate-200 bg-slate-50 opacity-70"
+                            : "border-slate-200 bg-slate-50 opacity-75"
                         }`}
                     >
                       {/* Left: Checkbox + Name + Price */}
@@ -982,7 +1112,7 @@ function PaymentModal({
                           type="button"
                           disabled={isFullyPaid}
                           onClick={() => setItemQty(idx, isSomeSelected ? 0 : unpaidQty)}
-                          className="text-amber-600 hover:scale-105 transition shrink-0 disabled:opacity-40 disabled:hover:scale-100"
+                          className="text-amber-600 hover:scale-105 transition shrink-0 disabled:opacity-50 disabled:hover:scale-100"
                         >
                           {isFullyPaid ? (
                             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
@@ -1002,7 +1132,7 @@ function PaymentModal({
                             </p>
                             {isFullyPaid ? (
                               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-800 border border-emerald-300">
-                                🟢 PAID FOR GOOD
+                                🟢 PAID ({alreadyPaidQty}/{maxQty})
                               </span>
                             ) : alreadyPaidQty > 0 ? (
                               <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-extrabold text-blue-700 border border-blue-200">
@@ -1011,7 +1141,7 @@ function PaymentModal({
                             ) : null}
                           </div>
                           <p className="text-xs text-slate-500 font-medium mt-0.5">
-                            {unitPrice.toFixed(2)} ETB / unit • Total Ordered: {maxQty}
+                            {unitPrice.toFixed(2)} ETB / unit • Ordered: {maxQty}
                           </p>
                         </div>
                       </div>
@@ -1084,6 +1214,78 @@ function PaymentModal({
                   <span>Customer Share Total</span>
                   <span className="text-emerald-700 font-black">
                     {selectedItemsSummary.selectedGrandTotal.toFixed(2)} ETB
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : paymentMode === "split_equal" ? (
+            /* EQUAL SPLIT MODE VIEW */
+            <div className="rounded-2xl border border-purple-200 bg-purple-50/40 p-4 sm:p-5 space-y-4">
+              <div className="border-b border-purple-200/80 pb-3">
+                <h3 className="text-base font-extrabold text-purple-950 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-purple-600" />
+                  Split Bill Equally ({splitWays} Ways)
+                </h3>
+                <p className="text-xs text-purple-800 mt-0.5">
+                  Divide the remaining balance evenly. Each guest can pay their share with Cash, Card, or Mobile money.
+                </p>
+              </div>
+
+              {/* Number of guests picker */}
+              <div>
+                <label className="block text-xs font-bold text-purple-950 mb-2">
+                  Number of guests splitting this bill:
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {[2, 3, 4, 5, 6].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setSplitWays(num)}
+                      className={`h-10 min-w-[54px] px-3 rounded-xl text-xs font-extrabold transition ${
+                        splitWays === num
+                          ? "bg-purple-600 text-white shadow-md scale-105"
+                          : "bg-white border border-purple-200 text-purple-900 hover:bg-purple-100"
+                      }`}
+                    >
+                      {num} Ways
+                    </button>
+                  ))}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <span className="text-xs font-semibold text-purple-900">Custom:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={splitWays}
+                      onChange={(e) => setSplitWays(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-16 h-10 text-center text-sm font-black text-purple-950 rounded-xl border border-purple-300 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Equal Share Breakdown Box */}
+              <div className="rounded-2xl border border-purple-200 bg-white p-4 space-y-2.5 shadow-xs">
+                <div className="flex justify-between text-xs text-slate-600 font-medium">
+                  <span>Total Remaining Unpaid Tab:</span>
+                  <span className="font-bold text-slate-900">{remainingAmount.toFixed(2)} ETB</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-600 font-medium">
+                  <span>Number of Guests:</span>
+                  <span className="font-bold text-purple-900">{splitWays} people</span>
+                </div>
+                <div className="flex justify-between items-center border-t border-purple-100 pt-3">
+                  <div>
+                    <span className="text-xs font-black uppercase text-purple-900 tracking-wide">
+                      Each Guest's Share
+                    </span>
+                    <p className="text-[11px] text-slate-500">
+                      Collect this share now with the payment method selected below
+                    </p>
+                  </div>
+                  <span className="text-xl font-black text-purple-700">
+                    {payableAmount.toFixed(2)} ETB
                   </span>
                 </div>
               </div>
@@ -1699,20 +1901,25 @@ function PaymentModal({
               loading ||
               payableAmount <= 0
             }
-            className={`w-full rounded-2xl px-5 py-4 text-lg font-extrabold text-white active:scale-98 transition disabled:cursor-not-allowed disabled:bg-gray-300 shadow-lg ${paymentMode === "split"
+            className={`w-full rounded-2xl px-5 py-4 text-lg font-extrabold text-white active:scale-98 transition disabled:cursor-not-allowed disabled:bg-gray-300 shadow-lg ${
+              paymentMode === "split_items" || paymentMode === "split"
                 ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
-                : paymentMethod === "credit"
-                  ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
-                  : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
-              }`}
+                : paymentMode === "split_equal"
+                  ? "bg-purple-600 hover:bg-purple-700 shadow-purple-600/20"
+                  : paymentMethod === "credit"
+                    ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
+                    : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
+            }`}
           >
             {loading
               ? "Processing Payment..."
-              : paymentMode === "split"
-                ? `Complete Split Share Payment (${payableAmount.toFixed(2)} ETB)`
-                : paymentMethod === "credit"
-                  ? `Mark as Paid (${payableAmount.toFixed(2)} ETB)`
-                  : `Complete Payment (${payableAmount.toFixed(2)} ETB)`}
+              : paymentMode === "split_items" || paymentMode === "split"
+                ? `Complete Item Share Payment (${payableAmount.toFixed(2)} ETB)`
+                : paymentMode === "split_equal"
+                  ? `Collect Guest Share (${payableAmount.toFixed(2)} ETB)`
+                  : paymentMethod === "credit"
+                    ? `Authorize VIP Credit (${payableAmount.toFixed(2)} ETB)`
+                    : `Complete Full Payment (${payableAmount.toFixed(2)} ETB)`}
           </button>
 
         </div>

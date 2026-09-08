@@ -14,6 +14,7 @@ function ActiveOrders() {
   const [barOrders, setBarOrders] = useState([]);
   const [loadingBarOrders, setLoadingBarOrders] = useState(false);
   const [paidOrderIds, setPaidOrderIds] = useState(new Set());
+  const [posOrders, setPosOrders] = useState([]);
 
   const {
     tables = [],
@@ -23,23 +24,14 @@ function ActiveOrders() {
     fetchKitchenOrders,
   } = useRestaurant();
 
-  console.log("KITCHEN ORDERS:", kitchenOrders);
-  console.log("BAR ORDERS:", barOrders);
-
   // ============================================================
-  // FETCH BAR ORDERS
+  // FETCH BAR & POS ORDERS
   // ============================================================
-
-  const [posOrders, setPosOrders] = useState([]);
 
   const fetchBarOrders = async () => {
     try {
       setLoadingBarOrders(true);
-
       const response = await api("/bar/orders");
-
-      console.log("BAR ORDERS RESPONSE:", response);
-
       setBarOrders(response.orders || []);
     } catch (error) {
       console.error("Failed to fetch bar orders:", error);
@@ -81,6 +73,9 @@ function ActiveOrders() {
       {
         payment_status: po.payment_status,
         status: po.status,
+        paid_amount: po.paid_amount,
+        payments: po.payments,
+        total: po.total,
       },
     ])
   );
@@ -132,8 +127,10 @@ function ActiveOrders() {
         order_number: kOrder.order_number || `#${mainOrderId}`,
         table_id: kOrder.table_id,
         table_number: kOrder.table_number,
-        status: isPaid ? "completed" : kOrder.status,
-        payment_status: isPaid ? "paid" : (kOrder.payment_status || "unpaid"),
+        status: isPaid ? "completed" : (posMeta?.status || kOrder.status),
+        payment_status: isPaid ? "paid" : (posMeta?.payment_status || kOrder.payment_status || "unpaid"),
+        paid_amount: Number(posMeta?.paid_amount || 0),
+        total: Number(posMeta?.total || kOrder.total || 0),
         created_at: kOrder.created_at,
         kitchenOrder: kOrder,
         kitchen_order_id: kOrder.id,
@@ -149,6 +146,10 @@ function ActiveOrders() {
       if (isPaid) {
         existing.payment_status = "paid";
         existing.status = "completed";
+      } else if (posMeta?.payment_status) {
+        existing.payment_status = posMeta.payment_status;
+        if (posMeta.paid_amount) existing.paid_amount = posMeta.paid_amount;
+        if (posMeta.total) existing.total = posMeta.total;
       }
       kItems.forEach((newItem) => {
         const hasItem = existing.items.some(
@@ -194,6 +195,10 @@ function ActiveOrders() {
       if (isPaid) {
         existing.payment_status = "paid";
         existing.status = "completed";
+      } else if (posMeta?.payment_status) {
+        existing.payment_status = posMeta.payment_status;
+        if (posMeta.paid_amount) existing.paid_amount = posMeta.paid_amount;
+        if (posMeta.total) existing.total = posMeta.total;
       }
 
       bItems.forEach((bItem) => {
@@ -214,8 +219,10 @@ function ActiveOrders() {
         order_number: bOrder.order_number || `#B-${orderIdRef}`,
         table_id: bOrder.table_id,
         table_number: bOrder.table_number,
-        status: isPaid ? "completed" : (bOrder.status || "pending"),
-        payment_status: isPaid ? "paid" : "unpaid",
+        status: isPaid ? "completed" : (posMeta?.status || bOrder.status || "pending"),
+        payment_status: isPaid ? "paid" : (posMeta?.payment_status || "unpaid"),
+        paid_amount: Number(posMeta?.paid_amount || 0),
+        total: Number(posMeta?.total || 0),
         created_at: bOrder.created_at,
         items: bItems,
         barOrder: bOrder,
@@ -253,6 +260,7 @@ function ActiveOrders() {
         created_at: pOrder.created_at,
         items: pItems,
         paid_amount: pOrder.paid_amount || pOrder.paidAmount || 0,
+        total: pOrder.total || pOrder.total_amount || 0,
         payments: pOrder.payments || [],
         receipt_image: pOrder.receipt_image || pOrder.receiptImage,
         waiter_id: pOrder.waiter_id || pOrder.waiterId || pOrder.user_id,
@@ -261,6 +269,8 @@ function ActiveOrders() {
     } else {
       const existing = tableOrderGroupMap.get(tableGroupKey);
       if (pOrder.paid_amount) existing.paid_amount = pOrder.paid_amount;
+      if (pOrder.payment_status) existing.payment_status = pOrder.payment_status;
+      if (pOrder.total) existing.total = pOrder.total;
       if (pOrder.payments && pOrder.payments.length > 0) existing.payments = pOrder.payments;
       if (pOrder.receipt_image || pOrder.receiptImage) existing.receipt_image = pOrder.receipt_image || pOrder.receiptImage;
       if (!existing.waiter_id) existing.waiter_id = pOrder.waiter_id || pOrder.waiterId || pOrder.user_id;
@@ -281,8 +291,10 @@ function ActiveOrders() {
     if (o.payment_status === "paid") return false;
     if (paidOrderIds.has(String(o.id || o.order_id))) return false;
     const paidAmt = Number(o.paid_amount || 0);
+    const orderTotal = Number(o.total || o.total_amount || 0);
     const itemsTotal = (o.items || []).reduce((acc, i) => acc + Number(i.quantity || i.qty || 1) * Number(i.unit_price || i.price || 0), 0);
-    if (paidAmt > 0 && itemsTotal > 0 && paidAmt >= (itemsTotal - 0.5)) return false;
+    const effectiveTotal = orderTotal > 0 ? orderTotal : itemsTotal;
+    if (paidAmt > 0 && effectiveTotal > 0 && paidAmt >= (effectiveTotal - 0.05)) return false;
     return true;
   });
 
@@ -298,10 +310,6 @@ function ActiveOrders() {
   );
 
   const isWaiter = userRoleName === "waiter" || userRoleId === 6;
-
-  const userIdStr = String(user?.id || user?.user_id || user?.userId || "");
-  const employeeIdStr = String(user?.employee_id || user?.employeeId || "");
-  const userNameLower = (user?.username || user?.name || "").toLowerCase();
 
   const visibleOrders = activeOrders;
 
@@ -425,47 +433,23 @@ function ActiveOrders() {
 
   const handleServeDrinks = async (barOrder) => {
     try {
-      console.log(
-        "Serving bar order:",
-        barOrder.id
-      );
+      console.log("Serving bar order:", barOrder.id);
 
-      const response = await api(
-        `/bar/orders/${barOrder.id}/status`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            status: "served",
-          }),
-        }
-      );
+      const response = await api(`/bar/orders/${barOrder.id}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "served" }),
+      });
 
-      console.log(
-        "Bar order served:",
-        response
-      );
+      console.log("Bar order served:", response);
 
-      // Update immediately in UI
       setBarOrders((currentOrders) =>
         currentOrders.map((order) =>
-          order.id === barOrder.id
-            ? {
-                ...order,
-                status: "served",
-              }
-            : order
+          order.id === barOrder.id ? { ...order, status: "served" } : order
         )
       );
     } catch (error) {
-      console.error(
-        "Failed to mark drinks as served:",
-        error
-      );
-
-      alert(
-        error.message ||
-          "Failed to mark drinks as served"
-      );
+      console.error("Failed to mark drinks as served:", error);
+      alert(error.message || "Failed to mark drinks as served");
     }
   };
 
@@ -473,22 +457,33 @@ function ActiveOrders() {
   // PAYMENT SUCCESS
   // ============================================================
 
-  const handlePaymentSuccess = async (
-    response,
-    order
-  ) => {
-    console.log(
-      "Payment completed successfully:",
-      response,
-      order
-    );
+  const handlePaymentSuccess = async (response, order, isFullyPaidParam) => {
+    console.log("Payment recorded:", response, order, isFullyPaidParam);
+
+    const isFullyPaid = isFullyPaidParam !== undefined
+      ? isFullyPaidParam
+      : Boolean(
+          response?.is_fully_paid ??
+          response?.data?.is_fully_paid ??
+          (response?.remaining_balance !== undefined ? Number(response.remaining_balance) <= 0.05 : false)
+        );
+
+    // If order was only partially settled, keep it active on the table!
+    if (!isFullyPaid) {
+      console.log("Order is partially settled. Keeping active on table.");
+      await fetchPosOrders();
+      if (fetchKitchenOrders) await fetchKitchenOrders();
+      await fetchBarOrders();
+      if (fetchTables) await fetchTables();
+      return;
+    }
 
     setPaymentOrder(null);
 
     const targetOrderId = order.order_id || order.id;
     const targetTableId = order.table_id || order.table_number;
 
-    // Track paid order key in local state so UI instantly renders 'Paid' badge
+    // Track fully paid order in local state
     setPaidOrderIds((prev) => {
       const next = new Set(prev);
       if (order.id) next.add(String(order.id));
@@ -498,7 +493,7 @@ function ActiveOrders() {
       return next;
     });
 
-    // 1. Instantly remove paid order from local bar state
+    // 1. Instantly remove fully paid order from local bar state
     setBarOrders((prev) =>
       prev.filter((o) => (o.id || o.order_id) !== targetOrderId)
     );
@@ -520,6 +515,7 @@ function ActiveOrders() {
       if (fetchTables) await fetchTables();
       if (fetchKitchenOrders) await fetchKitchenOrders();
       await fetchBarOrders();
+      await fetchPosOrders();
     } catch (e) {
       console.error("Failed to refresh state after payment:", e);
     }
@@ -704,6 +700,8 @@ function ActiveOrders() {
                     `table-row-${order.id || order.table_id || orderIdx}-${orderIdx}`;
 
                   const totalBirr = calculateOrderTotal(order);
+                  const paidAmount = Number(order.paid_amount || order.paidAmount || 0);
+                  const remainingBalance = Math.max(0, totalBirr - paidAmount);
 
                   return (
 
@@ -755,31 +753,24 @@ function ActiveOrders() {
                           })()}
 
                           {/* Total Amount & Paid Balance Breakdown */}
-                          {(() => {
-                            const paidAmount = Number(order.paid_amount || order.paidAmount || 0);
-                            const remainingBalance = Math.max(0, totalBirr - paidAmount);
-
-                            return (
-                              <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="font-semibold text-slate-500">Total:</span>
-                                  <span className="font-black text-slate-900">{totalBirr.toFixed(2)} ETB</span>
-                                </div>
-                                {paidAmount > 0 && (
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold text-emerald-600">Paid:</span>
-                                    <span className="font-bold text-emerald-700">{paidAmount.toFixed(2)} ETB</span>
-                                  </div>
-                                )}
-                                {remainingBalance > 0 && paidAmount > 0 && (
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold text-amber-700">Remaining:</span>
-                                    <span className="font-extrabold text-amber-800">{remainingBalance.toFixed(2)} ETB</span>
-                                  </div>
-                                )}
+                          <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-slate-500">Total:</span>
+                              <span className="font-black text-slate-900">{totalBirr.toFixed(2)} ETB</span>
+                            </div>
+                            {paidAmount > 0 && (
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-semibold text-emerald-600">Paid:</span>
+                                <span className="font-bold text-emerald-700">{paidAmount.toFixed(2)} ETB</span>
                               </div>
-                            );
-                          })()}
+                            )}
+                            {remainingBalance > 0 && paidAmount > 0 && (
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-semibold text-amber-700">Remaining:</span>
+                                <span className="font-extrabold text-amber-800">{remainingBalance.toFixed(2)} ETB</span>
+                              </div>
+                            )}
+                          </div>
 
                           {/* Payments History List */}
                           {Array.isArray(order.payments) && order.payments.length > 0 && (
@@ -893,13 +884,21 @@ function ActiveOrders() {
                       {/* OVERALL TABLE STATUS */}
                       <td className="px-3 py-3 sm:px-5 sm:py-3 text-center whitespace-nowrap">
 
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-extrabold ${getStatusStyle(
-                            order.status
-                          )}`}
-                        >
-                          {getStatusLabel(order.status)}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-extrabold ${getStatusStyle(
+                              order.status
+                            )}`}
+                          >
+                            {getStatusLabel(order.status)}
+                          </span>
+
+                          {(order.payment_status === "partial" || (paidAmount > 0 && remainingBalance > 0)) && (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                              🟡 Partial ({paidAmount.toFixed(0)} ETB)
+                            </span>
+                          )}
+                        </div>
 
                       </td>
 
@@ -949,21 +948,21 @@ function ActiveOrders() {
                             )}
 
                             {/* PROOF IMAGE BUTTON IF AVAILABLE */}
-                             {(order.receipt_image ||
-                               order.receiptImage ||
-                               order.proof_image ||
-                               order.proofImage ||
-                               order.image_url ||
-                               order.imageUrl ||
-                               (Array.isArray(order.payments) && order.payments.some((p) => p.receipt_image || p.receiptImage || p.image_url || p.imageUrl || p.image))) && (
-                               <button
-                                 type="button"
-                                 onClick={() => setSelectedProofOrder(order)}
-                                 className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 px-2.5 py-1.5 rounded-xl transition shadow-2xs whitespace-nowrap"
-                               >
-                                 <Eye size={13} /> Proof Image
-                               </button>
-                             )}
+                            {(order.receipt_image ||
+                              order.receiptImage ||
+                              order.proof_image ||
+                              order.proofImage ||
+                              order.image_url ||
+                              order.imageUrl ||
+                              (Array.isArray(order.payments) && order.payments.some((p) => p.receipt_image || p.receiptImage || p.image_url || p.imageUrl || p.image))) && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedProofOrder(order)}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 px-2.5 py-1.5 rounded-xl transition shadow-2xs whitespace-nowrap"
+                              >
+                                <Eye size={13} /> Proof Image
+                              </button>
+                            )}
 
                             {/* EDIT / ADD ITEMS BUTTON */}
                             <button
@@ -982,7 +981,7 @@ function ActiveOrders() {
                               ✏️ Edit / Add Items
                             </button>
 
-                            {/* COMPLETE PAYMENT BUTTON */}
+                            {/* COMPLETE / SETTLE REMAINING PAYMENT BUTTON */}
                             <button
                               type="button"
                               onClick={() => {
@@ -993,9 +992,17 @@ function ActiveOrders() {
                                   calculatedTotal: tBirr,
                                 });
                               }}
-                              className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white shadow-md hover:bg-emerald-700 active:scale-95 transition flex items-center gap-1.5 whitespace-nowrap"
+                              className={`rounded-xl px-3.5 py-1.5 text-xs font-black text-white shadow-md active:scale-95 transition flex items-center gap-1.5 whitespace-nowrap ${
+                                remainingBalance > 0 && paidAmount > 0
+                                  ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
+                                  : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
+                              }`}
                             >
-                              💳 {totalBirr > 0 ? `Pay Birr ${totalBirr.toFixed(2)}` : "Complete Payment"}
+                              💳 {remainingBalance > 0 && paidAmount > 0
+                                ? `Pay Remaining (${remainingBalance.toFixed(2)} ETB)`
+                                : totalBirr > 0
+                                ? `Pay Birr ${totalBirr.toFixed(2)}`
+                                : "Complete Payment"}
                             </button>
 
                           </div>
@@ -1031,11 +1038,14 @@ function ActiveOrders() {
             setPaymentOrder(null)
           }
           onPaymentSuccess={(
-            response
+            response,
+            ord,
+            isFullyPaid
           ) =>
             handlePaymentSuccess(
               response,
-              paymentOrder
+              ord || paymentOrder,
+              isFullyPaid
             )
           }
         />
@@ -1050,6 +1060,24 @@ function ActiveOrders() {
         <PaymentProofModal
           order={selectedProofOrder}
           onClose={() => setSelectedProofOrder(null)}
+        />
+      )}
+
+      {/* ============================================================
+          EDIT / ADD ITEMS MODAL
+      ============================================================ */}
+
+      {selectedEditOrder && (
+        <EditOrderModal
+          order={selectedEditOrder}
+          onClose={() => setSelectedEditOrder(null)}
+          onSuccess={async () => {
+            setSelectedEditOrder(null);
+            await fetchPosOrders();
+            if (fetchKitchenOrders) await fetchKitchenOrders();
+            await fetchBarOrders();
+            if (fetchTables) await fetchTables();
+          }}
         />
       )}
 

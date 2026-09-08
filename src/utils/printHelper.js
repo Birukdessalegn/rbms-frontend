@@ -1,3 +1,5 @@
+import { parseItemPortion } from "./drinkServingHelper";
+
 /**
  * 100% Reliable Cross-Browser Print Helper
  * Uses an isolated printing iframe to guarantee the document never closes prematurely,
@@ -44,7 +46,7 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
         <style>
           @page {
             size: A4 portrait;
-            margin: 10mm 12mm 12mm 12mm;
+            margin: 8mm 8mm 10mm 8mm;
           }
           * {
             box-sizing: border-box;
@@ -54,36 +56,47 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
-            padding: 8px;
+            padding: 0;
             color: #0f172a;
             background: #ffffff;
-            font-size: 11px;
-            line-height: 1.4;
+            font-size: 9.5px;
+            line-height: 1.35;
           }
           /* Executive Financial Summary Grid */
           .grid {
             display: grid !important;
           }
-          .grid-cols-2, .grid-cols-4, .sm\\:grid-cols-4 {
+          .grid-cols-2 {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px !important;
+          }
+          .grid-cols-4, .sm\\:grid-cols-4, .md\\:grid-cols-4 {
             display: grid !important;
             grid-template-columns: repeat(4, 1fr) !important;
-            gap: 10px !important;
-            margin: 14px 0 !important;
+            gap: 8px !important;
+            margin: 8px 0 !important;
           }
-          .bg-slate-50 {
+          .bg-slate-50, .bg-slate-50\\/50 {
             background-color: #f8fafc !important;
           }
           .rounded-xl, .rounded-lg, .rounded-2xl {
-            border-radius: 8px !important;
+            border-radius: 4px !important;
           }
           .border {
-            border: 1px solid #cbd5e1 !important;
+            border: 1px solid #94a3b8 !important;
           }
-          .border-slate-200, .border-slate-200\\/60 {
-            border-color: #cbd5e1 !important;
+          .border-2 {
+            border: 1.5px solid #0f172a !important;
+          }
+          .border-slate-200, .border-slate-200\\/60, .border-slate-300 {
+            border-color: #94a3b8 !important;
           }
           .border-b {
-            border-bottom: 1px solid #cbd5e1 !important;
+            border-bottom: 1px solid #94a3b8 !important;
+          }
+          .border-t {
+            border-top: 1px solid #94a3b8 !important;
           }
           .border-t-2 {
             border-top: 2px solid #0f172a !important;
@@ -91,15 +104,82 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
           .border-b-2 {
             border-bottom: 2px solid #0f172a !important;
           }
-          .p-3 { padding: 8px 10px !important; }
-          .p-4 { padding: 10px 12px !important; }
-          .p-6 { padding: 14px !important; }
-          .pb-5 { padding-bottom: 12px !important; }
-          .pt-4 { padding-top: 12px !important; }
-          .mt-10 { margin-top: 20px !important; }
-          .mb-3 { margin-bottom: 8px !important; }
+          .p-2 { padding: 4px 6px !important; }
+          .p-2\\.5 { padding: 6px 8px !important; }
+          .p-3 { padding: 6px 8px !important; }
+          .p-4 { padding: 8px 10px !important; }
+          .p-5, .p-6 { padding: 10px !important; }
+          .pb-2 { padding-bottom: 4px !important; }
+          .pb-3 { padding-bottom: 6px !important; }
+          .pb-4 { padding-bottom: 8px !important; }
+          .pb-5 { padding-bottom: 10px !important; }
+          .pt-1 { padding-top: 2px !important; }
+          .pt-2 { padding-top: 4px !important; }
+          .pt-3 { padding-top: 6px !important; }
+          .pt-4 { padding-top: 8px !important; }
+          .mt-1 { margin-top: 2px !important; }
+          .mt-2 { margin-top: 4px !important; }
+          .mt-3 { margin-top: 6px !important; }
+          .mt-4 { margin-top: 8px !important; }
+          .mt-6 { margin-top: 12px !important; }
+          .mt-8 { margin-top: 16px !important; }
+          .mt-10 { margin-top: 18px !important; }
+          .mb-2 { margin-bottom: 4px !important; }
+          .mb-3 { margin-bottom: 6px !important; }
+          .mb-4 { margin-bottom: 8px !important; }
+          .mb-6 { margin-bottom: 12px !important; }
           .flex {
             display: flex !important;
+          }
+          .flex-wrap {
+            flex-wrap: wrap !important;
+          }
+          .flex-col {
+            flex-direction: column !important;
+          }
+          .flex-row {
+            flex-direction: row !important;
+          }
+          .side-metrics-bar {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            width: 100% !important;
+            padding: 6px 0 !important;
+            margin: 6px 0 10px 0 !important;
+            border-top: 1.5px solid #0f172a !important;
+            border-bottom: 1.5px solid #0f172a !important;
+            border-left: none !important;
+            border-right: none !important;
+            background: transparent !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+          }
+          .side-metrics-bar > div, .side-metrics-bar .flex {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+          }
+          .border-y {
+            border-top: 1px solid #94a3b8 !important;
+            border-bottom: 1px solid #94a3b8 !important;
+          }
+          .gap-1 { gap: 4px !important; }
+          .gap-1\\.5 { gap: 6px !important; }
+          .gap-2 { gap: 8px !important; }
+          .gap-3 { gap: 12px !important; }
+          .gap-4 { gap: 16px !important; }
+          .gap-x-2 { column-gap: 8px !important; }
+          .gap-x-3 { column-gap: 12px !important; }
+          .gap-x-4 { column-gap: 16px !important; }
+          .gap-y-1 { row-gap: 4px !important; }
+          .gap-y-1\\.5 { row-gap: 6px !important; }
+          .gap-y-2 { row-gap: 8px !important; }
+          .w-full { width: 100% !important; }
+          .items-start {
+            align-items: flex-start !important;
           }
           .items-center {
             align-items: center !important;
@@ -113,6 +193,9 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
           .text-center {
             text-align: center !important;
           }
+          .whitespace-nowrap {
+            white-space: nowrap !important;
+          }
           .uppercase {
             text-transform: uppercase !important;
           }
@@ -120,7 +203,10 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
             letter-spacing: -0.025em !important;
           }
           .tracking-wider {
-            letter-spacing: 0.05em !important;
+            letter-spacing: 0.04em !important;
+          }
+          .font-mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
           }
           .font-black {
             font-weight: 900 !important;
@@ -131,75 +217,106 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
           .font-semibold {
             font-weight: 600 !important;
           }
-          .text-xl {
-            font-size: 15px !important;
-          }
           .text-2xl {
-            font-size: 18px !important;
+            font-size: 16px !important;
           }
-          .text-sm {
+          .text-xl {
+            font-size: 14px !important;
+          }
+          .text-lg {
+            font-size: 13px !important;
+          }
+          .text-base {
             font-size: 11px !important;
           }
-          .text-xs {
+          .text-sm {
             font-size: 10px !important;
           }
-          .text-\\[10px\\] {
+          .text-xs {
             font-size: 9px !important;
+          }
+          .text-\\[11px\\] {
+            font-size: 9px !important;
+          }
+          .text-\\[10px\\] {
+            font-size: 8.5px !important;
+          }
+          .text-\\[9\\.5px\\] {
+            font-size: 8px !important;
           }
           .text-slate-900, .text-slate-950 {
             color: #0f172a !important;
           }
           .text-slate-700, .text-slate-800 {
-            color: #334155 !important;
+            color: #1e293b !important;
           }
-          .text-slate-500, .text-slate-400 {
-            color: #64748b !important;
+          .text-slate-600, .text-slate-500, .text-slate-400 {
+            color: #475569 !important;
           }
-          .text-emerald-600, .text-emerald-700, .text-emerald-800 {
-            color: #047857 !important;
+          .text-emerald-700, .text-emerald-800, .text-emerald-900 {
+            color: #065f46 !important;
           }
-          .text-purple-600, .text-purple-700, .text-purple-800 {
-            color: #7e22ce !important;
+          .text-blue-700, .text-blue-800 {
+            color: #1d4ed8 !important;
           }
-          .text-indigo-600, .text-indigo-700, .text-indigo-800 {
-            color: #4338ca !important;
+          .text-purple-700, .text-purple-800 {
+            color: #6b21a8 !important;
           }
-          .text-red-600, .text-red-700 {
-            color: #b91c1c !important;
+          .text-rose-700, .text-red-700 {
+            color: #9f1239 !important;
+          }
+          .text-amber-700, .text-amber-800 {
+            color: #92400e !important;
           }
           .bg-emerald-50, .bg-emerald-100 {
-            background-color: #dcfce7 !important;
+            background-color: #ecfdf5 !important;
           }
-          .bg-purple-50, .bg-purple-100 {
-            background-color: #f3e8ff !important;
+          .bg-blue-50, .bg-indigo-50 {
+            background-color: #eff6ff !important;
           }
-          .bg-amber-50, .bg-amber-100 {
-            background-color: #fef3c7 !important;
+          .bg-purple-50 {
+            background-color: #faf5ff !important;
           }
-          .bg-red-50, .bg-red-100 {
-            background-color: #fee2e2 !important;
+          .bg-amber-50 {
+            background-color: #fffbeb !important;
+          }
+          .bg-slate-100 {
+            background-color: #f1f5f9 !important;
           }
           .bg-white {
             background-color: #ffffff !important;
           }
-          /* Tables & Financial Total Footers */
+          /* Strict A4 Tables without right-edge overflow */
           table {
             width: 100% !important;
+            max-width: 100% !important;
             border-collapse: collapse !important;
-            margin-top: 10px !important;
-            font-size: 10px !important;
+            margin-top: 6px !important;
+            font-size: 8.5px !important;
+            table-layout: auto !important;
+            page-break-inside: auto !important;
+          }
+          tr {
+            page-break-inside: avoid !important;
+            page-break-after: auto !important;
+          }
+          thead {
+            display: table-header-group !important;
+          }
+          tfoot {
+            display: table-footer-group !important;
           }
           th, td {
-            border: 1px solid #cbd5e1 !important;
-            padding: 6px 8px !important;
-            text-align: left;
+            border: 1px solid #64748b !important;
+            padding: 3.5px 5px !important;
+            vertical-align: top !important;
           }
           th {
             background-color: #f1f5f9 !important;
             font-weight: 800 !important;
             text-transform: uppercase !important;
-            font-size: 9px !important;
-            color: #334155 !important;
+            font-size: 8px !important;
+            color: #0f172a !important;
           }
           tbody tr:nth-child(even) {
             background-color: #f8fafc !important;
@@ -210,17 +327,22 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
             border-top: 2px solid #0f172a !important;
           }
           tfoot td {
-            font-size: 11px !important;
+            font-size: 9.5px !important;
             font-weight: 900 !important;
             color: #0f172a !important;
           }
           /* Badges */
-          .badge, span[class*="rounded-full"] {
+          .badge, span[class*="rounded-full"], span[class*="rounded-md"], span[class*="rounded-lg"] {
             display: inline-block !important;
-            padding: 2px 6px !important;
-            border-radius: 9999px !important;
-            font-weight: 800 !important;
-            font-size: 9px !important;
+            padding: 1px 4px !important;
+            border-radius: 3px !important;
+            font-weight: 700 !important;
+            font-size: 8px !important;
+          }
+          /* Prevent summary & footer from cutting mid-page */
+          .print-summary-box, .print-footer-box, .print-avoid-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
           /* Hide interactive UI */
           button, input, select, .print-hidden, .print-hide {
@@ -324,14 +446,18 @@ export const printThermalReceipt = ({
             <span>QTY  ITEM</span>
             <span>TOTAL</span>
           </div>
-          ${items.map(it => `
-            <div class="item-row">
-              <span style="max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                ${it.selectedQuantity || it.quantity || 1}x ${it.name || it.product_name || 'Item'}
-              </span>
-              <span>${Number(it.selectedTotal || it.total || ((it.selectedQuantity || it.quantity || 1) * (it.unit_price || it.price || 0))).toFixed(2)}</span>
-            </div>
-          `).join('')}
+          ${items.map(it => {
+            const portion = parseItemPortion(it);
+            const lineTotal = Number(it.selectedTotal || it.total || ((it.selectedQuantity || it.quantity || 1) * (it.unit_price || it.price || 0))).toFixed(2);
+            return `
+              <div class="item-row">
+                <span style="max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  <b>${portion.displayServing}</b> ${it.name || it.product_name || 'Item'}
+                </span>
+                <span>${lineTotal}</span>
+              </div>
+            `;
+          }).join('')}
           <div class="divider"></div>
         ` : ''}
 
@@ -508,10 +634,11 @@ export const printOrderReceipt = (order, options = {}) => {
           const p = Number(it.unit_price ?? it.price ?? 0);
           const lineTotal = Number(it.total ?? (q * p));
           const name = it.name || it.product_name || "Item";
+          const portion = parseItemPortion(it);
           return `
             <div class="item-row">
               <div class="item-name">
-                <span>${q}x ${name}</span>
+                <span><b>${portion.displayServing}</b> ${name}</span>
                 ${p > 0 ? `<span style="font-size: 8px; color: #555;"> (@${p.toFixed(2)})</span>` : ""}
               </div>
               <span class="font-bold">${lineTotal.toFixed(2)}</span>

@@ -25,6 +25,7 @@ import api from "../../../services/api";
 import { useAuth } from "../../../context/AuthContext";
 import PaymentProofModal from "../components/PaymentProofModal";
 import { printReportArea } from "../../../utils/printHelper";
+import { parseItemPortion } from "../../../utils/drinkServingHelper";
 
 function TodaySalesAuditPage() {
   const { user } = useAuth();
@@ -409,6 +410,58 @@ function TodaySalesAuditPage() {
     .filter((o) => o.payment_status === "paid" || o.status === "completed")
     .reduce((sum, o) => sum + getOrderTotal(o), 0);
 
+  const activeReportRevenue = statusFilter !== "all" || selectedWaiter !== "all" || searchTerm.trim()
+    ? filteredPaidRevenue
+    : totalPaidRevenue;
+
+  const netSalesSubtotal = activeReportRevenue > 0
+    ? Number((activeReportRevenue / 1.15).toFixed(2))
+    : 0;
+
+  const vatTotal = Number((activeReportRevenue - netSalesSubtotal).toFixed(2));
+
+  const totalItemsServedCount = useMemo(() => {
+    return filteredOrders.reduce((sum, order) => {
+      const items = parseItems(order.items || order.order_items);
+      return sum + items.reduce((s, i) => s + Number(i.quantity || 1), 0);
+    }, 0);
+  }, [filteredOrders]);
+
+  const { filteredCashTotal, filteredDigitalTotal } = useMemo(() => {
+    let fCash = 0;
+    let fDigital = 0;
+    filteredOrders.forEach((o) => {
+      const isPaid = o.payment_status === "paid" || o.status === "completed";
+      if (!isPaid) return;
+
+      const pmts = o.payments || [];
+      if (pmts.length > 0) {
+        pmts.forEach((p) => {
+          const amt = Number(p.amount || 0);
+          const method = (p.payment_method || "").toLowerCase();
+          if (method === "cash") {
+            fCash += amt;
+          } else if (["telebirr", "cbe_birr", "cbe", "card"].includes(method)) {
+            fDigital += amt;
+          } else {
+            fCash += amt;
+          }
+        });
+      } else {
+        const amt = getOrderTotal(o);
+        const method = (o.payment_method || "cash").toLowerCase();
+        if (method === "cash") {
+          fCash += amt;
+        } else if (["telebirr", "cbe_birr", "cbe", "card"].includes(method)) {
+          fDigital += amt;
+        } else {
+          fCash += amt;
+        }
+      }
+    });
+    return { filteredCashTotal: fCash, filteredDigitalTotal: fDigital };
+  }, [filteredOrders]);
+
   const getMethodBadge = (method) => {
     const m = (method || "").toLowerCase();
     if (m === "cash") {
@@ -695,24 +748,35 @@ function TodaySalesAuditPage() {
       {/* PRINTABLE AREA CONTAINER */}
       <div id="sales-audit-report-printable" className="space-y-6">
         {/* OFFICIAL EXECUTIVE PRINT HEADER */}
-        <div className="mb-6 border-b-2 border-slate-900 pb-4">
-          <div className="flex justify-between items-center">
+        <div className="mb-4 border-b-2 border-slate-900 pb-3">
+          <div className="flex justify-between items-start">
             <div>
-              <h1 className="header-title text-2xl font-black uppercase text-slate-900">THE OAK CLUB & LOUNGE</h1>
+              <h1 className="header-title text-xl font-black uppercase text-slate-900 tracking-tight">
+                THE OAK CLUB & LOUNGE
+              </h1>
               <p className="header-subtitle text-xs font-bold uppercase text-slate-600">
-                CASHIER SHIFT & DAILY SALES AUDIT REPORT
+                DAILY SALES & SHIFT REVENUE AUDIT REPORT
+              </p>
+              <p className="meta-text text-[10px] text-slate-500 mt-0.5">
+                Audit Date: {new Date().toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
               </p>
             </div>
             <div className="text-right text-xs">
-              <h2 className="font-bold text-slate-900">Official Daily Revenue Audit</h2>
-              <p className="meta-text">Generated: {new Date().toLocaleString()}</p>
-              <p className="meta-text">Cashier: {user?.username || user?.name || "helen"}</p>
+              <h2 className="font-bold text-slate-900">
+                Shift: {currentShift?.id ? `Shift #${currentShift.id}` : "Daily Audit"}
+              </h2>
+              <p className="meta-text text-[10px] text-slate-500">
+                Cashier: <strong className="text-slate-900">{currentShift?.cashier_name || user?.username || user?.name || "Staff Cashier"}</strong>
+              </p>
+              <p className="meta-text text-[10px] text-slate-500">
+                Printed: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Financial Summary Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 grid-4">
+        {/* Financial Summary Cards - Hidden on A4 print, shown on screen */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 grid-4 print-hide">
           {/* Total Revenue */}
           <div className="card rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
             <div className="flex items-center justify-between">
@@ -890,11 +954,12 @@ function TodaySalesAuditPage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-100/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
                   <tr>
-                    <th className="px-3 py-3 sm:px-5 sm:py-4 whitespace-nowrap">Table & Ticket</th>
-                    <th className="px-3 py-3 sm:px-5 sm:py-4 whitespace-nowrap">Server / Waiter</th>
-                    <th className="px-3 py-3 sm:px-5 sm:py-4 whitespace-nowrap">Total Amount</th>
-                    <th className="px-3 py-3 sm:px-5 sm:py-4 whitespace-nowrap">Kitchen / Table Status</th>
-                    <th className="px-3 py-3 sm:px-5 sm:py-4 min-w-[180px]">Payment Method & Audit</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">Table & Ticket</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">Server / Waiter</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 min-w-[200px]">Items & Portions Served (In Detail)</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">Total Amount</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">Status</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 min-w-[150px]">Payment Method & Audit</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
@@ -903,42 +968,80 @@ function TodaySalesAuditPage() {
                     const payments = order.payments || [];
                     const isPaid = order.payment_status === "paid" || order.status === "completed";
                     const waiterName = order.waiter_name || order.waiterName || order.user_name || "Staff Waiter";
+                    const orderItems = parseItems(order.items || order.order_items);
 
                     return (
                       <tr key={order.id || order.order_number} className="hover:bg-slate-50/80 transition">
                         {/* Table & Ticket */}
-                        <td className="px-3 py-3 sm:px-5 sm:py-4">
+                        <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
                           <div className="flex flex-col">
-                            <span className="text-sm font-black text-slate-900">
+                            <span className="text-xs sm:text-sm font-black text-slate-900">
                               {order.table_number || order.table_id
                                 ? `Table #${order.table_number || order.table_id}`
                                 : "Takeaway"}
                             </span>
-                            <span className="font-mono text-xs font-bold text-slate-500">
+                            <span className="font-mono text-[11px] font-bold text-slate-500">
                               #{order.order_number || order.id}
                             </span>
                             <span className="mt-0.5 text-[10px] text-slate-400">
-                              {order.created_at ? new Date(order.created_at).toLocaleTimeString() : "Today"}
+                              {order.created_at ? new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Today"}
                             </span>
                           </div>
                         </td>
 
                         {/* Server / Waiter */}
-                        <td className="px-3 py-3 sm:px-5 sm:py-4">
-                          <div className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-extrabold text-indigo-900 border border-indigo-100 shadow-2xs">
-                            <User size={14} className="text-indigo-600" />
+                        <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
+                          <div className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-extrabold text-indigo-900 border border-indigo-100 shadow-2xs">
+                            <User size={12} className="text-indigo-600 print-hide" />
                             <span>{waiterName}</span>
                           </div>
                         </td>
 
+                        {/* Items & Portions Served (In Detail) */}
+                        <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
+                          {orderItems.length > 0 ? (
+                            <div className="space-y-1">
+                              {orderItems.map((it, idx) => {
+                                const portion = parseItemPortion(it);
+                                return (
+                                  <div key={idx} className="flex items-center justify-between text-xs gap-3 py-0.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-black border ${portion.badgeClass}`}>
+                                        {portion.displayServing}
+                                      </span>
+                                      <span className="font-bold text-slate-800">
+                                        {it.product_name || it.name || "Item"}
+                                      </span>
+                                      {it.notes && !it.notes.includes(portion.portionName) && (
+                                        <span className="text-[10px] text-slate-400 italic">({it.notes})</span>
+                                      )}
+                                    </div>
+                                    <span className="font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                                      {(Number(it.total || (it.unit_price * it.quantity) || 0)).toFixed(2)} ETB
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                              <div className="text-[10px] font-bold text-slate-500 pt-1 border-t border-slate-100 flex justify-between">
+                                <span>Order Items Total:</span>
+                                <span className="text-slate-800 font-extrabold">
+                                  {orderItems.reduce((s, i) => s + Number(i.quantity || 1), 0)} items
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic text-xs">No items detailed</span>
+                          )}
+                        </td>
+
                         {/* Total Amount */}
-                        <td className="px-3 py-3 sm:px-5 sm:py-4">
+                        <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top whitespace-nowrap">
                           <div className="flex flex-col">
-                            <span className="text-sm font-black text-slate-900">
+                            <span className="text-xs sm:text-sm font-black text-slate-900">
                               {orderTotal.toFixed(2)} ETB
                             </span>
                             {order.paid_amount > 0 && (
-                              <span className="text-[11px] font-bold text-emerald-600">
+                              <span className="text-[10px] font-bold text-emerald-600">
                                 Paid: {Number(order.paid_amount).toFixed(2)} ETB
                               </span>
                             )}
@@ -946,7 +1049,7 @@ function TodaySalesAuditPage() {
                         </td>
 
                         {/* Kitchen / Table Status */}
-                        <td className="px-3 py-3 sm:px-5 sm:py-4">
+                        <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
                           <span
                             className={`badge ${
                               order.status === "completed"
@@ -963,7 +1066,7 @@ function TodaySalesAuditPage() {
                         </td>
 
                         {/* Payment Method & Audit Details */}
-                        <td className="px-3 py-3 sm:px-5 sm:py-4">
+                        <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
                           <div className="space-y-1.5">
                             {payments.length > 0 ? (
                               payments.map((p, pIdx) => (
@@ -991,7 +1094,7 @@ function TodaySalesAuditPage() {
                                 {getMethodBadge(order.payment_method || (isPaid ? "cash" : "unpaid"))}
                                 {!isPaid && (
                                   <span className="text-[11px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                    Unpaid / Pending Cashier
+                                    Unpaid / Pending
                                   </span>
                                 )}
                                 {(order.receipt_image || order.receiptImage) && (
@@ -1014,20 +1117,16 @@ function TodaySalesAuditPage() {
                 </tbody>
                 {filteredOrders.length > 0 && (
                   <tfoot>
-                    <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
-                      <td colSpan="2" className="px-3 py-3.5 text-right text-xs uppercase tracking-wider">
-                        {statusFilter !== "all" || selectedWaiter !== "all" || searchTerm.trim()
-                          ? "Filtered Verified Sales Revenue:"
-                          : "Grand Total Verified Sales Revenue:"}
+                    <tr className="border-t-2 border-slate-400 bg-slate-100 font-black text-slate-900">
+                      <td colSpan="2" className="px-3 py-2.5 text-right text-xs uppercase tracking-wider">
+                        Total Items Served:
                       </td>
-                      <td className="px-3 py-3.5 font-black text-sm text-emerald-800 whitespace-nowrap">
-                        {(statusFilter !== "all" || selectedWaiter !== "all" || searchTerm.trim()
-                          ? filteredPaidRevenue
-                          : totalPaidRevenue
-                        ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-                        ETB
+                      <td className="px-3 py-2.5 font-black text-xs text-blue-900">
+                        {totalItemsServedCount} items across {filteredOrders.length} orders
                       </td>
-                      <td colSpan="2"></td>
+                      <td colSpan="3" className="px-3 py-2.5 text-right font-black text-xs text-emerald-800 whitespace-nowrap">
+                        Verified Sales: {activeReportRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+                      </td>
                     </tr>
                   </tfoot>
                 )}
@@ -1036,18 +1135,121 @@ function TodaySalesAuditPage() {
           )}
         </div>
 
-        {/* OFFICIAL EXECUTIVE PRINT FOOTER */}
-        <div className="mt-10 pt-4 border-t-2 border-slate-900">
-          <div className="flex justify-between items-center text-xs font-bold text-slate-900">
+        {/* OFFICIAL FINANCIAL & REVENUE AUDIT SUMMARY (THE LAST PART) */}
+        <div className="print-summary-box rounded-2xl border-2 border-slate-900 bg-slate-50/70 p-4 sm:p-5 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-300 pb-3 mb-4 gap-2">
             <div>
-              <p className="font-extrabold uppercase">THE OAK CLUB — DAILY SALES AUDIT REPORT</p>
-              <p className="text-[10px] text-slate-500 font-normal">Confidential • For Internal Financial Audit Use Only</p>
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                Official Shift Financial Audit & Tax Reconciliation
+              </h3>
+              <p className="text-[11px] text-slate-500 font-medium">
+                Verified audit totals for today's active shift
+              </p>
             </div>
             <div className="text-right">
+              <span className="rounded-lg bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 uppercase tracking-wider">
+                A4 Official Verification
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            {/* Box 1: Order Volume & Items Served */}
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                Volume & Items
+              </span>
+              <p className="mt-1 text-base font-black text-slate-900">
+                {filteredOrders.length} Orders
+              </p>
+              <p className="mt-0.5 text-[11px] font-extrabold text-blue-700">
+                {totalItemsServedCount} Total Items Served
+              </p>
+            </div>
+
+            {/* Box 2: Sales & 15% VAT Breakdown */}
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                Sales & Tax (15% VAT)
+              </span>
+              <p className="mt-1 text-[11px] text-slate-600 flex justify-between">
+                <span>Net Subtotal:</span>
+                <strong className="text-slate-900">{netSalesSubtotal.toFixed(2)} ETB</strong>
+              </p>
+              <p className="text-[11px] text-slate-600 flex justify-between mt-0.5">
+                <span>VAT (15%):</span>
+                <strong className="text-amber-800">{vatTotal.toFixed(2)} ETB</strong>
+              </p>
+              <p className="mt-1 border-t border-slate-100 pt-1 text-xs font-black text-slate-900 flex justify-between">
+                <span>Gross Revenue:</span>
+                <span>{activeReportRevenue.toFixed(2)} ETB</span>
+              </p>
+            </div>
+
+            {/* Box 3: Total Cash Received In Till */}
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                Cash In Till / Drawer
+              </span>
+              <p className="mt-1 text-base font-black text-emerald-800">
+                {filteredCashTotal.toFixed(2)} ETB
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                Total Physical Cash Received
+              </p>
+              {currentShift && (
+                <p className="text-[10px] text-slate-600 mt-0.5">
+                  Opening Drawer Float: {openingCashAmount.toFixed(2)} ETB
+                </p>
+              )}
+            </div>
+
+            {/* Box 4: Digital Payments & Open Credit */}
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                Digital & Open Credit
+              </span>
+              <p className="mt-1 text-[11px] text-slate-600 flex justify-between">
+                <span>Digital (Telebirr/CBE):</span>
+                <strong className="text-purple-700">{filteredDigitalTotal.toFixed(2)} ETB</strong>
+              </p>
+              <p className="text-[11px] text-slate-600 flex justify-between mt-0.5">
+                <span>Open / VIP Credit:</span>
+                <strong className="text-rose-700">{pendingCreditTotal.toFixed(2)} ETB</strong>
+              </p>
+            </div>
+          </div>
+
+          {/* Grand Total Revenue Row */}
+          <div className="mt-3 pt-3 border-t-2 border-slate-900 flex justify-between items-center text-xs font-black text-slate-900">
+            <span className="uppercase tracking-wider">GRAND TOTAL VERIFIED SALES REVENUE (VAT INCLUSIVE):</span>
+            <span className="text-base text-emerald-800 font-black">
+              {activeReportRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+            </span>
+          </div>
+
+          {currentShift?.shortage_overage !== undefined && currentShift?.shortage_overage !== null && (
+            <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between items-center text-[11px] font-bold">
+              <span className="text-slate-600">Shift Drawer Cash Variance (Counted vs Expected):</span>
+              <span className={Number(currentShift.shortage_overage) < 0 ? "text-rose-700 font-black" : "text-emerald-700 font-black"}>
+                {Number(currentShift.shortage_overage) > 0 ? `+${currentShift.shortage_overage}` : currentShift.shortage_overage} ETB
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* OFFICIAL EXECUTIVE PRINT FOOTER */}
+        <div className="print-footer-box mt-8 pt-4 border-t-2 border-slate-900">
+          <div className="flex justify-between items-center text-xs font-bold text-slate-900">
+            <div>
+              <p className="font-extrabold uppercase">THE OAK CLUB & LOUNGE — DAILY SALES AUDIT REPORT</p>
+              <p className="text-[10px] text-slate-500 font-normal">Confidential • For Internal Financial Audit Use Only</p>
+            </div>
+            <div className="text-right space-y-2">
               <p>
                 Cashier Signature: {currentShift?.cashier_name ? `${currentShift.cashier_name} (Signed)` : "______________________"}
               </p>
-              <p className="mt-2">
+              <p>
                 Manager Approval: {currentShift?.verified_by_name ? `${currentShift.verified_by_name} (Verified: ${new Date(currentShift.verified_at).toLocaleDateString()})` : "_______________________"}
               </p>
             </div>

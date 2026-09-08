@@ -21,6 +21,7 @@ import {
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../services/api";
 import { printOrderReceipt } from "../../../utils/printHelper";
+import { parseItemPortion } from "../../../utils/drinkServingHelper";
 import PaymentProofModal from "../components/PaymentProofModal";
 
 function WaiterServedOrdersPage() {
@@ -993,14 +994,22 @@ function WaiterServedOrdersPage() {
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block border-b border-slate-200 pb-1">
                           Items Delivered
                         </span>
-                        {items.map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-slate-700">
-                            <span>{item.quantity || item.qty || 1}x {item.name || item.product_name || "Item"}</span>
-                            <span className="font-mono font-semibold text-slate-900">
-                              {(Number(item.quantity || item.qty || 1) * Number(item.unit_price || item.price || 0)).toFixed(2)} ETB
-                            </span>
-                          </div>
-                        ))}
+                        {items.map((item, idx) => {
+                          const portion = parseItemPortion(item);
+                          return (
+                            <div key={idx} className="flex items-center justify-between text-slate-700 py-0.5">
+                              <span className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`inline-flex items-center rounded-md px-1.5 py-0.2 text-[10px] font-extrabold border ${portion.badgeClass}`}>
+                                  {portion.displayServing}
+                                </span>
+                                <span className="font-semibold text-slate-900">{item.name || item.product_name || "Item"}</span>
+                              </span>
+                              <span className="font-mono font-semibold text-slate-900 whitespace-nowrap">
+                                {(Number(item.quantity || item.qty || 1) * Number(item.unit_price || item.price || 0)).toFixed(2)} ETB
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1314,14 +1323,20 @@ function WaiterServedOrdersPage() {
                     selectedOrderDetail.items.map((item, idx) => {
                       const qty = Number(item.quantity || item.qty || 1);
                       const price = Number(item.unit_price || item.price || 0);
+                      const portion = parseItemPortion(item);
                       return (
                         <div key={idx} className="flex items-center justify-between p-3">
                           <div>
-                            <p className="font-extrabold text-slate-900">
-                              {item.name || item.product_name || item.title || "Delivered Product"}
-                            </p>
-                            <p className="text-[11px] text-slate-500 font-mono">
-                              {qty} x {price.toFixed(2)} ETB
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-extrabold border ${portion.badgeClass}`}>
+                                {portion.displayServing}
+                              </span>
+                              <p className="font-extrabold text-slate-900">
+                                {item.name || item.product_name || item.title || "Delivered Product"}
+                              </p>
+                            </div>
+                            <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                              Unit Price: {price.toFixed(2)} ETB
                             </p>
                           </div>
                           <span className="font-black text-slate-900 font-mono">

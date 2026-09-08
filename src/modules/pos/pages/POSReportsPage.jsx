@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import api from "../../../services/api";
 import { printReportArea } from "../../../utils/printHelper";
+import { parseItemPortion } from "../../../utils/drinkServingHelper";
 
 function POSReportsPage() {
   const [orders, setOrders] = useState([]);
@@ -244,15 +245,28 @@ function POSReportsPage() {
 
   const avgOrderValue = completedOrders > 0 ? totalSales / completedOrders : 0;
 
-  /* Total Menu Items Sold Count */
-  const totalItemsSoldQuantity = useMemo(() => {
-    return filteredOrders.reduce((sum, o) => {
+  /* Total Menu Items Sold Count & Total Shots Served Calculation */
+  const { totalItemsSoldQuantity, totalShotsServedAcrossOrders, totalFullBottlesAcrossOrders } = useMemo(() => {
+    let units = 0;
+    let shots = 0;
+    let bottles = 0;
+    filteredOrders.forEach((o) => {
       const items = parseItems(o.items || o.order_items);
-      return sum + items.reduce((iSum, item) => iSum + Number(item.quantity || item.qty || 1), 0);
-    }, 0);
+      items.forEach((item) => {
+        const portion = parseItemPortion(item);
+        units += portion.quantity;
+        shots += portion.totalShots;
+        if (portion.isFullBottle) bottles += portion.quantity;
+      });
+    });
+    return {
+      totalItemsSoldQuantity: units,
+      totalShotsServedAcrossOrders: shots,
+      totalFullBottlesAcrossOrders: bottles,
+    };
   }, [filteredOrders]);
 
-  /* Item-Wise Sales & Products Sold Breakdown Calculation */
+  /* Item-Wise Sales & Products Sold Breakdown Calculation with Shots / Bottle Details */
   const itemSalesSummary = useMemo(() => {
     const map = new Map();
     filteredOrders.forEach((o) => {
@@ -260,6 +274,7 @@ function POSReportsPage() {
       const items = parseItems(o.items || o.order_items);
 
       items.forEach((item) => {
+        const portion = parseItemPortion(item);
         const name =
           item.name ||
           item.product_name ||
@@ -280,11 +295,32 @@ function POSReportsPage() {
             quantitySold: 0,
             totalRevenue: 0,
             unitPrice: price,
+            totalShots: 0,
+            fullBottles: 0,
+            halfBottles: 0,
+            isDrink: portion.isDrink,
+            isShot: portion.isShot,
+            isBottle: portion.isBottle,
+            portionName: portion.portionName,
           });
         }
 
         const stat = map.get(name);
         stat.quantitySold += qty;
+        if (portion.isShot) {
+          stat.isShot = true;
+          stat.totalShots += portion.totalShots;
+        }
+        if (portion.isFullBottle) {
+          stat.fullBottles += qty;
+          stat.totalShots += portion.totalShots;
+        }
+        if (portion.isHalfBottle) {
+          stat.halfBottles += qty;
+          stat.totalShots += portion.totalShots;
+        }
+        if (portion.isDrink) stat.isDrink = true;
+
         if (isPaid) {
           stat.totalRevenue += itemTotal > 0 ? itemTotal : qty * price;
         }
@@ -292,7 +328,27 @@ function POSReportsPage() {
       });
     });
 
-    return Array.from(map.values()).sort((a, b) => b.totalRevenue - a.totalRevenue);
+    return Array.from(map.values())
+      .map((item) => {
+        let servingBadge = `${item.quantitySold} units`;
+        if (item.fullBottles > 0 && item.totalShots > item.fullBottles * 30) {
+          const loose = item.totalShots - item.fullBottles * 30;
+          servingBadge = `${item.fullBottles} Full Bottle${item.fullBottles > 1 ? "s" : ""} + ${loose} Shots`;
+        } else if (item.fullBottles > 0) {
+          servingBadge = `${item.fullBottles} Full Bottle${item.fullBottles > 1 ? "s" : ""} (${item.totalShots} Shots)`;
+        } else if (item.halfBottles > 0) {
+          servingBadge = `${item.halfBottles} Half Bottle${item.halfBottles > 1 ? "s" : ""} (${item.totalShots} Shots)`;
+        } else if (item.isShot || item.totalShots > 0) {
+          servingBadge = `${item.totalShots} Shot${item.totalShots > 1 ? "s" : ""}`;
+        } else if (item.isBottle) {
+          servingBadge = `${item.quantitySold} Bottle${item.quantitySold > 1 ? "s" : ""}`;
+        }
+        return {
+          ...item,
+          servingBadge,
+        };
+      })
+      .sort((a, b) => b.totalRevenue - a.totalRevenue);
   }, [filteredOrders]);
 
   /* Aggregated Payment Methods Breakdown */
@@ -391,6 +447,10 @@ function POSReportsPage() {
 
     return Array.from(map.values()).sort((a, b) => b.paidSales - a.paidSales);
   }, [filteredOrders]);
+
+  /* Net Sales and 15% VAT Math */
+  const netSalesSubtotal = totalSales > 0 ? Number((totalSales / 1.15).toFixed(2)) : 0;
+  const vatTotal = Number((totalSales - netSalesSubtotal).toFixed(2));
 
   /* Pagination Logic for Transaction Log */
   const totalPages = Math.ceil(filteredOrders.length / pageSize) || 1;
@@ -586,114 +646,48 @@ function POSReportsPage() {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="card rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="card-title text-xs font-semibold uppercase tracking-wider text-slate-500">Total Orders</p>
-            <h2 className="card-value mt-2 text-2xl font-black text-slate-900">
-              {loading ? "..." : totalOrders}
-            </h2>
-            <p className="mt-1 text-xs text-slate-400">Total POS tickets</p>
-          </div>
-
-          <div className="card rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="card-title text-xs font-semibold uppercase tracking-wider text-slate-500">Settled Orders</p>
-            <h2 className="card-value mt-2 text-2xl font-black text-emerald-600">
-              {loading ? "..." : completedOrders}
-            </h2>
-            <p className="mt-1 text-xs text-slate-400">Paid transaction count</p>
-          </div>
-
-          <div className="card rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="card-title text-xs font-semibold uppercase tracking-wider text-slate-500">Total Revenue</p>
-            <h2 className="card-value mt-2 text-2xl font-black text-blue-600">
-              {loading ? "..." : `${totalSales.toLocaleString()} ETB`}
-            </h2>
-            <p className="mt-1 text-xs text-slate-400">Collected gross total</p>
-          </div>
-
-          <div className="card rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="card-title text-xs font-semibold uppercase tracking-wider text-slate-500">Items Sold</p>
-            <h2 className="card-value mt-2 text-2xl font-black text-purple-600">
-              {loading ? "..." : `${totalItemsSoldQuantity.toLocaleString()} Units`}
-            </h2>
-            <p className="mt-1 text-xs text-slate-400">Total food & drink items</p>
-          </div>
-
-          <div className="card rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="card-title text-xs font-semibold uppercase tracking-wider text-slate-500">Avg Ticket Size</p>
-            <h2 className="card-value mt-2 text-2xl font-black text-indigo-600">
-              {loading ? "..." : `${avgOrderValue.toFixed(2)} ETB`}
-            </h2>
-            <p className="mt-1 text-xs text-slate-400">Average spend per order</p>
-          </div>
-        </div>
-
-        {/* PAYMENT METHOD BREAKDOWN CARDS */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
-                <PieChart size={18} />
-              </div>
-              <div>
-                <h2 className="font-bold text-slate-900 text-sm">Payment Method Distribution</h2>
-                <p className="text-xs text-slate-500">Breakdown of gross sales collected by payment channels</p>
-              </div>
+        {/* CARDLESS HORIZONTAL METRICS BAR (SIDE-BY-SIDE WITHOUT CARDS) */}
+        <div className="side-metrics-bar border-y border-slate-300 py-2.5 my-3">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 text-xs text-slate-700 w-full">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Orders:</span>
+              <strong className="text-slate-900 font-black">{totalOrders}</strong>
+              <span className="text-[10px] font-semibold text-emerald-700">({completedOrders} Settled)</span>
             </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-              <div className="flex items-center justify-between text-emerald-800">
-                <span className="text-xs font-bold uppercase tracking-wider">Cash Payments</span>
-                <DollarSign size={18} className="text-emerald-600" />
-              </div>
-              <p className="mt-2 text-xl font-black text-emerald-900">
-                {paymentMethodSummary.cash.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB
-              </p>
-              <p className="mt-1 text-[11px] font-semibold text-emerald-700">
-                {paymentMethodSummary.cash.count} Cash Transactions
-              </p>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Items Sold:</span>
+              <strong className="text-purple-700 font-black">{totalItemsSoldQuantity} Units</strong>
+              {totalShotsServedAcrossOrders > 0 && (
+                <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1 ml-0.5">
+                  ({totalShotsServedAcrossOrders} Shots{totalFullBottlesAcrossOrders > 0 ? ` • ${totalFullBottlesAcrossOrders} Bottles` : ""})
+                </span>
+              )}
             </div>
-
-            <div className="rounded-xl border border-sky-100 bg-sky-50/50 p-4">
-              <div className="flex items-center justify-between text-sky-800">
-                <span className="text-xs font-bold uppercase tracking-wider">Telebirr / Mobile</span>
-                <Smartphone size={18} className="text-sky-600" />
-              </div>
-              <p className="mt-2 text-xl font-black text-sky-900">
-                {paymentMethodSummary.telebirr.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB
-              </p>
-              <p className="mt-1 text-[11px] font-semibold text-sky-700">
-                {paymentMethodSummary.telebirr.count} Mobile Transfer Payments
-              </p>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Gross Sales:</span>
+              <strong className="text-blue-700 font-black">{totalSales.toLocaleString()} ETB</strong>
             </div>
-
-            <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-4">
-              <div className="flex items-center justify-between text-purple-800">
-                <span className="text-xs font-bold uppercase tracking-wider">Bank Transfer</span>
-                <Landmark size={18} className="text-purple-600" />
-              </div>
-              <p className="mt-2 text-xl font-black text-purple-900">
-                {paymentMethodSummary.bank.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB
-              </p>
-              <p className="mt-1 text-[11px] font-semibold text-purple-700">
-                {paymentMethodSummary.bank.count} Direct Bank Transfers
-              </p>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Avg Ticket:</span>
+              <strong className="text-indigo-700 font-black">{avgOrderValue.toFixed(2)} ETB</strong>
             </div>
-
-            <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4">
-              <div className="flex items-center justify-between text-amber-800">
-                <span className="text-xs font-bold uppercase tracking-wider">Credit / Unpaid</span>
-                <CreditCard size={18} className="text-amber-600" />
-              </div>
-              <p className="mt-2 text-xl font-black text-amber-900">
-                {paymentMethodSummary.credit.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB
-              </p>
-              <p className="mt-1 text-[11px] font-semibold text-amber-700">
-                {paymentMethodSummary.credit.count} Unsettled Credit Orders
-              </p>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Cash:</span>
+              <strong className="text-emerald-700 font-black">{paymentMethodSummary.cash.amount.toLocaleString()} ETB</strong>
+            </div>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Digital:</span>
+              <strong className="text-sky-700 font-black">{(paymentMethodSummary.telebirr.amount + paymentMethodSummary.bank.amount).toLocaleString()} ETB</strong>
+            </div>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Credit:</span>
+              <strong className="text-amber-700 font-black">{paymentMethodSummary.credit.amount.toLocaleString()} ETB</strong>
             </div>
           </div>
         </div>
@@ -707,7 +701,7 @@ function POSReportsPage() {
               </div>
               <div>
                 <h2 className="font-bold text-slate-900 text-sm">Products & Menu Items Sold Breakdown</h2>
-                <p className="text-xs text-slate-500">Items sold with quantity and revenue generated</p>
+                <p className="text-xs text-slate-500">Items and drinks sold with shot portions, bottle counts, and revenue generated</p>
               </div>
             </div>
             <span className="text-xs font-bold text-purple-700 bg-purple-50 px-3 py-1 rounded-full border border-purple-100">
@@ -722,7 +716,7 @@ function POSReportsPage() {
                   <th className="px-5 py-3">#</th>
                   <th className="px-5 py-3">Product / Menu Item Name</th>
                   <th className="px-5 py-3">Category</th>
-                  <th className="px-5 py-3 text-center">Quantity Sold</th>
+                  <th className="px-5 py-3 text-center">Serving Portion / Quantity Sold</th>
                   <th className="px-5 py-3">Unit Price (ETB)</th>
                   <th className="px-5 py-3">Total Money Made (ETB)</th>
                   <th className="px-5 py-3">% Sales Share</th>
@@ -751,9 +745,15 @@ function POSReportsPage() {
                             {item.category}
                           </span>
                         </td>
-                        <td className="px-5 py-3 text-center font-black text-purple-700">
-                          <span className="inline-flex items-center justify-center rounded-lg bg-purple-50 px-2.5 py-1 text-xs font-black text-purple-900 border border-purple-100">
-                            {item.quantitySold} units
+                        <td className="px-5 py-3 text-center font-black">
+                          <span className={`inline-flex items-center justify-center rounded-lg px-2.5 py-1 text-xs font-black border ${
+                            item.isShot || item.totalShots > 0
+                              ? "bg-purple-50 text-purple-900 border-purple-200"
+                              : item.fullBottles > 0
+                              ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+                              : "bg-slate-100 text-slate-800 border-slate-200"
+                          }`}>
+                            {item.servingBadge}
                           </span>
                         </td>
                         <td className="px-5 py-3 font-semibold text-slate-700">
@@ -896,19 +896,20 @@ function POSReportsPage() {
             <table className="w-full min-w-[700px] text-left text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Order #</th>
-                  <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Date & Time</th>
-                  <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Server / Waiter</th>
-                  <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Type</th>
-                  <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Payment Method</th>
-                  <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Total Amount</th>
-                  <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Payment Status</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Order #</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Date & Time</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Server / Waiter</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Type</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase min-w-[200px]">Items & Portions Served (In Detail)</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Payment Method</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Total Amount</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="px-5 py-8 text-center text-slate-400">
+                    <td colSpan="8" className="px-5 py-8 text-center text-slate-400">
                       Loading sales data...
                     </td>
                   </tr>
@@ -919,33 +920,67 @@ function POSReportsPage() {
                     const dateStr = o.created_at ? new Date(o.created_at).toLocaleString() : "-";
                     const waiterName = o.waiter_name || o.waiterName || o.user_name || "Staff Waiter";
                     const payMethod = o.payment_method || o.method || "Cash";
+                    const orderItems = parseItems(o.items || o.order_items);
 
                     return (
                       <tr key={o.id} className="hover:bg-slate-50 transition">
-                        <td className="px-5 py-3.5 font-semibold text-slate-900">
+                        <td className="px-4 py-2.5 font-semibold text-slate-900 align-top">
                           {o.order_number || `#${o.id}`}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-500 text-xs">
+                        <td className="px-4 py-2.5 text-slate-500 text-xs align-top">
                           {dateStr}
                         </td>
-                        <td className="px-5 py-3.5 font-bold text-slate-800">
-                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-800 border border-indigo-100">
-                            <User size={12} />
+                        <td className="px-4 py-2.5 font-bold text-slate-800 align-top">
+                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-800 border border-indigo-100">
+                            <User size={11} className="print-hide" />
                             {waiterName}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 capitalize text-slate-700 font-medium">
+                        <td className="px-4 py-2.5 capitalize text-slate-700 font-medium text-xs align-top">
                           {o.order_type || "Dine In"}
                         </td>
-                        <td className="px-5 py-3.5 capitalize text-xs font-bold text-slate-600">
+                        <td className="px-4 py-2.5 align-top">
+                          {orderItems.length > 0 ? (
+                            <div className="space-y-1">
+                              {orderItems.map((it, idx) => {
+                                const portion = parseItemPortion(it);
+                                return (
+                                  <div key={idx} className="flex items-center justify-between text-xs gap-2 py-0.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-black border ${portion.badgeClass}`}>
+                                        {portion.displayServing}
+                                      </span>
+                                      <span className="font-bold text-slate-800">
+                                        {it.product_name || it.name || "Item"}
+                                      </span>
+                                      {it.notes && !it.notes.includes(portion.portionName) && (
+                                        <span className="text-[10px] text-slate-400 italic">({it.notes})</span>
+                                      )}
+                                    </div>
+                                    <span className="font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                                      {(Number(it.total || (it.unit_price * it.quantity) || 0)).toFixed(2)} ETB
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                              <div className="text-[10px] font-bold text-slate-500 pt-1 border-t border-slate-100 flex justify-between">
+                                <span>Order Items:</span>
+                                <span className="text-slate-800 font-bold">{orderItems.reduce((s, i) => s + Number(i.quantity || 1), 0)} items</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic text-xs">No items detailed</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 capitalize text-xs font-bold text-slate-600 align-top">
                           <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5">
                             {payMethod}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 font-bold text-slate-900">
+                        <td className="px-4 py-2.5 font-bold text-slate-900 align-top whitespace-nowrap">
                           {total.toLocaleString()} ETB
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td className="px-4 py-2.5 align-top">
                           <span
                             className={`badge ${
                               isPaid ? "badge-paid" : "badge-pending"
@@ -959,7 +994,7 @@ function POSReportsPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="7" className="px-5 py-8 text-center text-slate-400">
+                    <td colSpan="8" className="px-5 py-8 text-center text-slate-400">
                       No POS transaction records found matching filter criteria.
                     </td>
                   </tr>
@@ -967,14 +1002,19 @@ function POSReportsPage() {
               </tbody>
               {filteredOrders.length > 0 && (
                 <tfoot>
-                  <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
-                    <td colSpan="5" className="px-5 py-3.5 text-right text-xs uppercase tracking-wider">
-                      Grand Total Paid POS Revenue:
+                  <tr className="border-t-2 border-slate-400 bg-slate-100 font-black text-slate-900">
+                    <td colSpan="4" className="px-4 py-2.5 text-right text-xs uppercase tracking-wider">
+                      Total Items Sold Across Orders:
                     </td>
-                    <td className="px-5 py-3.5 font-black text-sm text-emerald-800">
+                    <td className="px-4 py-2.5 font-black text-xs text-purple-800">
+                      {totalItemsSoldQuantity} Units Sold
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-xs uppercase tracking-wider">
+                      Gross Sales:
+                    </td>
+                    <td colSpan="2" className="px-4 py-2.5 font-black text-sm text-emerald-800 whitespace-nowrap">
                       {totalSales.toLocaleString()} ETB
                     </td>
-                    <td className="px-5 py-3.5"></td>
                   </tr>
                 </tfoot>
               )}
@@ -1010,16 +1050,64 @@ function POSReportsPage() {
           )}
         </div>
 
+        {/* BOTTOM FINANCIAL AUDIT & RECONCILIATION SUMMARY (THE LAST PART) */}
+        <div className="print-summary-box mt-6 border-2 border-slate-900 rounded-lg p-4 bg-slate-50/80 shadow-xs">
+          <div className="flex justify-between items-center border-b border-slate-300 pb-2 mb-3">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-900">
+              Official Shift Revenue & Tax Audit Summary
+            </span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase">
+              A4 Financial Verification
+            </span>
+          </div>
+
+          {/* Side-by-side summary metrics - no big cards */}
+          <div className="flex flex-wrap justify-between items-center gap-4 text-xs border-b border-slate-200 pb-3">
+            <div>
+              <span className="text-[10px] text-slate-500 uppercase font-bold block">Order Volume</span>
+              <span className="font-extrabold text-slate-900">{totalOrders} Orders • {totalItemsSoldQuantity} Items Sold</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-500 uppercase font-bold block">Net Sales Subtotal</span>
+              <span className="font-extrabold text-slate-900">{netSalesSubtotal.toFixed(2)} ETB</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-500 uppercase font-bold block">15% VAT Tax</span>
+              <span className="font-extrabold text-amber-800">{vatTotal.toFixed(2)} ETB</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-500 uppercase font-bold block">Physical Cash In Till</span>
+              <span className="font-extrabold text-emerald-800">{paymentMethodSummary.cash.amount.toFixed(2)} ETB</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-500 uppercase font-bold block">Digital (Telebirr / Bank)</span>
+              <span className="font-extrabold text-purple-800">{(paymentMethodSummary.telebirr.amount + paymentMethodSummary.bank.amount).toFixed(2)} ETB</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-500 uppercase font-bold block">Unpaid / Credit</span>
+              <span className="font-extrabold text-rose-700">{paymentMethodSummary.credit.amount.toFixed(2)} ETB</span>
+            </div>
+          </div>
+
+          {/* Grand Total Bar */}
+          <div className="mt-3 flex justify-between items-center text-xs font-black text-slate-900">
+            <span className="uppercase tracking-wider">GRAND TOTAL SALES REVENUE (VAT INCLUSIVE):</span>
+            <span className="text-base text-emerald-800 font-black">
+              {totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+            </span>
+          </div>
+        </div>
+
         {/* OFFICIAL EXECUTIVE PRINT FOOTER */}
-        <div className="mt-10 pt-4 border-t-2 border-slate-900">
+        <div className="print-footer-box mt-6 pt-4 border-t-2 border-slate-900">
           <div className="flex justify-between items-center text-xs text-slate-900 font-bold">
             <div>
               <p className="font-extrabold uppercase">THE OAK CLUB — CASHIER SHIFT REPORT</p>
               <p className="text-[10px] text-slate-500 font-normal">Confidential • Financial Audit Report</p>
             </div>
-            <div className="text-right">
+            <div className="text-right space-y-2">
               <p>Cashier Signature: ______________________</p>
-              <p className="mt-2">Manager Approval: _______________________</p>
+              <p>Manager Approval: _______________________</p>
             </div>
           </div>
         </div>

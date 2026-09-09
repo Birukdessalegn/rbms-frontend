@@ -1,6 +1,9 @@
-import { Bell } from "lucide-react";
+import { Bell, ArrowRight } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useRestaurant } from "../context/RestaurantContext";
+import { useAuth } from "../context/AuthContext";
+import { getNotificationRoute } from "../utils/notificationRouter";
 
 function NotificationBell() {
   const {
@@ -8,6 +11,8 @@ function NotificationBell() {
     markNotificationAsRead,
     clearNotifications,
   } = useRestaurant();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [open, setOpen] = useState(false);
 
@@ -17,6 +22,9 @@ function NotificationBell() {
 
   const handleNotificationClick = (notification) => {
     markNotificationAsRead(notification.id);
+    setOpen(false);
+    const targetRoute = getNotificationRoute(notification, user?.role);
+    navigate(targetRoute);
   };
 
   return (

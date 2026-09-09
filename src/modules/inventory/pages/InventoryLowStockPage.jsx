@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   Search,
@@ -7,11 +8,18 @@ import {
   RefreshCw,
   ArrowDownToLine,
   SlidersHorizontal,
+  X,
+  Truck,
+  ArrowUpRight,
 } from "lucide-react";
 import api from "../../../services/api";
 import StockThresholdModal from "../components/StockThresholdModal";
 
 function InventoryLowStockPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusItemParam = searchParams.get("focusItem") || "";
+  const productIdParam = searchParams.get("productId") || "";
+
   const [lowStockList, setLowStockList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -98,6 +106,54 @@ function InventoryLowStockPage() {
     return ["All", ...new Set(lowStockItems.map((item) => item.category))];
   }, [lowStockItems]);
 
+  const spotlightItem = useMemo(() => {
+    if (!focusItemParam && !productIdParam) return null;
+    const pId = productIdParam ? Number(productIdParam) : null;
+    const fName = focusItemParam.toLowerCase().trim();
+
+    const found = lowStockItems.find((item) => {
+      const matchId = pId && (Number(item.id) === pId || Number(item.productId) === pId);
+      const matchName = fName && item.name.toLowerCase().includes(fName);
+      return matchId || matchName;
+    });
+
+    if (found) return found;
+
+    if (focusItemParam) {
+      return {
+        id: productIdParam || "spotlight-item",
+        productId: productIdParam || 0,
+        name: focusItemParam,
+        category: "Central Store Inventory",
+        current: 0,
+        minimum: 5,
+        unit: "units",
+        supplier: "Warehouse Supplier",
+      };
+    }
+    return null;
+  }, [lowStockItems, focusItemParam, productIdParam]);
+
+  // Smooth scroll to highlighted item
+  useEffect(() => {
+    if (spotlightItem) {
+      const timer = setTimeout(() => {
+        const row = document.getElementById(`low-stock-row-${spotlightItem.id || spotlightItem.productId}`);
+        if (row) {
+          row.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [spotlightItem]);
+
+  const clearSpotlight = () => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete("focusItem");
+    newParams.delete("productId");
+    setSearchParams(newParams, { replace: true });
+  };
+
   const getUrgency = (current, minimum) => {
     if (current <= 0) {
       return {
@@ -163,6 +219,71 @@ function InventoryLowStockPage() {
         </div>
       </div>
 
+      {/* ======================================================
+          LOW STOCK ITEM SPOTLIGHT BANNER (BANNER METHOD)
+      ====================================================== */}
+      {spotlightItem && (
+        <div className="relative overflow-hidden rounded-3xl border-2 border-rose-400 bg-gradient-to-r from-rose-500/15 via-amber-500/10 to-orange-500/15 p-5 shadow-lg backdrop-blur-sm animate-fade-in">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-rose-300 bg-white shadow-md">
+                <Package className="h-8 w-8 text-rose-600" />
+                <span className="absolute top-1 right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                </span>
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-xs">
+                    <AlertTriangle className="h-3 w-3" />
+                    Low Stock Item Spotlight
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500">
+                    {spotlightItem.category}
+                  </span>
+                </div>
+
+                <h2 className="text-lg font-black text-slate-900 mt-1">
+                  {spotlightItem.name}
+                </h2>
+
+                <p className="text-xs font-bold text-rose-700 flex items-center gap-2 mt-0.5">
+                  <span>
+                    Current Warehouse Balance:{" "}
+                    <strong className="text-sm font-black underline">
+                      {spotlightItem.current} {spotlightItem.unit}
+                    </strong>{" "}
+                    (Minimum Threshold: {spotlightItem.minimum} {spotlightItem.unit})
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 sm:self-center">
+              <button
+                type="button"
+                onClick={() => openThresholdModal(spotlightItem)}
+                className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-black text-white shadow-sm hover:bg-slate-800 active:scale-95 transition cursor-pointer"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                <span>Adjust Threshold</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={clearSpotlight}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white/80 px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-white hover:text-slate-900 transition cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+                <span>Dismiss</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
@@ -220,10 +341,21 @@ function InventoryLowStockPage() {
         ) : filteredItems.length > 0 ? (
           filteredItems.map((item) => {
             const urgency = getUrgency(item.current, item.minimum);
+            const isSpotlighted = spotlightItem && (
+              Number(item.id) === Number(spotlightItem.id) ||
+              Number(item.productId) === Number(spotlightItem.productId || spotlightItem.id) ||
+              item.name.toLowerCase() === spotlightItem.name.toLowerCase()
+            );
+
             return (
               <div
                 key={item.id}
-                className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+                id={`low-stock-row-${item.id || item.productId}`}
+                className={`flex flex-col gap-4 rounded-2xl border p-5 shadow-sm transition hover:shadow-md sm:flex-row sm:items-center sm:justify-between ${
+                  isSpotlighted
+                    ? "border-amber-400 bg-amber-50/50 ring-4 ring-amber-400 ring-offset-2 animate-pulse shadow-xl shadow-amber-500/20"
+                    : "border-slate-200 bg-white"
+                }`}
               >
                 <div className="flex items-center gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600">

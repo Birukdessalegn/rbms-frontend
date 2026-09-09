@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { hasPermission } from "../config/permissions";
 import { useRestaurant } from "../context/RestaurantContext";
 import { useTheme } from "../context/ThemeContext";
 import api from "../services/api";
 import audioService from "../services/audioService";
+import { getNotificationRoute } from "../utils/notificationRouter";
 
 import {
   LayoutDashboard,
@@ -334,8 +335,15 @@ function DashboardLayout() {
   } = useRestaurant();
 
   const { user, logout } = useAuth();
-
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleNotificationClick = (notification) => {
+    markNotificationAsRead(notification.id);
+    setShowNotifications(false);
+    const targetRoute = getNotificationRoute(notification, user?.role);
+    navigate(targetRoute);
+  };
 
   /* =========================================================
      USER INFORMATION
@@ -1300,8 +1308,8 @@ function DashboardLayout() {
                               notification.id
                             }
                             onClick={() =>
-                              markNotificationAsRead(
-                                notification.id
+                              handleNotificationClick(
+                                notification
                               )
                             }
                             className={`

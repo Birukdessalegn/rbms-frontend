@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -25,6 +26,10 @@ import {
 import api from "../../../services/api";
 
 export default function InventoryTransactionsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const targetTransferId = searchParams.get("transferId");
+  const targetTransferNumber = searchParams.get("transferNumber");
+
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -46,7 +51,13 @@ export default function InventoryTransactionsPage() {
     }
     setSelectedTransfer(null);
     setManualReceivingNotes("");
-  }, []);
+    if (targetTransferId || targetTransferNumber) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("transferId");
+      newParams.delete("transferNumber");
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, targetTransferId, targetTransferNumber]);
 
   // Close on Escape key press
   useEffect(() => {
@@ -79,6 +90,22 @@ export default function InventoryTransactionsPage() {
   useEffect(() => {
     fetchTransfers();
   }, [fetchTransfers]);
+
+  // Auto-focus and open transfer details modal if transferId or transferNumber in URL
+  useEffect(() => {
+    if ((targetTransferId || targetTransferNumber) && transfers.length > 0) {
+      const match = transfers.find(
+        (t) =>
+          (targetTransferId && String(t.id) === String(targetTransferId)) ||
+          (targetTransferNumber &&
+            String(t.transfer_number || "").toLowerCase() ===
+              String(targetTransferNumber || "").toLowerCase())
+      );
+      if (match) {
+        setSelectedTransfer(match);
+      }
+    }
+  }, [transfers, targetTransferId, targetTransferNumber]);
 
   // Handle Mark Received (storekeeper assist)
   const handleMarkReceived = async (transferId) => {

@@ -63,11 +63,13 @@ import InventoryTransactionsPage from "../modules/inventory/pages/InventoryTrans
 import InventoryReportsPage from "../modules/inventory/pages/InventoryReportsPage";
 import CashierReconciliationPage from "../modules/finance/pages/CashierReconciliationPage";
 import FinanceSalesPage from "../modules/finance/pages/FinanceSalesPage";
-
+import NotificationToast from "../components/common/NotificationToast";
 
 function AppRoutes() {
   return (
     <BrowserRouter>
+      {/* GLOBAL TOUCHABLE POPUP NOTIFICATION TOAST */}
+      <NotificationToast />
 
       <Routes>
 

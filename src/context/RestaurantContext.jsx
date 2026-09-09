@@ -19,6 +19,7 @@ const [loadingTables, setLoadingTables] = useState(false);
   const [loadingKitchen, setLoadingKitchen] = useState(false);
 
   const [notifications, setNotifications] = useState([]);
+  const [activeToast, setActiveToast] = useState(null);
 
   // Keep the previous backend state separately
   const previousOrdersRef = useRef(null);
@@ -26,20 +27,23 @@ const [loadingTables, setLoadingTables] = useState(false);
   // Prevent duplicate notifications
   const notifiedOrdersRef = useRef(new Set());
 
+  const dismissToast = () => {
+    setActiveToast(null);
+  };
+
   // ============================================================
   // ADD NOTIFICATION
   // ============================================================
 
   const addNotification = (notification) => {
-    setNotifications((prev) => [
-      {
-        id: Date.now() + Math.random(),
-        ...notification,
-        createdAt: new Date(),
-        read: false,
-      },
-      ...prev,
-    ]);
+    const item = {
+      id: Date.now() + Math.random(),
+      ...notification,
+      createdAt: new Date(),
+      read: false,
+    };
+    setNotifications((prev) => [item, ...prev]);
+    setActiveToast(item);
   };
 
 
@@ -175,16 +179,34 @@ const fetchTables = async () => {
       const response = await api("/notifications?limit=25");
       const list = response?.notifications || response?.data || (Array.isArray(response) ? response : []);
       if (Array.isArray(list)) {
-        // Play subtle warning chime for new low-stock or warning alerts
+        const newlyReceivedUnread = [];
+
         list.forEach((n) => {
-          const key = `backend-warn-${n.id}`;
-          if (!n.is_read && (n.type === "warning" || n.reference_type?.includes("stock"))) {
-            if (!notifiedOrdersRef.current.has(key)) {
-              notifiedOrdersRef.current.add(key);
+          const key = `backend-toast-${n.id}`;
+          if (!n.is_read && !notifiedOrdersRef.current.has(key)) {
+            notifiedOrdersRef.current.add(key);
+            newlyReceivedUnread.push(n);
+
+            if (n.type === "warning" || n.reference_type?.includes("stock")) {
               audioService.playWarningSound();
             }
           }
         });
+
+        // Trigger floating toast for the latest unread alert
+        if (newlyReceivedUnread.length > 0) {
+          const latest = newlyReceivedUnread[0];
+          setActiveToast({
+            id: `backend-${latest.id}`,
+            backendId: latest.id,
+            type: latest.type || "info",
+            title: latest.title,
+            message: latest.message,
+            referenceType: latest.reference_type,
+            referenceId: latest.reference_id,
+            createdAt: new Date(latest.created_at || Date.now()),
+          });
+        }
 
         setNotifications((prev) => {
           // Retain local transient kitchen order chimes
@@ -310,6 +332,8 @@ const fetchTables = async () => {
       )
     );
 
+    setActiveToast((current) => (current?.id === id ? null : current));
+
     if (String(id).startsWith("backend-")) {
       const realId = id.replace("backend-", "");
       api(`/notifications/${realId}/read`, { method: "PATCH" }).catch(() => {});
@@ -318,6 +342,7 @@ const fetchTables = async () => {
 
   const clearNotifications = () => {
     setNotifications([]);
+    setActiveToast(null);
     api("/notifications/read-all", { method: "PATCH" }).catch(() => {});
   };
 
@@ -340,6 +365,8 @@ const fetchTables = async () => {
     updateKitchenOrderStatus,
 
     notifications,
+    activeToast,
+    dismissToast,
     markNotificationAsRead,
     clearNotifications,
   }}

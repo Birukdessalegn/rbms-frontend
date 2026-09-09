@@ -1,18 +1,36 @@
-import { Link } from "react-router-dom";
-import { BarChart3, Package, Flame, UtensilsCrossed } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import {
+  BarChart3,
+  Package,
+  Flame,
+  UtensilsCrossed,
+  AlertTriangle,
+  X,
+  Truck,
+  ArrowUpRight,
+} from "lucide-react";
 import { useEffect, useState, useRef, useMemo } from "react";
 import api from "../../../services/api";
 import audioService from "../../../services/audioService";
 import NewOrderAlertModal from "../../../components/common/NewOrderAlertModal";
 import IncomingDeliveryBanner from "../../../components/common/IncomingDeliveryBanner";
+import StockTransferModal from "../../inventory/components/StockTransferModal";
 
 function KitchenPage({ filterStatus = "all", pageTitle = null }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusProductParam = searchParams.get("focusProduct") || "";
+  const productIdParam = searchParams.get("productId") || "";
+  const targetOrderId = searchParams.get("orderId") || "";
+
   const [kitchenOrders, setKitchenOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [alertOrder, setAlertOrder] = useState(null);
   const [kitchenStock, setKitchenStock] = useState([]);
   const [activeTab, setActiveTab] = useState("orders"); // "orders" | "inventory"
+
+  const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
+  const [restockProduct, setRestockProduct] = useState(null);
 
   const prevOrdersRef = useRef(null);
 
@@ -86,6 +104,27 @@ function KitchenPage({ filterStatus = "all", pageTitle = null }) {
     const interval = setInterval(fetchKitchenOrders, 4000);
     return () => clearInterval(interval);
   }, []);
+
+  // Smooth scroll to targeted kitchen order
+  useEffect(() => {
+    if (targetOrderId) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`kitchen-order-${targetOrderId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [targetOrderId]);
+
+  const clearSpotlight = () => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete("focusProduct");
+    newParams.delete("productId");
+    newParams.delete("orderId");
+    setSearchParams(newParams, { replace: true });
+  };
 
   const handleAction = async (order) => {
     if (!order) return;
@@ -265,6 +304,74 @@ function KitchenPage({ filterStatus = "all", pageTitle = null }) {
         onReceived={fetchKitchenOrders}
       />
 
+      {/* ======================================================
+          KITCHEN LOW STOCK ITEM SPOTLIGHT BANNER
+      ====================================================== */}
+      {focusProductParam && (
+        <div className="relative overflow-hidden rounded-3xl border-2 border-amber-400 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-rose-500/15 p-5 shadow-lg backdrop-blur-sm animate-fade-in">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-amber-300 bg-white shadow-md">
+                <UtensilsCrossed className="h-7 w-7 text-amber-600" />
+                <span className="absolute top-1 right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                </span>
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-xs">
+                    <AlertTriangle className="h-3 w-3" />
+                    Kitchen Low Stock Item
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500">
+                    Kitchen Inventory
+                  </span>
+                </div>
+
+                <h2 className="text-lg font-black text-slate-900 mt-1">
+                  {focusProductParam}
+                </h2>
+
+                <p className="text-xs font-bold text-rose-700 flex items-center gap-2 mt-0.5">
+                  <span>Kitchen inventory running low — immediate restock requisition advised.</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 sm:self-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setRestockProduct({
+                    id: productIdParam || 0,
+                    product_id: productIdParam || 0,
+                    name: focusProductParam,
+                    product_name: focusProductParam,
+                  });
+                  setIsRestockModalOpen(true);
+                }}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-amber-600/20 hover:from-amber-700 hover:to-orange-700 active:scale-95 transition cursor-pointer"
+              >
+                <Truck className="h-4 w-4" />
+                <span>Request Restock from Warehouse</span>
+                <ArrowUpRight className="h-4 w-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={clearSpotlight}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white/80 px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-white hover:text-slate-900 transition cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+                <span>Dismiss</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Error */}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -383,12 +490,22 @@ function KitchenPage({ filterStatus = "all", pageTitle = null }) {
 
                     return b.id - a.id;
                   })
-                  .map((order) => (
+                  .map((order) => {
+                    const isOrderSpotlighted = targetOrderId && (
+                      String(order.id) === String(targetOrderId) ||
+                      String(order.order_number) === String(targetOrderId)
+                    );
 
-                    <tr
-                      key={order.id}
-                      className="hover:bg-gray-50"
-                    >
+                    return (
+                      <tr
+                        key={order.id}
+                        id={`kitchen-order-${order.id}`}
+                        className={
+                          isOrderSpotlighted
+                            ? "bg-amber-50/90 ring-2 ring-amber-400 font-semibold shadow-xs"
+                            : "hover:bg-gray-50"
+                        }
+                      >
 
                       {/* Order */}
                       <td className="px-5 py-4 font-semibold text-gray-900">
@@ -526,8 +643,8 @@ function KitchenPage({ filterStatus = "all", pageTitle = null }) {
                       </td>
 
                     </tr>
-
-                  ))}
+                  );
+                })}
 
               </tbody>
 
@@ -542,6 +659,22 @@ function KitchenPage({ filterStatus = "all", pageTitle = null }) {
         department="kitchen"
         onAccept={(orderToAccept) => handleAction(orderToAccept)}
         onDismiss={() => setAlertOrder(null)}
+      />
+
+      {/* RESTOCK REQUISITION MODAL FOR KITCHEN */}
+      <StockTransferModal
+        isOpen={isRestockModalOpen}
+        onClose={() => {
+          setIsRestockModalOpen(false);
+          setRestockProduct(null);
+        }}
+        onSuccess={() => {
+          setIsRestockModalOpen(false);
+          setRestockProduct(null);
+          fetchKitchenOrders();
+        }}
+        initialProduct={restockProduct}
+        initialDepartment="kitchen"
       />
     </div>
   );

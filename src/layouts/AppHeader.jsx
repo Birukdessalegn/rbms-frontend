@@ -6,6 +6,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import NotificationBell from "../components/NotificationBell";
 
 function AppHeader({
   title = "Dashboard",
@@ -59,16 +60,15 @@ function AppHeader({
       <div className="flex items-center gap-4">
 
         {/* Online Status */}
-
         <div className="hidden items-center gap-2 sm:flex">
-
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-
           <span className="text-xs font-medium text-slate-500">
             Online
           </span>
-
         </div>
+
+        {/* Notifications Bell */}
+        <NotificationBell />
 
 
         {/* Profile */}

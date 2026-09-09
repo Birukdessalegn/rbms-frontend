@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   PackageCheck,
   Truck,
@@ -14,12 +15,28 @@ import {
 import api from "../../services/api";
 
 export default function IncomingDeliveryBanner({ department = "bar", onReceived }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const targetTransferId = searchParams.get("transferId");
+  const targetTransferNumber = searchParams.get("transferNumber");
+
   const [deliveries, setDeliveries] = useState([]);
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [receivingNotes, setReceivingNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedDelivery(null);
+    setReceivingNotes("");
+    setError("");
+    if (targetTransferId || targetTransferNumber) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("transferId");
+      newParams.delete("transferNumber");
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, targetTransferId, targetTransferNumber]);
 
   const fetchIncomingDeliveries = useCallback(async () => {
     try {
@@ -47,6 +64,22 @@ export default function IncomingDeliveryBanner({ department = "bar", onReceived 
     return () => clearInterval(timer);
   }, [fetchIncomingDeliveries]);
 
+  // Auto-focus and open delivery modal if transferId or transferNumber in URL
+  useEffect(() => {
+    if ((targetTransferId || targetTransferNumber) && deliveries.length > 0) {
+      const match = deliveries.find(
+        (d) =>
+          (targetTransferId && String(d.id) === String(targetTransferId)) ||
+          (targetTransferNumber &&
+            String(d.transfer_number || "").toLowerCase() ===
+              String(targetTransferNumber || "").toLowerCase())
+      );
+      if (match) {
+        setSelectedDelivery(match);
+      }
+    }
+  }, [deliveries, targetTransferId, targetTransferNumber]);
+
   const handleConfirmReceived = async () => {
     if (!selectedDelivery) return;
 
@@ -64,8 +97,7 @@ export default function IncomingDeliveryBanner({ department = "bar", onReceived 
       if (res?.success || res?.data) {
         setSuccessMsg(`Transfer #${selectedDelivery.transfer_number} received into ${department.toUpperCase()} inventory!`);
         setTimeout(() => setSuccessMsg(""), 4000);
-        setSelectedDelivery(null);
-        setReceivingNotes("");
+        handleCloseModal();
         await fetchIncomingDeliveries();
         if (onReceived) onReceived();
       }
@@ -147,10 +179,7 @@ export default function IncomingDeliveryBanner({ department = "bar", onReceived 
       {/* REVIEW & ACCEPT MODAL */}
       {selectedDelivery && (
         <div
-          onClick={() => {
-            setSelectedDelivery(null);
-            setError("");
-          }}
+          onClick={handleCloseModal}
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs"
         >
           <div
@@ -175,10 +204,7 @@ export default function IncomingDeliveryBanner({ department = "bar", onReceived 
 
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedDelivery(null);
-                  setError("");
-                }}
+                onClick={handleCloseModal}
                 className="rounded-full p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition"
               >
                 <X className="h-5 w-5" />
@@ -295,10 +321,7 @@ export default function IncomingDeliveryBanner({ department = "bar", onReceived 
             <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-4">
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedDelivery(null);
-                  setError("");
-                }}
+                onClick={handleCloseModal}
                 disabled={isSubmitting}
                 className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200/70 transition disabled:opacity-50"
               >

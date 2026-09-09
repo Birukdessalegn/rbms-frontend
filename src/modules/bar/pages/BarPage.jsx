@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, Link, useSearchParams } from "react-router-dom";
 import {
   Wine,
   BarChart3,
@@ -21,15 +21,23 @@ import {
   Droplets,
   GlassWater,
   Search,
+  Truck,
+  ArrowUpRight,
+  X,
 } from "lucide-react";
 import api from "../../../services/api";
 import audioService from "../../../services/audioService";
 import NewOrderAlertModal from "../../../components/common/NewOrderAlertModal";
 import IncomingDeliveryBanner from "../../../components/common/IncomingDeliveryBanner";
+import StockTransferModal from "../../inventory/components/StockTransferModal";
 import { formatImageUrl, getCustomShotsMap } from "../../products/ProductsPage";
 
 function BarPage() {
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusDrinkParam = searchParams.get("focusDrink") || "";
+  const productIdParam = searchParams.get("productId") || "";
+
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +50,9 @@ function BarPage() {
   const [mainSectionTab, setMainSectionTab] = useState("orders"); // "orders" | "inventory"
   const [barStockList, setBarStockList] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
+  const [restockProduct, setRestockProduct] = useState(null);
 
   const prevOrdersRef = useRef(null);
 
@@ -378,6 +389,63 @@ function BarPage() {
     );
   }, [barDrinks, searchQuery]);
 
+  // Auto-switch to inventory tab if URL contains focusDrink or productId
+  useEffect(() => {
+    if (focusDrinkParam || productIdParam) {
+      setMainSectionTab("inventory");
+    }
+  }, [focusDrinkParam, productIdParam]);
+
+  // Compute the spotlight drink for the banner
+  const spotlightDrink = useMemo(() => {
+    if (!focusDrinkParam && !productIdParam) return null;
+    const pId = productIdParam ? Number(productIdParam) : null;
+    const fName = focusDrinkParam.toLowerCase().trim();
+
+    const found = barDrinks.find((d) => {
+      const matchId = pId && (Number(d.id) === pId || Number(d.product_id) === pId);
+      const matchName = fName && (d.product_name || d.name || "").toLowerCase().includes(fName);
+      return matchId || matchName;
+    });
+
+    if (found) return found;
+
+    if (focusDrinkParam) {
+      return {
+        id: productIdParam || "spotlight-drink",
+        product_name: focusDrinkParam,
+        name: focusDrinkParam,
+        currentStock: 0,
+        shotsRemaining: 0,
+        isShotBased: true,
+        fillPercentage: 0,
+        category_name: "Bar Beverage",
+      };
+    }
+    return null;
+  }, [barDrinks, focusDrinkParam, productIdParam]);
+
+  // Smooth scroll to the spotlighted drink card
+  useEffect(() => {
+    if (spotlightDrink && mainSectionTab === "inventory") {
+      const timer = setTimeout(() => {
+        const cardId = `bar-drink-card-${spotlightDrink.id}`;
+        const el = document.getElementById(cardId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [spotlightDrink, mainSectionTab]);
+
+  const clearDrinkSpotlight = () => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete("focusDrink");
+    newParams.delete("productId");
+    setSearchParams(newParams, { replace: true });
+  };
+
   // ============================================================
   // FORMAT ORDER ITEMS
   // ============================================================
@@ -592,6 +660,104 @@ function BarPage() {
       />
 
       {/* ======================================================
+          LOW STOCK ITEM SPOTLIGHT BANNER (ITEM BANNER METHOD)
+      ====================================================== */}
+      {spotlightDrink && (
+        <div className="relative overflow-hidden rounded-3xl border-2 border-amber-400 bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-purple-500/15 p-5 shadow-lg backdrop-blur-sm animate-fade-in">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* Left Drink Overview */}
+            <div className="flex items-center gap-4">
+              <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-amber-300 bg-white shadow-md">
+                {spotlightDrink.imageUrl ? (
+                  <img
+                    src={spotlightDrink.imageUrl}
+                    alt={spotlightDrink.product_name || spotlightDrink.name}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <Wine className="h-8 w-8 text-purple-600" />
+                )}
+                <span className="absolute top-1 right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                </span>
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-xs">
+                    <AlertTriangle className="h-3 w-3" />
+                    Low Stock Item Spotlight
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500">
+                    {spotlightDrink.category_name || "Drink / Spirits"}
+                  </span>
+                </div>
+
+                <h2 className="text-lg font-black text-slate-900 mt-1">
+                  {spotlightDrink.product_name || spotlightDrink.name}
+                </h2>
+
+                <p className="text-xs font-bold text-rose-700 flex items-center gap-2 mt-0.5">
+                  <span>
+                    Current Bar Stock:{" "}
+                    <strong className="text-sm font-black underline">
+                      {spotlightDrink.isShotBased
+                        ? `${spotlightDrink.shotsRemaining} Shots Left`
+                        : `${spotlightDrink.currentStock} Units Left`}
+                    </strong>
+                  </span>
+                  <span className="text-slate-400">•</span>
+                  <span className="text-slate-600 font-medium">
+                    Immediate replenishment recommended
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* Right Action Buttons */}
+            <div className="flex flex-wrap items-center gap-2 sm:self-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setRestockProduct(spotlightDrink);
+                  setIsRestockModalOpen(true);
+                }}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-amber-600/20 hover:from-amber-700 hover:to-orange-700 active:scale-95 transition cursor-pointer"
+              >
+                <Truck className="h-4 w-4" />
+                <span>Request Restock from Warehouse</span>
+                <ArrowUpRight className="h-4 w-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={clearDrinkSpotlight}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white/80 px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-white hover:text-slate-900 transition cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+                <span>Dismiss</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Mini Radar Bar */}
+          <div className="mt-4 pt-3 border-t border-amber-200/60 flex items-center justify-between text-xs font-bold text-slate-600">
+            <span className="flex items-center gap-1.5">
+              <Droplets className="h-3.5 w-3.5 text-blue-500" />
+              Liquid Fill Level: <strong className="text-slate-900">{spotlightDrink.fillPercentage}%</strong>
+            </span>
+            <span className="text-amber-800">
+              Purchased in recent orders: <strong className="text-purple-700">{spotlightDrink.shotsPurchased || 0}</strong> shots
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================
           ERROR
       ====================================================== */}
 
@@ -737,11 +903,20 @@ function BarPage() {
                   ? drink.shotsRemaining === 0
                   : drink.currentStock === 0;
 
+                const isSpotlighted = spotlightDrink && (
+                  Number(drink.id) === Number(spotlightDrink.id) ||
+                  Number(drink.product_id) === Number(spotlightDrink.product_id || spotlightDrink.id) ||
+                  (drink.product_name || drink.name || "").toLowerCase() === (spotlightDrink.product_name || spotlightDrink.name || "").toLowerCase()
+                );
+
                 return (
                   <div
                     key={drink.id}
+                    id={`bar-drink-card-${drink.id}`}
                     className={`relative overflow-hidden rounded-2xl border p-4 transition-all shadow-xs hover:shadow-md flex flex-col justify-between ${
-                      isOutOfStock
+                      isSpotlighted
+                        ? "border-amber-400 bg-amber-50/50 ring-4 ring-amber-400 ring-offset-2 animate-pulse shadow-xl shadow-amber-500/20"
+                        : isOutOfStock
                         ? "border-rose-200 bg-rose-50/30 opacity-75"
                         : isLowStock
                         ? "border-amber-300 bg-amber-50/30 ring-1 ring-amber-300/50"
@@ -845,6 +1020,21 @@ function BarPage() {
                           Left: <strong className={isLowStock ? "text-rose-600" : "text-emerald-700"}>{drink.shotsRemaining}</strong> {drink.isShotBased ? "Shots" : "Units"}
                         </span>
                       </div>
+
+                      {(isLowStock || isOutOfStock || isSpotlighted) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRestockProduct(drink);
+                            setIsRestockModalOpen(true);
+                          }}
+                          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-1.5 text-[11px] font-black text-white shadow-xs hover:bg-amber-600 active:scale-95 transition cursor-pointer"
+                        >
+                          <Truck className="h-3 w-3" />
+                          <span>Request Restock</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -1270,6 +1460,22 @@ function BarPage() {
         department="bar"
         onAccept={(orderToAccept) => updateOrderStatus(orderToAccept.id, "preparing")}
         onDismiss={() => setAlertOrder(null)}
+      />
+
+      {/* RESTOCK REQUISITION MODAL FOR BAR DRINKS */}
+      <StockTransferModal
+        isOpen={isRestockModalOpen}
+        onClose={() => {
+          setIsRestockModalOpen(false);
+          setRestockProduct(null);
+        }}
+        onSuccess={() => {
+          setIsRestockModalOpen(false);
+          setRestockProduct(null);
+          fetchBarOrders();
+        }}
+        initialProduct={restockProduct}
+        initialDepartment="bar"
       />
     </div>
   );

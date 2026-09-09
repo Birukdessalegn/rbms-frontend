@@ -273,7 +273,7 @@ function POSLayout() {
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl z-50">
+                <div className="fixed inset-x-2 top-14 sm:absolute sm:inset-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-80 max-w-sm mx-auto sm:mx-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl z-50">
                   <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">

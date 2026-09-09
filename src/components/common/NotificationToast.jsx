@@ -90,42 +90,40 @@ export default function NotificationToast() {
   }
 
   return (
-    <div className="fixed top-4 right-4 z-50 max-w-sm w-[calc(100vw-2rem)] sm:w-96 animate-slide-in-right">
+    <div className="fixed top-2 sm:top-4 inset-x-2.5 sm:inset-x-auto sm:right-4 z-50 max-w-sm mx-auto sm:mx-0 w-auto sm:w-88 animate-slide-in-right">
       <div
         onClick={handleClick}
         role="button"
         tabIndex={0}
-        className={`group relative flex cursor-pointer items-start gap-3.5 overflow-hidden rounded-2xl bg-gradient-to-r ${bgTheme} p-4 shadow-xl shadow-slate-900/20 ring-1 ring-white/30 backdrop-blur-md transition-all hover:scale-[1.02] active:scale-[0.98]`}
+        className={`group relative flex cursor-pointer items-center gap-2.5 overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-r ${bgTheme} p-2.5 sm:p-3 shadow-lg shadow-slate-900/20 ring-1 ring-white/30 backdrop-blur-md transition-all hover:scale-[1.01] active:scale-[0.98]`}
       >
         {/* Leading Icon */}
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBg} shadow-inner`}
+          className={`flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg ${iconBg} shadow-inner`}
         >
-          <Icon className="h-5 w-5 animate-pulse" />
+          <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-pulse" />
         </div>
 
         {/* Content */}
-        <div className="min-w-0 flex-1 pr-6">
-          <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1 pr-5">
+          <div className="flex items-center gap-1.5">
             <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${badgeTheme}`}
+              className={`rounded px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider ${badgeTheme}`}
             >
-              New Alert
+              Alert
             </span>
-            <span className="text-[10px] opacity-80">Just now</span>
+            <h4 className="text-xs sm:text-sm font-black leading-tight truncate">
+              {activeToast.title}
+            </h4>
           </div>
 
-          <h4 className="mt-1 text-sm font-black leading-tight tracking-tight">
-            {activeToast.title}
-          </h4>
-
-          <p className="mt-1 text-xs opacity-90 line-clamp-2 leading-relaxed">
+          <p className="text-[11px] sm:text-xs opacity-90 line-clamp-1 leading-snug mt-0.5">
             {activeToast.message}
           </p>
 
-          <div className="mt-2.5 flex items-center gap-1.5 text-xs font-bold underline decoration-white/50 underline-offset-2 group-hover:decoration-white">
-            <span>Tap to open & accept</span>
-            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+          <div className="mt-1 flex items-center gap-1 text-[10px] sm:text-[11px] font-bold underline decoration-white/40 underline-offset-2 group-hover:decoration-white">
+            <span>Tap to open</span>
+            <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
           </div>
         </div>
 
@@ -134,13 +132,13 @@ export default function NotificationToast() {
           type="button"
           onClick={handleClose}
           aria-label="Dismiss notification"
-          className="absolute top-3 right-3 rounded-full p-1.5 text-white/70 hover:bg-white/20 hover:text-white transition"
+          className="absolute top-2 right-2 rounded-full p-1 text-white/75 hover:bg-white/20 hover:text-white transition"
         >
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5" />
         </button>
 
         {/* Progress timer bar */}
-        <div className="absolute bottom-0 left-0 h-1 w-full bg-white/20 overflow-hidden">
+        <div className="absolute bottom-0 left-0 h-0.5 w-full bg-white/20 overflow-hidden">
           <div className="h-full bg-white/80 animate-toast-timer" />
         </div>
       </div>

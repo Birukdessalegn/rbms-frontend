@@ -1247,7 +1247,7 @@ function DashboardLayout() {
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                <div className="fixed inset-x-2 top-14 sm:absolute sm:inset-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-80 max-w-sm mx-auto sm:mx-0 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
 
                   {/* Header */}
 

@@ -87,12 +87,19 @@ const filteredProducts = products.filter((product) => {
           ? orderItem.quantity
           : 0;
 
+        const currentStock = product.current_stock !== undefined ? Number(product.current_stock) : null;
+        const minStock = product.minimum_stock !== undefined ? Number(product.minimum_stock) : 5;
+        const stockDept = product.stock_department || (product.category_type === "food" ? "Kitchen" : "Bar");
+
         const productForCard = {
           ...product,
           category:
             product.category_name || product.category_type,
           price: Number(product.price),
           image: product.image_url || "🍽️",
+          currentStock,
+          minStock,
+          stockDept,
         };
 
         return (

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, ArrowRight, Package, AlertCircle, CheckCircle2, Wine, UtensilsCrossed } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -91,12 +91,12 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
         body: JSON.stringify(payload),
       });
 
-      setSuccessMsg('Transferred successfully!');
+      setSuccessMsg(`Dispatched to ${department.toUpperCase()}! Staff can now verify & accept.`);
 
       setTimeout(() => {
         if (onSuccess) onSuccess(res.data);
         onClose();
-      }, 900);
+      }, 1200);
     } catch (err) {
       console.error('Transfer error:', err);
       setError(err.message || 'Failed to complete stock transfer.');
@@ -106,8 +106,14 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
   };
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs'>
-      <div className='w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl transition-all'>
+    <div
+      onClick={onClose}
+      className='fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs'
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className='w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl transition-all'
+      >
         <div className='flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4'>
           <div className='flex items-center gap-3'>
             <div className='flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-amber-600'>
@@ -119,7 +125,12 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
             </div>
           </div>
           <button
-            onClick={onClose}
+            type='button'
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
             className='rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition'
           >
             <X className='h-5 w-5' />

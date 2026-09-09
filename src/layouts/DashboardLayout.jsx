@@ -235,11 +235,6 @@ const navigationGroups = [
             icon: Boxes,
           },
           {
-            name: "Stock Levels",
-            path: "/inventory/stock",
-            icon: Package,
-          },
-          {
             name: "Low Stock Alerts",
             path: "/inventory/low-stock",
             icon: AlertTriangle,

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import api from "../../../services/api";
 import audioService from "../../../services/audioService";
 import NewOrderAlertModal from "../../../components/common/NewOrderAlertModal";
+import IncomingDeliveryBanner from "../../../components/common/IncomingDeliveryBanner";
 
 function KitchenPage({ filterStatus = "all", pageTitle = null }) {
   const [kitchenOrders, setKitchenOrders] = useState([]);
@@ -257,6 +258,12 @@ function KitchenPage({ filterStatus = "all", pageTitle = null }) {
           </Link>
         </div>
       </div>
+
+      {/* Incoming Stock Deliveries Banner */}
+      <IncomingDeliveryBanner
+        department="kitchen"
+        onReceived={fetchKitchenOrders}
+      />
 
       {/* Error */}
       {error && (

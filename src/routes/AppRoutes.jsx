@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import ProtectedRoute from "./ProtectedRoute";
 import PermissionRoute from "./PermissionRoute";
@@ -58,7 +58,6 @@ import TodaySalesAuditPage from "../modules/pos/pages/TodaySalesAuditPage";
 import BarPage from "../modules/bar/pages/BarPage";
 
 import InventoryPage from "../modules/inventory/pages/InventoryPage";
-import InventoryStockPage from "../modules/inventory/pages/InventoryStockPage";
 import InventoryLowStockPage from "../modules/inventory/pages/InventoryLowStockPage";
 import InventoryTransactionsPage from "../modules/inventory/pages/InventoryTransactionsPage";
 import InventoryReportsPage from "../modules/inventory/pages/InventoryReportsPage";
@@ -289,7 +288,7 @@ function AppRoutes() {
 
               <Route
                 path="/inventory/stock"
-                element={<InventoryStockPage />}
+                element={<Navigate to="/inventory" replace />}
               />
 
               <Route
@@ -584,7 +583,7 @@ function AppRoutes() {
 
               <Route
                 path="/store/inventory/stock"
-                element={<InventoryStockPage />}
+                element={<Navigate to="/store/inventory" replace />}
               />
 
               <Route

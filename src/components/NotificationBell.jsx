@@ -72,47 +72,61 @@ function NotificationBell() {
                 No notifications
               </div>
             ) : (
-              notifications.map((notification) => (
+              notifications.map((notification) => {
+                const isWarning =
+                  notification.type === "warning" ||
+                  notification.referenceType?.includes("stock");
+                const isReady = notification.type === "ready";
+                const isError = notification.type === "error";
 
-                <button
-                  key={notification.id}
-                  onClick={() =>
-                    handleNotificationClick(notification)
-                  }
-                  className={`w-full border-b border-gray-100 px-4 py-3 text-left hover:bg-gray-50 ${
-                    !notification.read
-                      ? "bg-blue-50/50"
-                      : ""
-                  }`}
-                >
+                return (
+                  <button
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
+                    className={`w-full border-b border-gray-100 px-4 py-3 text-left transition hover:bg-gray-50 ${
+                      !notification.read
+                        ? isWarning
+                          ? "bg-amber-50/60"
+                          : isReady
+                          ? "bg-emerald-50/50"
+                          : "bg-blue-50/50"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex gap-3">
+                      <div
+                        className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
+                          isReady
+                            ? "bg-emerald-500"
+                            : isWarning
+                            ? "bg-amber-500 ring-2 ring-amber-200"
+                            : isError
+                            ? "bg-red-500"
+                            : "bg-blue-500"
+                        }`}
+                      />
 
-                  <div className="flex gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className={`text-xs font-bold ${
+                            isWarning ? "text-amber-900" : isReady ? "text-emerald-950" : "text-gray-900"
+                          }`}>
+                            {isWarning && "⚠️ "}
+                            {notification.title}
+                          </p>
+                          {!notification.read && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-blue-600"></span>
+                          )}
+                        </div>
 
-                    <div
-                      className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
-                        notification.type === "ready"
-                          ? "bg-green-500"
-                          : "bg-blue-500"
-                      }`}
-                    />
-
-                    <div>
-
-                      <p className="text-sm font-medium text-gray-900">
-                        {notification.title}
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-500">
-                        {notification.message}
-                      </p>
-
+                        <p className="mt-1 text-xs text-gray-600 leading-snug">
+                          {notification.message}
+                        </p>
+                      </div>
                     </div>
-
-                  </div>
-
-                </button>
-
-              ))
+                  </button>
+                );
+              })
             )}
 
           </div>

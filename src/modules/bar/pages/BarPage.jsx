@@ -25,6 +25,7 @@ import {
 import api from "../../../services/api";
 import audioService from "../../../services/audioService";
 import NewOrderAlertModal from "../../../components/common/NewOrderAlertModal";
+import IncomingDeliveryBanner from "../../../components/common/IncomingDeliveryBanner";
 import { formatImageUrl, getCustomShotsMap } from "../../products/ProductsPage";
 
 function BarPage() {
@@ -582,6 +583,13 @@ function BarPage() {
 
       </div>
 
+      {/* ======================================================
+          INCOMING STOCK DELIVERIES (CONFIRM RECEIPT)
+      ====================================================== */}
+      <IncomingDeliveryBanner
+        department="bar"
+        onReceived={fetchBarOrders}
+      />
 
       {/* ======================================================
           ERROR

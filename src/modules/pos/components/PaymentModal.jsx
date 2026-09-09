@@ -86,9 +86,11 @@ function PaymentModal({
     if (!selectedVip) return null;
     const limit = Number(selectedVip.credit_limit || selectedVip.creditLimit || 0);
     const debt = Number(selectedVip.current_debt || selectedVip.currentDebt || selectedVip.debt || 0);
-    const isUnlimited = (selectedVip.tier || "").toLowerCase().includes("gold") || (selectedVip.tier || "").toLowerCase().includes("unlimited") || limit >= 999999;
+    const tier = (selectedVip.tier || "").toLowerCase();
+    const isPromoter = tier.includes("promoter");
+    const isUnlimited = isPromoter || tier.includes("gold") || tier.includes("unlimited") || limit <= 0 || limit >= 999999;
     const available = isUnlimited ? 999999999 : Math.max(limit - debt, 0);
-    return { limit, debt, available, isUnlimited };
+    return { limit, debt, available, isUnlimited, isPromoter };
   }, [selectedVip]);
 
   // PC Camera / WebCam state
@@ -1568,13 +1570,26 @@ function PaymentModal({
 
               {/* Selected VIP Active Badge */}
               {selectedVip && selectedVipStats ? (
-                <div className="rounded-xl border border-emerald-300 bg-emerald-50/80 p-3 text-xs space-y-2">
+                <div className={`rounded-xl border p-3 text-xs space-y-2 ${
+                  selectedVipStats.isPromoter
+                    ? "border-purple-300 bg-purple-50/90 text-purple-950 shadow-2xs"
+                    : "border-emerald-300 bg-emerald-50/80 text-emerald-950"
+                }`}>
                   <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-emerald-950 flex items-center gap-1.5 text-sm">
-                      👑 VIP Customer: {selectedVip.name || selectedVip.full_name}
-                      <span className="rounded-full bg-emerald-200/80 px-2 py-0.5 text-[10px] text-emerald-900 border border-emerald-300">
+                    <span className="font-extrabold flex items-center gap-1.5 text-sm">
+                      {selectedVipStats.isPromoter ? "🎟️ Promoter VIP:" : "👑 VIP Customer:"} {selectedVip.name || selectedVip.full_name}
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] border ${
+                        selectedVipStats.isPromoter
+                          ? "bg-purple-200 text-purple-950 border-purple-400 font-black"
+                          : "bg-emerald-200/80 text-emerald-900 border-emerald-300"
+                      }`}>
                         {selectedVip.tier || "VIP"}
                       </span>
+                      {selectedVipStats.isUnlimited && (
+                        <span className="rounded-full bg-amber-200/90 text-amber-950 px-2 py-0.5 text-[10px] font-extrabold border border-amber-300">
+                          ♾️ Unlimited Money
+                        </span>
+                      )}
                     </span>
                     <button
                       type="button"
@@ -1583,24 +1598,24 @@ function PaymentModal({
                         setCustomerName("");
                         setCustomerPhone("");
                       }}
-                      className="text-[11px] font-bold text-slate-500 hover:text-slate-900 underline"
+                      className="text-[11px] font-bold text-slate-500 hover:text-slate-900 underline cursor-pointer"
                     >
                       Clear / Change VIP
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 text-center pt-1 border-t border-emerald-200/70">
-                    <div className="bg-white/80 rounded-lg p-1.5 border border-emerald-100">
+                  <div className="grid grid-cols-3 gap-2 text-center pt-1 border-t border-slate-200/70">
+                    <div className="bg-white/90 rounded-lg p-1.5 border border-slate-200 shadow-2xs">
                       <span className="block text-[10px] text-slate-500 font-medium">Credit Limit</span>
                       <span className="font-bold text-slate-900">
                         {selectedVipStats.isUnlimited ? "♾️ Unlimited" : `${selectedVipStats.limit.toLocaleString()} ETB`}
                       </span>
                     </div>
-                    <div className="bg-white/80 rounded-lg p-1.5 border border-emerald-100">
+                    <div className="bg-white/90 rounded-lg p-1.5 border border-slate-200 shadow-2xs">
                       <span className="block text-[10px] text-slate-500 font-medium">Current Debt</span>
                       <span className="font-bold text-amber-700">{selectedVipStats.debt.toLocaleString()} ETB</span>
                     </div>
-                    <div className="bg-white/80 rounded-lg p-1.5 border border-emerald-100">
+                    <div className="bg-white/90 rounded-lg p-1.5 border border-slate-200 shadow-2xs">
                       <span className="block text-[10px] text-slate-500 font-medium">Available Credit</span>
                       <span className="font-extrabold text-emerald-700">
                         {selectedVipStats.isUnlimited ? "♾️ Unlimited" : `${selectedVipStats.available.toLocaleString()} ETB`}
@@ -1648,7 +1663,9 @@ function PaymentModal({
                         const vPhone = v.phone || v.phone_number || "";
                         const vLimit = Number(v.credit_limit || v.creditLimit || 0);
                         const vDebt = Number(v.current_debt || v.currentDebt || v.debt || 0);
-                        const isUnl = (v.tier || "").toLowerCase().includes("gold") || (v.tier || "").toLowerCase().includes("unlimited") || vLimit >= 999999;
+                        const vTier = (v.tier || "").toLowerCase();
+                        const isPromoter = vTier.includes("promoter");
+                        const isUnl = isPromoter || vTier.includes("gold") || vTier.includes("unlimited") || vLimit <= 0 || vLimit >= 999999;
 
                         return (
                           <button
@@ -1660,14 +1677,25 @@ function PaymentModal({
                               setSelectedVip(v);
                               setShowVipDropdown(false);
                             }}
-                            className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-xs hover:bg-amber-50 transition border-b border-slate-50 last:border-0 cursor-pointer"
+                            className={`flex w-full items-center justify-between px-3.5 py-2.5 text-left text-xs transition border-b border-slate-50 last:border-0 cursor-pointer ${
+                              isPromoter ? "hover:bg-purple-50" : "hover:bg-amber-50"
+                            }`}
                           >
                             <div>
                               <p className="font-bold text-slate-900 flex items-center gap-1.5">
-                                👑 {vName}
-                                <span className="text-[10px] text-amber-800 font-semibold rounded-md bg-amber-100 px-1.5 py-0.5">
+                                {isPromoter ? "🎟️" : "👑"} {vName}
+                                <span className={`text-[10px] font-semibold rounded-md px-1.5 py-0.5 ${
+                                  isPromoter
+                                    ? "text-purple-900 bg-purple-100 border border-purple-300 font-bold"
+                                    : "text-amber-800 bg-amber-100"
+                                }`}>
                                   {v.tier || "VIP"}
                                 </span>
+                                {isUnl && (
+                                  <span className="text-[9px] font-extrabold text-amber-800 bg-amber-100/90 rounded px-1.5 py-0.2 border border-amber-300">
+                                    ♾️ Unlimited
+                                  </span>
+                                )}
                               </p>
                               <p className="text-[11px] text-slate-500 mt-0.5">
                                 {vPhone ? `📞 ${vPhone}` : "No Phone"} {v.company ? `• ${v.company}` : ""}
@@ -1678,7 +1706,7 @@ function PaymentModal({
                                 Available: {isUnl ? "♾️ Unlimited" : `${Math.max(vLimit - vDebt, 0).toLocaleString()} ETB`}
                               </span>
                               <span className="text-[10px] text-slate-500 block">
-                                {isUnl ? "Unlimited Credit Ceiling" : `Limit: ${vLimit.toLocaleString()} • Debt: ${vDebt.toLocaleString()}`}
+                                {isUnl ? (isPromoter ? "Promoter Tab (Unlimited Money)" : "Unlimited Credit Ceiling") : `Limit: ${vLimit.toLocaleString()} • Debt: ${vDebt.toLocaleString()}`}
                               </span>
                             </div>
                           </button>

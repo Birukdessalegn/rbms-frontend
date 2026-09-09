@@ -19,11 +19,6 @@ const menuItems = [
     icon: Package,
   },
   {
-    name: "Stock",
-    path: "/inventory/stock",
-    icon: Boxes,
-  },
-  {
     name: "Low Stock",
     path: "/inventory/low-stock",
     icon: AlertTriangle,
@@ -52,10 +47,6 @@ function InventoryLayout() {
       return "Inventory";
     }
 
-    if (location.pathname === "/inventory/stock") {
-      return "Stock Management";
-    }
-
     if (location.pathname === "/inventory/low-stock") {
       return "Low Stock";
     }
@@ -74,10 +65,6 @@ function InventoryLayout() {
   const getPageDescription = () => {
     if (location.pathname === "/inventory") {
       return "Monitor and manage restaurant inventory.";
-    }
-
-    if (location.pathname === "/inventory/stock") {
-      return "Manage available stock and quantities.";
     }
 
     if (location.pathname === "/inventory/low-stock") {

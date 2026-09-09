@@ -6,8 +6,10 @@ import {
   ShoppingCart,
   RefreshCw,
   ArrowDownToLine,
+  SlidersHorizontal,
 } from "lucide-react";
 import api from "../../../services/api";
+import StockThresholdModal from "../components/StockThresholdModal";
 
 function InventoryLowStockPage() {
   const [lowStockList, setLowStockList] = useState([]);
@@ -16,6 +18,24 @@ function InventoryLowStockPage() {
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
+
+  // Threshold modal state
+  const [showThresholdModal, setShowThresholdModal] = useState(false);
+  const [selectedThresholdProduct, setSelectedThresholdProduct] = useState(null);
+
+  const openThresholdModal = (item) => {
+    setSelectedThresholdProduct({
+      id: item.productId || item.id,
+      product_id: item.productId || item.id,
+      name: item.name,
+      product_name: item.name,
+      category_name: item.category,
+      unit: item.unit,
+      low_stock_threshold: item.minimum,
+      minimum_stock: item.minimum,
+    });
+    setShowThresholdModal(true);
+  };
 
   const fetchLowStock = async () => {
     try {
@@ -222,13 +242,20 @@ function InventoryLowStockPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-6 border-t border-slate-100 pt-4 sm:border-t-0 sm:pt-0">
+                <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-4 sm:border-t-0 sm:pt-0">
                   <div className="text-right">
                     <p className="text-xs text-slate-400">Stock Status</p>
                     <p className="text-sm font-semibold text-slate-900">
                       <span className="text-red-600">{item.current}</span> / {item.minimum} {item.unit}
                     </p>
                   </div>
+                  <button
+                    onClick={() => openThresholdModal(item)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100 transition shadow-2xs shrink-0 active:scale-95"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5 text-amber-600" />
+                    <span>Edit Limit</span>
+                  </button>
                 </div>
               </div>
             );
@@ -241,6 +268,15 @@ function InventoryLowStockPage() {
           </div>
         )}
       </div>
+
+      {/* Stock Threshold Customization Modal */}
+      <StockThresholdModal
+        isOpen={showThresholdModal}
+        onClose={() => setShowThresholdModal(false)}
+        onSuccess={fetchLowStock}
+        product={selectedThresholdProduct}
+        initialDepartment="all"
+      />
     </div>
   );
 }

@@ -167,20 +167,64 @@ const fetchTables = async () => {
   };
 
   // ============================================================
+  // FETCH BACKEND NOTIFICATIONS (LOW STOCK, TRANSFERS, ETC.)
+  // ============================================================
+
+  const fetchBackendNotifications = async () => {
+    try {
+      const response = await api("/notifications?limit=25");
+      const list = response?.notifications || response?.data || (Array.isArray(response) ? response : []);
+      if (Array.isArray(list)) {
+        // Play subtle warning chime for new low-stock or warning alerts
+        list.forEach((n) => {
+          const key = `backend-warn-${n.id}`;
+          if (!n.is_read && (n.type === "warning" || n.reference_type?.includes("stock"))) {
+            if (!notifiedOrdersRef.current.has(key)) {
+              notifiedOrdersRef.current.add(key);
+              audioService.playWarningSound();
+            }
+          }
+        });
+
+        setNotifications((prev) => {
+          // Retain local transient kitchen order chimes
+          const localOnly = prev.filter((p) => !String(p.id).startsWith("backend-"));
+          const backendMapped = list.map((n) => ({
+            id: `backend-${n.id}`,
+            backendId: n.id,
+            type: n.type || "info",
+            title: n.title,
+            message: n.message,
+            read: Boolean(n.is_read),
+            referenceType: n.reference_type,
+            referenceId: n.reference_id,
+            createdAt: new Date(n.created_at || Date.now()),
+          }));
+          return [...localOnly, ...backendMapped];
+        });
+      }
+    } catch (err) {
+      // Quiet fail if not logged in or endpoint unavailable
+    }
+  };
+
+  // ============================================================
   // INITIAL LOAD + POLLING
   // ============================================================
 
-    useEffect(() => {
-       fetchKitchenOrders();
-      fetchTables();
-
-  const interval = setInterval(() => {
+  useEffect(() => {
     fetchKitchenOrders();
     fetchTables();
-  }, 5000);
+    fetchBackendNotifications();
 
-  return () => clearInterval(interval);
-}, []);
+    const interval = setInterval(() => {
+      fetchKitchenOrders();
+      fetchTables();
+      fetchBackendNotifications();
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // ============================================================
   // SEND ORDER TO KITCHEN
@@ -265,10 +309,16 @@ const fetchTables = async () => {
           : notification
       )
     );
+
+    if (String(id).startsWith("backend-")) {
+      const realId = id.replace("backend-", "");
+      api(`/notifications/${realId}/read`, { method: "PATCH" }).catch(() => {});
+    }
   };
 
   const clearNotifications = () => {
     setNotifications([]);
+    api("/notifications/read-all", { method: "PATCH" }).catch(() => {});
   };
 
   // ============================================================

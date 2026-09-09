@@ -110,6 +110,15 @@ function POSPage() {
   };
 
   const handleAddProduct = (product) => {
+    // Gentle warning if item is completely out of stock
+    const stockVal = product.current_stock !== undefined ? Number(product.current_stock) : null;
+    if (stockVal !== null && !isNaN(stockVal) && stockVal <= 0) {
+      const confirmAdd = window.confirm(
+        `⚠️ "${product.name}" is marked OUT OF STOCK in ${product.stock_department || "inventory"}.\n\nDo you still want to add it to the ticket?`
+      );
+      if (!confirmAdd) return;
+    }
+
     if (isSpiritOrLiquorProduct(product)) {
       setPortionModalProduct(product);
       return;

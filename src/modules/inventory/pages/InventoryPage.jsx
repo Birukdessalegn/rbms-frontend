@@ -12,10 +12,12 @@ import {
   UtensilsCrossed,
   Building2,
   CheckCircle2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../../../services/api";
 import StockTransferModal from "../components/StockTransferModal";
+import StockThresholdModal from "../components/StockThresholdModal";
 
 function InventoryPage() {
   const [inventoryList, setInventoryList] = useState([]);
@@ -27,6 +29,17 @@ function InventoryPage() {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedTransferProduct, setSelectedTransferProduct] = useState(null);
   const [selectedTransferDept, setSelectedTransferDept] = useState("bar");
+
+  // Threshold Modal state
+  const [showThresholdModal, setShowThresholdModal] = useState(false);
+  const [selectedThresholdProduct, setSelectedThresholdProduct] = useState(null);
+  const [selectedThresholdDept, setSelectedThresholdDept] = useState("all");
+
+  const openThresholdModal = (product = null, dept = "all") => {
+    setSelectedThresholdProduct(product);
+    setSelectedThresholdDept(dept);
+    setShowThresholdModal(true);
+  };
 
   // Multi-location table filtering
   const [searchQuery, setSearchQuery] = useState("");
@@ -291,21 +304,22 @@ function InventoryPage() {
                 <th className="py-3 px-4 text-center">Central Store</th>
                 <th className="py-3 px-4 text-center">Bar Stock</th>
                 <th className="py-3 px-4 text-center">Kitchen Stock</th>
+                <th className="py-3 px-4 text-center">Alert Limit</th>
                 <th className="py-3 px-4 text-center">Total On-Hand</th>
                 <th className="py-3 px-4 text-center">Sold Today</th>
-                <th className="py-3 px-4 text-right">Action</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="py-8 text-center text-xs text-slate-400">
+                  <td colSpan="9" className="py-8 text-center text-xs text-slate-400">
                     Loading multi-location stock...
                   </td>
                 </tr>
               ) : filteredMultiStock.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="py-8 text-center text-xs text-slate-400">
+                  <td colSpan="9" className="py-8 text-center text-xs text-slate-400">
                     No products found matching your filter criteria.
                   </td>
                 </tr>
@@ -318,6 +332,17 @@ function InventoryPage() {
                   const soldToday = Number(prod.sold_today || 0);
                   const unit = prod.unit || "pcs";
                   const isBarItem = prod.category_type === "bar" || prod.category_type === "beverage";
+
+                  const lowThreshold = Number(
+                    isBarItem
+                      ? prod.bar_minimum_stock ?? prod.low_stock_threshold ?? 5
+                      : prod.kitchen_minimum_stock ?? prod.low_stock_threshold ?? 5
+                  );
+                  const outThreshold = Number(
+                    isBarItem
+                      ? prod.bar_out_of_stock_threshold ?? prod.out_of_stock_threshold ?? 0
+                      : prod.kitchen_out_of_stock_threshold ?? prod.out_of_stock_threshold ?? 0
+                  );
 
                   return (
                     <tr key={prod.product_id} className="hover:bg-slate-50/80 transition">
@@ -349,6 +374,17 @@ function InventoryPage() {
                           {kitchenQty > 0 ? `${kitchenQty} ${unit}` : "0"}
                         </span>
                       </td>
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          onClick={() => openThresholdModal(prod, isBarItem ? "bar" : "kitchen")}
+                          title="Click to customize Low Stock & Out-of-Stock alert thresholds"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200/80 bg-amber-50/60 px-2.5 py-1 text-[11px] font-bold text-amber-900 hover:bg-amber-100 hover:border-amber-400 transition active:scale-95 shadow-2xs"
+                        >
+                          <SlidersHorizontal className="h-3 w-3 text-amber-600 shrink-0" />
+                          <span>Min: {lowThreshold}</span>
+                          {outThreshold > 0 && <span className="text-[10px] text-rose-600 font-extrabold">| Out: {outThreshold}</span>}
+                        </button>
+                      </td>
                       <td className="py-3 px-4 text-center font-black text-slate-900">
                         {totalQty} {unit}
                       </td>
@@ -360,12 +396,21 @@ function InventoryPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => openTransferModal(prod, isBarItem ? "bar" : "kitchen")}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-amber-500 hover:bg-amber-50 hover:text-amber-900 transition shadow-2xs"
-                        >
-                          Transfer
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => openThresholdModal(prod, isBarItem ? "bar" : "kitchen")}
+                            title="Set Alert Thresholds"
+                            className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-600 hover:border-amber-500 hover:bg-amber-50 hover:text-amber-900 transition shadow-2xs"
+                          >
+                            <SlidersHorizontal className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => openTransferModal(prod, isBarItem ? "bar" : "kitchen")}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-amber-500 hover:bg-amber-50 hover:text-amber-900 transition shadow-2xs"
+                          >
+                            Transfer
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -445,15 +490,15 @@ function InventoryPage() {
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Link
-              to="/inventory/stock"
+              to="/inventory/transactions"
               className="flex items-center gap-3 rounded-xl border border-slate-100 bg-blue-50/60 p-4 transition hover:bg-blue-100/60"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-white">
-                <Package className="h-5 w-5" />
+                <ArrowRightLeft className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-900">All Stock</p>
-                <p className="text-xs text-slate-500">Manage products & limits</p>
+                <p className="text-sm font-bold text-slate-900">Stock Movements</p>
+                <p className="text-xs text-slate-500">Track all transfers & movements</p>
               </div>
             </Link>
 
@@ -480,6 +525,15 @@ function InventoryPage() {
         onSuccess={fetchDashboardData}
         initialProduct={selectedTransferProduct}
         initialDepartment={selectedTransferDept}
+      />
+
+      {/* Stock Threshold Customization Modal */}
+      <StockThresholdModal
+        isOpen={showThresholdModal}
+        onClose={() => setShowThresholdModal(false)}
+        onSuccess={fetchDashboardData}
+        product={selectedThresholdProduct}
+        initialDepartment={selectedThresholdDept}
       />
     </div>
   );

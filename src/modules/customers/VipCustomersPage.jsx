@@ -90,8 +90,8 @@ export default function VipCustomersPage() {
     setForm({
       name: "",
       phone: "",
-      tier: "Gold VIP",
-      creditLimit: "15000",
+      tier: "Promoter",
+      creditLimit: "999999999",
       company: "",
       notes: "",
     });
@@ -105,11 +105,14 @@ export default function VipCustomersPage() {
       return;
     }
     setEditingCustomer(cust);
+    const tier = cust.tier || "Promoter";
+    const tierLower = tier.toLowerCase();
+    const isUnl = tierLower.includes("promoter") || tierLower.includes("gold") || tierLower.includes("unlimited");
     setForm({
       name: cust.name || "",
       phone: cust.phone || "",
-      tier: cust.tier || "Gold VIP",
-      creditLimit: String(cust.credit_limit || cust.creditLimit || 15000),
+      tier: tier,
+      creditLimit: isUnl ? "999999999" : String(cust.credit_limit || cust.creditLimit || 15000),
       company: cust.company || "",
       notes: cust.notes || "",
     });
@@ -273,7 +276,11 @@ export default function VipCustomersPage() {
       c.phone.includes(searchTerm) ||
       (c.company && c.company.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const matchesTier = tierFilter === "all" || c.tier === tierFilter;
+    const matchesTier =
+      tierFilter === "all" ||
+      c.tier === tierFilter ||
+      (tierFilter === "Promoter" && (c.tier || "").toLowerCase().includes("promoter")) ||
+      (tierFilter === "Gold VIP" && (c.tier || "").toLowerCase().includes("gold"));
     return matchesSearch && matchesTier;
   });
 
@@ -414,7 +421,8 @@ export default function VipCustomersPage() {
             className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-amber-500"
           >
             <option value="all">All VIP Tiers</option>
-            <option value="Gold VIP">Gold VIP</option>
+            <option value="Promoter">🎟️ Promoter (Unlimited)</option>
+            <option value="Gold VIP">👑 Gold VIP (Unlimited)</option>
             <option value="Executive">Executive</option>
             <option value="Regular VIP">Regular VIP</option>
             <option value="Corporate Account">Corporate Account</option>
@@ -449,7 +457,9 @@ export default function VipCustomersPage() {
                 filteredCustomers.map((cust) => {
                   const debt = Number(cust.current_debt || 0);
                   const limit = Number(cust.credit_limit || 0);
-                  const isUnlimited = (cust.tier || "").toLowerCase().includes("gold") || (cust.tier || "").toLowerCase().includes("unlimited") || limit >= 999999;
+                  const custTier = (cust.tier || "").toLowerCase();
+                  const isPromoter = custTier.includes("promoter");
+                  const isUnlimited = isPromoter || custTier.includes("gold") || custTier.includes("unlimited") || limit <= 0 || limit >= 999999;
                   const available = isUnlimited ? Infinity : Math.max(limit - debt, 0);
                   const isMaxedOut = !isUnlimited && debt >= limit && limit > 0;
 
@@ -458,7 +468,9 @@ export default function VipCustomersPage() {
                       {/* Name & Phone */}
                       <td className="px-3.5 py-2.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 font-extrabold text-[11px] text-amber-800 shadow-2xs">
+                          <div className={`flex h-7 w-7 items-center justify-center rounded-lg font-extrabold text-[11px] shadow-2xs ${
+                            isPromoter ? "bg-purple-100 text-purple-900 border border-purple-200" : "bg-amber-100 text-amber-800"
+                          }`}>
                             {cust.name.substring(0, 2).toUpperCase()}
                           </div>
                           <div>
@@ -474,8 +486,16 @@ export default function VipCustomersPage() {
                       {/* Tier & Company */}
                       <td className="px-3.5 py-2.5">
                         <div className="space-y-0.5">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-300">
-                            <Sparkles className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                            isPromoter
+                              ? "bg-purple-100 text-purple-900 border-purple-300 font-extrabold"
+                              : "bg-amber-100 text-amber-900 border-amber-300"
+                          }`}>
+                            {isPromoter ? (
+                              <span className="text-[11px]">🎟️</span>
+                            ) : (
+                              <Sparkles className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
+                            )}
                             {cust.tier}
                           </span>
                           {cust.company && (
@@ -626,15 +646,19 @@ export default function VipCustomersPage() {
                     value={form.tier}
                     onChange={(e) => {
                       const val = e.target.value;
-                      const isGold = val.toLowerCase().includes("gold") || val.toLowerCase().includes("unlimited");
+                      const isUnl =
+                        val.toLowerCase().includes("promoter") ||
+                        val.toLowerCase().includes("gold") ||
+                        val.toLowerCase().includes("unlimited");
                       setForm({
                         ...form,
                         tier: val,
-                        creditLimit: isGold ? "999999999" : (form.creditLimit === "999999999" ? "15000" : form.creditLimit),
+                        creditLimit: isUnl ? "999999999" : (form.creditLimit === "999999999" ? "15000" : form.creditLimit),
                       });
                     }}
                     className="w-full rounded-xl border border-amber-300 bg-amber-50/50 px-3 py-2.5 text-sm font-bold text-amber-950 outline-none focus:border-amber-500"
                   >
+                    <option value="Promoter">🎟️ Promoter (Unlimited Money / Credit)</option>
                     <option value="Gold VIP">👑 Gold VIP (Unlimited Credit)</option>
                     <option value="Executive">Executive</option>
                     <option value="Regular VIP">Regular VIP</option>
@@ -646,18 +670,18 @@ export default function VipCustomersPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Approved Credit Limit (ETB) * {(form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")) && "(♾️ Unlimited Active)"}
+                    Approved Credit Limit (ETB) * {(form.tier.toLowerCase().includes("promoter") || form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")) && "(♾️ Unlimited Money Active)"}
                   </label>
                   <input
                     type="number"
                     required
-                    disabled={form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")}
+                    disabled={form.tier.toLowerCase().includes("promoter") || form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")}
                     min="0"
                     step="1000"
-                    value={(form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")) ? "999999999" : form.creditLimit}
+                    value={(form.tier.toLowerCase().includes("promoter") || form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")) ? "999999999" : form.creditLimit}
                     onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
                     placeholder="15000"
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-bold text-slate-900 outline-none focus:border-amber-500 disabled:bg-amber-100/70 disabled:text-amber-900"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-bold text-slate-900 outline-none focus:border-amber-500 disabled:bg-purple-100/70 disabled:text-purple-950 disabled:border-purple-300"
                   />
                 </div>
 

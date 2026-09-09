@@ -22,9 +22,37 @@ import {
   Filter,
   ShieldCheck,
   Boxes,
+  Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import api from "../../../services/api";
 import { printReportArea } from "../../../utils/printHelper";
+
+function ReportStatCard({ title, value, description, icon: Icon, colorClass, bgClass }) {
+  return (
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition hover:shadow-md">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+            {title}
+          </p>
+          <h3 className="mt-2 text-2xl font-black text-slate-900">
+            {value}
+          </h3>
+          {description && (
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              {description}
+            </p>
+          )}
+        </div>
+        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${bgClass} ${colorClass}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function FBAuditReportsPage() {
   const [loading, setLoading] = useState(true);
@@ -48,6 +76,11 @@ export default function FBAuditReportsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeViewTab, setActiveViewTab] = useState("inventory"); // "inventory" | "audits" | "all"
   const [stockStatusFilter, setStockStatusFilter] = useState("all"); // "all" | "healthy" | "low" | "depleted" | "approved_depleted"
+
+  // Pagination state
+  const [currentInventoryPage, setCurrentInventoryPage] = useState(1);
+  const [currentAuditPage, setCurrentAuditPage] = useState(1);
+  const pageSize = 15;
 
   // Date preset handler
   const handleApplyPreset = (preset) => {
@@ -78,6 +111,8 @@ export default function FBAuditReportsPage() {
       setFromDate(d.toISOString().split("T")[0]);
       setToDate(todayStr);
     }
+    setCurrentInventoryPage(1);
+    setCurrentAuditPage(1);
   };
 
   // Fetch all live and historical F&B data
@@ -99,36 +134,31 @@ export default function FBAuditReportsPage() {
         api("/products").catch(() => []),
         api("/inventory/departments/kitchen").catch(() => api("/inventory").catch(() => [])),
         api("/inventory/departments/bar").catch(() => api("/inventory").catch(() => [])),
-        api("/kitchen").catch(() => []),
-        api("/bar").catch(() => []),
-        api("/kitchen/audits").catch(() => []),
-        api("/inventory/transfers").catch(() => []),
+        api("/kitchen").catch(() => api("/kitchen/orders").catch(() => [])),
+        api("/bar/orders").catch(() => api("/bar").catch(() => [])),
+        api("/kitchen/audit").catch(() => []),
+        api("/transfers").catch(() => []),
       ]);
 
-      setProducts(
-        prodRes?.products || prodRes?.data?.products || (Array.isArray(prodRes) ? prodRes : [])
-      );
-      setKitchenStock(
-        kStockRes?.inventory || kStockRes?.data?.inventory || kStockRes?.data || (Array.isArray(kStockRes) ? kStockRes : [])
-      );
-      setBarStock(
-        bStockRes?.inventory || bStockRes?.data?.inventory || bStockRes?.data || (Array.isArray(bStockRes) ? bStockRes : [])
-      );
-      setKitchenOrders(
-        kOrdersRes?.orders || kOrdersRes?.data?.orders || kOrdersRes?.data || (Array.isArray(kOrdersRes) ? kOrdersRes : [])
-      );
-      setBarOrders(
-        bOrdersRes?.orders || bOrdersRes?.data?.orders || bOrdersRes?.data || (Array.isArray(bOrdersRes) ? bOrdersRes : [])
-      );
-      setAudits(
-        auditsRes?.audits || auditsRes?.data?.audits || (Array.isArray(auditsRes) ? auditsRes : [])
-      );
-      setTransfers(
-        transfersRes?.transfers || transfersRes?.data?.transfers || (Array.isArray(transfersRes) ? transfersRes : [])
-      );
+      const normalizeList = (data) => {
+        if (Array.isArray(data)) return data;
+        if (data?.data && Array.isArray(data.data)) return data.data;
+        if (data?.products && Array.isArray(data.products)) return data.products;
+        if (data?.orders && Array.isArray(data.orders)) return data.orders;
+        if (data?.items && Array.isArray(data.items)) return data.items;
+        return [];
+      };
+
+      setProducts(normalizeList(prodRes));
+      setKitchenStock(normalizeList(kStockRes));
+      setBarStock(normalizeList(bStockRes));
+      setKitchenOrders(normalizeList(kOrdersRes));
+      setBarOrders(normalizeList(bOrdersRes));
+      setAudits(normalizeList(auditsRes));
+      setTransfers(normalizeList(transfersRes));
     } catch (err) {
-      console.error("Failed to load F&B report data:", err);
-      setError(err.message || "Failed to load report data.");
+      console.error("Failed to load F&B Audit Report data:", err);
+      setError("Failed to load data. Please click Refresh to try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -137,114 +167,152 @@ export default function FBAuditReportsPage() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(() => loadData(true), 30000);
-    return () => clearInterval(interval);
   }, []);
 
-  // Compute stock maps
+  // Compute lookup maps
   const kitchenStockMap = useMemo(() => {
     const map = new Map();
-    (kitchenStock || []).forEach((it) => {
-      const pid = it.product_id || it.productId || it.id;
-      if (pid) map.set(Number(pid), it);
+    kitchenStock.forEach((item) => {
+      const pid = item.product_id || item.productId || item.id;
+      if (pid) {
+        map.set(String(pid), {
+          quantity: Number(item.quantity ?? item.current_stock ?? item.stock ?? 0),
+          min_stock: Number(item.min_stock ?? item.minimum_stock ?? 5),
+          reorder_point: Number(item.reorder_point ?? item.min_stock ?? 5),
+        });
+      }
     });
     return map;
   }, [kitchenStock]);
 
   const barStockMap = useMemo(() => {
     const map = new Map();
-    (barStock || []).forEach((it) => {
-      const pid = it.product_id || it.productId || it.id;
-      if (pid) map.set(Number(pid), it);
+    barStock.forEach((item) => {
+      const pid = item.product_id || item.productId || item.id;
+      if (pid) {
+        map.set(String(pid), {
+          quantity: Number(item.quantity ?? item.current_stock ?? item.stock ?? 0),
+          min_stock: Number(item.min_stock ?? item.minimum_stock ?? 5),
+          reorder_point: Number(item.reorder_point ?? item.min_stock ?? 5),
+        });
+      }
     });
     return map;
   }, [barStock]);
 
-  // Live POS consumption today map
+  // Live consumption calculation
   const liveConsumptionMap = useMemo(() => {
     const map = new Map();
-    const todayStr = new Date().toDateString();
-    const allOrders = [...(kitchenOrders || []), ...(barOrders || [])];
 
-    allOrders.forEach((ord) => {
-      const ordDate = ord.created_at || ord.createdAt;
-      const isToday = ordDate ? new Date(ordDate).toDateString() === todayStr : true;
-      if (!isToday) return;
+    const parseItems = (raw) => {
+      if (!raw) return [];
+      if (typeof raw === "string") {
+        try {
+          return JSON.parse(raw);
+        } catch (e) {
+          return [];
+        }
+      }
+      return Array.isArray(raw) ? raw : [];
+    };
 
-      const rawItems = ord.items || ord.order_items || ord.orderItems || ord.products || [];
-      const items = Array.isArray(rawItems) ? rawItems : [];
-      items.forEach((item) => {
-        const pid = Number(item.product_id || item.productId || item.id);
-        const pName = (item.product_name || item.name || "").toLowerCase().trim();
-        const q = Number(item.quantity || 1);
-        if (pid) map.set(pid, (map.get(pid) || 0) + q);
-        if (pName) map.set(pName, (map.get(pName) || 0) + q);
+    kitchenOrders.forEach((o) => {
+      const items = parseItems(o.items);
+      items.forEach((it) => {
+        const pid = String(it.product_id || it.productId || it.id || "");
+        const name = (it.name || it.product_name || "").toLowerCase().trim();
+        const qty = Number(it.quantity || it.qty || 1);
+        if (pid) map.set(pid, (map.get(pid) || 0) + qty);
+        if (name) map.set(name, (map.get(name) || 0) + qty);
       });
     });
+
+    barOrders.forEach((o) => {
+      const items = parseItems(o.items);
+      items.forEach((it) => {
+        const pid = String(it.product_id || it.productId || it.id || "");
+        const name = (it.name || it.product_name || "").toLowerCase().trim();
+        const qty = Number(it.quantity || it.qty || 1);
+        if (pid) map.set(pid, (map.get(pid) || 0) + qty);
+        if (name) map.set(name, (map.get(name) || 0) + qty);
+      });
+    });
+
     return map;
   }, [kitchenOrders, barOrders]);
 
-  // Latest audit record map per product
+  // Latest audit status per product
   const latestAuditMap = useMemo(() => {
     const map = new Map();
     (audits || []).forEach((a) => {
-      const pid = Number(a.product_id || a.productId);
-      const pName = (a.product_name || a.name || "").toLowerCase().trim();
-      const existing = pid ? map.get(pid) : map.get(pName);
-      const aDate = new Date(a.created_at || a.createdAt || 0);
-
-      if (!existing || aDate > new Date(existing.created_at || existing.createdAt || 0)) {
-        if (pid) map.set(pid, a);
-        if (pName) map.set(pName, a);
+      const pid = String(a.product_id || a.productId || "");
+      if (pid && !map.has(pid)) {
+        map.set(pid, a);
       }
     });
     return map;
   }, [audits]);
 
-  // Combined Classified Items
+  // Unified items list with analysis
   const itemsAnalysis = useMemo(() => {
-    return (products || []).map((p) => {
-      const pid = Number(p.id);
-      const pName = (p.name || p.product_name || "").toLowerCase().trim();
-      const catType = (p.category_type || p.categoryType || "").toLowerCase().trim();
-      const dept = (p.department || "").toLowerCase().trim();
+    return products.map((p) => {
+      const pid = String(p.id);
+      const cat = (p.category || p.category_name || "").toLowerCase();
+      const pName = (p.name || p.product_name || "").toLowerCase();
 
-      const kStockData = kitchenStockMap.get(pid);
-      const bStockData = barStockMap.get(pid);
+      const isBarDrink =
+        cat.includes("drink") ||
+        cat.includes("beverage") ||
+        cat.includes("bar") ||
+        cat.includes("wine") ||
+        cat.includes("liquor") ||
+        cat.includes("beer") ||
+        cat.includes("whiskey") ||
+        cat.includes("vodka") ||
+        pName.includes("beer") ||
+        pName.includes("wine") ||
+        pName.includes("whiskey") ||
+        pName.includes("vodka") ||
+        pName.includes("juice") ||
+        pName.includes("soda");
 
-      let outlet = "kitchen";
-      if (dept === "bar" || dept === "beverage") outlet = "bar";
-      else if (dept === "kitchen" || dept === "food") outlet = "kitchen";
-      else if (p.is_bar_item === true || p.isBarItem === true) outlet = "bar";
-      else if (catType === "beverage" || catType === "bar" || catType === "drink") outlet = "bar";
-      else if (catType === "food" || catType === "kitchen") outlet = "kitchen";
-      else if (bStockData && !kStockData) outlet = "bar";
-      else if (kStockData && !bStockData) outlet = "kitchen";
-      else if (bStockData && kStockData) {
-        outlet = Number(bStockData.quantity) > Number(kStockData.quantity) ? "bar" : "kitchen";
-      }
+      const outlet = isBarDrink ? "bar" : "kitchen";
+      const deptStock = outlet === "bar" ? barStockMap.get(pid) : kitchenStockMap.get(pid);
 
-      const stockRecord = outlet === "bar" ? bStockData : kStockData;
-      const currentStock = stockRecord ? Number(stockRecord.quantity) : Number(p.stock_quantity ?? p.stock ?? 0);
-      const minStock = stockRecord?.minimum_stock ? Number(stockRecord.minimum_stock) : Number(p.minimum_stock ?? 5);
-      const price = Number(p.price || 0);
-      const costPrice = Number(p.cost_price || p.cost || 0);
+      const currentStock = deptStock
+        ? deptStock.quantity
+        : Number(p.current_stock ?? p.quantity ?? p.stock ?? 0);
 
-      const rawSold = Number(stockRecord?.sold_today || 0);
-      const liveSold = liveConsumptionMap.get(pid) || liveConsumptionMap.get(pName) || 0;
-      const soldToday = Math.max(rawSold, liveSold);
+      const minStock = deptStock
+        ? deptStock.min_stock
+        : Number(p.min_stock ?? p.minimum_stock ?? 5);
 
+      const price = Number(p.price || p.unit_price || p.selling_price || 0);
+      const costPrice = Number(p.cost_price || p.cost || price * 0.6);
+
+      const soldToday =
+        liveConsumptionMap.get(pid) ||
+        liveConsumptionMap.get(pName) ||
+        0;
+
+      const inventoryValue = currentStock * price;
       const isDepleted = currentStock <= 0;
-      const isLow = !isDepleted && currentStock <= minStock;
+      const isLow = currentStock > 0 && currentStock <= minStock;
       const isHealthy = currentStock > minStock;
 
-      const inventoryValue = currentStock * (costPrice > 0 ? costPrice : price * 0.6);
+      const latestAudit = latestAuditMap.get(pid) || null;
+      const isApprovedDepletion =
+        isDepleted &&
+        latestAudit &&
+        String(latestAudit.action_taken || latestAudit.status || "")
+          .toLowerCase()
+          .includes("approved");
 
-      // Latest audit info
-      const latestAudit = latestAuditMap.get(pid) || latestAuditMap.get(pName);
-      const auditAction = (latestAudit?.action_taken || latestAudit?.action || latestAudit?.status || "").toLowerCase();
-      const isApprovedDepletion = isDepleted && (auditAction.includes("deplet") || auditAction.includes("confirm"));
-      const isAuditRestored = auditAction.includes("restor") || auditAction.includes("found");
+      const isAuditRestored =
+        latestAudit &&
+        String(latestAudit.action_taken || latestAudit.status || "")
+          .toLowerCase()
+          .includes("restore");
 
       return {
         ...p,
@@ -289,7 +357,6 @@ export default function FBAuditReportsPage() {
     const totalHealthy = kitchenHealthy + barHealthy;
 
     const totalSoldToday = itemsAnalysis.reduce((sum, i) => sum + i.soldToday, 0);
-
     const healthyRate = itemsAnalysis.length > 0 ? Math.round((totalHealthy / itemsAnalysis.length) * 100) : 100;
 
     return {
@@ -384,750 +451,875 @@ export default function FBAuditReportsPage() {
     });
   }, [itemsAnalysis, departmentFilter, stockStatusFilter, searchQuery]);
 
-  return (
-    <div className="space-y-4 sm:space-y-6 pb-8 text-slate-900 font-sans">
-      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+  // Pagination for Inventory Table
+  const inventoryTotalPages = Math.ceil(filteredItemsAnalysis.length / pageSize) || 1;
+  const paginatedItems = useMemo(() => {
+    const start = (currentInventoryPage - 1) * pageSize;
+    return filteredItemsAnalysis.slice(start, start + pageSize);
+  }, [filteredItemsAnalysis, currentInventoryPage, pageSize]);
 
-        {/* ========================================================
-            HEADER BANNER & CONTROLS
-        ======================================================== */}
-        <div className="rounded-2xl bg-white border border-slate-200 p-4 sm:p-6 shadow-sm">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-sm shrink-0">
-                <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-                    F&B Analysis & Audit Report
-                  </h1>
-                  <span className="px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-xs font-semibold uppercase tracking-wider rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    Kitchen & Bar Intelligence
-                  </span>
+  // Pagination for Audit Table
+  const auditTotalPages = Math.ceil(filteredAudits.length / pageSize) || 1;
+  const paginatedAudits = useMemo(() => {
+    const start = (currentAuditPage - 1) * pageSize;
+    return filteredAudits.slice(start, start + pageSize);
+  }, [filteredAudits, currentAuditPage, pageSize]);
+
+  const handlePrint = () => {
+    printReportArea("fb-reports-printable-area", "Official F&B Executive Analysis & Stock Audit Report");
+  };
+
+  const handleExportCSV = () => {
+    if (filteredItemsAnalysis.length === 0 && filteredAudits.length === 0) {
+      alert("No F&B audit or stock data available to export.");
+      return;
+    }
+
+    let csv = "THE OAK CLUB & LOUNGE - F&B AUDIT & INVENTORY CONTROL REPORT\n";
+    csv += `Generated: "${new Date().toLocaleString()}"\n`;
+    csv += `Audit Scope: "${departmentFilter.toUpperCase()}"\n`;
+    csv += `Audit Period: "${fromDate && toDate ? `${fromDate} to ${toDate}` : "All Time"}"\n\n`;
+
+    // Metrics summary
+    csv += "SUMMARY METRICS\n";
+    csv += `Total Monitored Items,${metrics.totalItems}\n`;
+    csv += `Total Stock On Hand,${metrics.totalStockUnits} units\n`;
+    csv += `Kitchen Stock Units,${metrics.totalKitchenUnits}\n`;
+    csv += `Bar Stock Units,${metrics.totalBarUnits}\n`;
+    csv += `Healthy Stock Ratio,${metrics.healthyRate}%\n`;
+    csv += `Low Stock Alerts,${metrics.totalLow}\n`;
+    csv += `Depleted / Zero Stock,${metrics.totalDepleted}\n`;
+    csv += `Total Consumed Today,${metrics.totalSoldToday} units\n\n`;
+
+    // Top Consumed Items
+    if (topConsumedItems.length > 0) {
+      csv += "TOP CONSUMED ITEMS TODAY\n";
+      csv += "Rank,Item Name,Outlet,Quantity Consumed,Unit\n";
+      topConsumedItems.forEach((it, idx) => {
+        csv += `${idx + 1},"${it.displayName.replace(/"/g, '""')}","${it.outlet.toUpperCase()}",${it.soldToday},"${it.unit}"\n`;
+      });
+      csv += "\n";
+    }
+
+    // Comprehensive Inventory Stock Valuation
+    csv += "F&B OUTLET INVENTORY LEDGER\n";
+    csv += "Item Name,Code / SKU,Outlet,Category,Current Stock,Min Stock,Status,Unit Price (ETB),Est. Valuation (ETB)\n";
+    filteredItemsAnalysis.forEach((it) => {
+      const statusStr = it.isDepleted ? "DEPLETED" : it.isLow ? "LOW STOCK" : "HEALTHY";
+      csv += `"${it.displayName.replace(/"/g, '""')}","${it.product_code || "-"}","${it.outlet.toUpperCase()}","${it.category_name || it.category || "-"}","${it.currentStock} ${it.unit}","${it.minStock} ${it.unit}","${statusStr}",${it.price.toFixed(2)},${it.inventoryValue.toFixed(2)}\n`;
+    });
+    csv += "\n";
+
+    // Audits Log
+    if (filteredAudits.length > 0) {
+      csv += "RECORDED PHYSICAL AUDIT CHECKS\n";
+      csv += "Timestamp,Item Name,Department,Audit Result,Verified Qty,Audited By,Notes\n";
+      filteredAudits.forEach((a) => {
+        csv += `"${new Date(a.created_at || a.createdAt).toLocaleString()}","${(a.product_name || a.name || "").replace(/"/g, '""')}","${(a.department || a.outlet || "").toUpperCase()}","${a.action_taken || a.action || a.status || "Audit"}","${a.physical_quantity ?? a.quantity ?? 0}","${(a.audited_by_name || a.auditor_name || "").replace(/"/g, '""')}","${(a.notes || "").replace(/"/g, '""')}"\n`;
+      });
+    }
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `FB_Audit_Report_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="space-y-6 text-slate-900 font-sans">
+      {/* Screen Header (Hidden on Print) */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between print-hide">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-slate-900">
+              F&B Analysis & Audit Report
+            </h1>
+            <span className="px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Kitchen & Bar Intelligence
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Real-time stock valuation, consumption velocity, and verified physical audit history.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            to="/kitchen/audit"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+          >
+            <ClipboardCheck className="h-4 w-4 text-emerald-600" />
+            Audit Board
+            <ArrowUpRight className="h-3 w-3 opacity-60 hidden sm:inline" />
+          </Link>
+          <button
+            type="button"
+            onClick={() => loadData(true)}
+            disabled={refreshing || loading}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin text-emerald-600" : ""}`} />
+            {refreshing ? "Syncing..." : "Refresh"}
+          </button>
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 transition shadow-2xs"
+          >
+            <Download className="h-4 w-4 text-emerald-600" />
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition shadow-sm"
+          >
+            <Printer className="h-4 w-4" />
+            Print Report
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Stat Cards (Hidden on Print) */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 print-hide">
+        <ReportStatCard
+          title="Stock On Hand"
+          value={`${metrics.totalStockUnits.toLocaleString()} Units`}
+          description={`Kitchen: ${metrics.totalKitchenUnits.toLocaleString()} • Bar: ${metrics.totalBarUnits.toLocaleString()}`}
+          icon={Package}
+          colorClass="text-emerald-600"
+          bgClass="bg-emerald-50"
+        />
+        <ReportStatCard
+          title="Inventory Health"
+          value={`${metrics.healthyRate}%`}
+          description={`${metrics.totalHealthy} healthy • ${metrics.totalLow} low stock`}
+          icon={Activity}
+          colorClass="text-blue-600"
+          bgClass="bg-blue-50"
+        />
+        <ReportStatCard
+          title="Depleted / Zero"
+          value={`${metrics.totalDepleted} Items`}
+          description={`${metrics.kitchenDepleted} Kitchen • ${metrics.barDepleted} Bar`}
+          icon={AlertTriangle}
+          colorClass="text-rose-600"
+          bgClass="bg-rose-50"
+        />
+        <ReportStatCard
+          title="Consumed Today"
+          value={`${metrics.totalSoldToday} Units`}
+          description={`${audits.length} recorded audit checks`}
+          icon={TrendingUp}
+          colorClass="text-purple-600"
+          bgClass="bg-purple-50"
+        />
+      </div>
+
+      {/* Unified Filter Toolbar (Hidden on Print) */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print-hide">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          {/* Quick Date Presets */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { id: "all", label: "All Time" },
+              { id: "today", label: "Today" },
+              { id: "yesterday", label: "Yesterday" },
+              { id: "week", label: "This Week" },
+              { id: "month", label: "This Month" },
+            ].map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => handleApplyPreset(preset.id)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                  datePreset === preset.id
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Department Scope & Status Filters */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-full sm:w-56">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search item, SKU..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentInventoryPage(1);
+                  setCurrentAuditPage(1);
+                }}
+                className="w-full rounded-xl border border-slate-200 py-1.5 pl-8 pr-3 text-xs outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-500">From:</span>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setDatePreset("custom");
+                  setCurrentInventoryPage(1);
+                  setCurrentAuditPage(1);
+                }}
+                className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-500">To:</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setToDate(e.target.value);
+                  setDatePreset("custom");
+                  setCurrentInventoryPage(1);
+                  setCurrentAuditPage(1);
+                }}
+                className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <select
+              value={departmentFilter}
+              onChange={(e) => {
+                setDepartmentFilter(e.target.value);
+                setCurrentInventoryPage(1);
+                setCurrentAuditPage(1);
+              }}
+              className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-500"
+            >
+              <option value="all">All Outlets ({itemsAnalysis.length})</option>
+              <option value="kitchen">🍳 Kitchen ({metrics.kitchenCount})</option>
+              <option value="bar">🍸 Bar ({metrics.barCount})</option>
+            </select>
+
+            <select
+              value={stockStatusFilter}
+              onChange={(e) => {
+                setStockStatusFilter(e.target.value);
+                setCurrentInventoryPage(1);
+              }}
+              className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-500"
+            >
+              <option value="all">All Stock Statuses</option>
+              <option value="healthy">In Stock ({metrics.totalHealthy})</option>
+              <option value="low">Low Stock ({metrics.totalLow})</option>
+              <option value="depleted">Depleted ({metrics.totalDepleted})</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* PRINTABLE REPORT DOCUMENT CONTAINER */}
+      <div id="fb-reports-printable-area" className="space-y-6">
+        {/* OFFICIAL EXECUTIVE PRINT HEADER */}
+        <div className="border-b-2 border-slate-900 pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">
+                THE OAK CLUB & LOUNGE
+              </h1>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mt-0.5">
+                FOOD & BEVERAGE INVENTORY CONTROL & PHYSICAL AUDIT STATEMENT
+              </p>
+            </div>
+            <div className="text-right text-xs">
+              <h2 className="font-bold text-slate-900">Official F&B Operations Audit</h2>
+              <p className="text-slate-600 mt-0.5">Generated: {new Date().toLocaleString()}</p>
+              <p className="text-slate-600">
+                Audit Scope:{" "}
+                <span className="font-bold text-slate-900">
+                  {departmentFilter.toUpperCase()} • {fromDate && toDate ? `${fromDate} to ${toDate}` : "All Time"}
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* CARDLESS HORIZONTAL METRICS BAR (SIDE-BY-SIDE WITHOUT CARDS) */}
+        <div className="side-metrics-bar border-y border-slate-300 py-2.5 my-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 text-xs text-slate-700 w-full">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Monitored Items:</span>
+              <strong className="text-slate-900 font-black">{metrics.totalItems} Items</strong>
+            </div>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Stock On Hand:</span>
+              <strong className="text-emerald-700 font-black">{metrics.totalStockUnits.toLocaleString()} Units</strong>
+              <span className="text-[10px] font-semibold text-slate-500">({metrics.totalKitchenUnits}K / {metrics.totalBarUnits}B)</span>
+            </div>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Healthy Ratio:</span>
+              <strong className="text-blue-700 font-black">{metrics.healthyRate}%</strong>
+            </div>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Low Stock:</span>
+              <strong className="text-amber-700 font-black">{metrics.totalLow} Items</strong>
+            </div>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Depleted:</span>
+              <strong className="text-rose-700 font-black">{metrics.totalDepleted} Items</strong>
+            </div>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Consumed Today:</span>
+              <strong className="text-purple-700 font-black">{metrics.totalSoldToday} Units</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* COMPARATIVE ANALYSIS (KITCHEN VS. BAR) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          {/* Kitchen Operational Analysis */}
+          <div className="rounded-2xl bg-white border border-slate-200 p-4 sm:p-6 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50 text-orange-600 border border-orange-200 shrink-0">
+                    <UtensilsCrossed className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm sm:text-base">Kitchen Operations</h3>
+                    <p className="text-[11px] sm:text-xs text-slate-500">Food, starters, grills & prep lines</p>
+                  </div>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                  Real-time stock valuation, consumption velocity, and verified physical audit history.
-                </p>
+                <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-orange-50 text-orange-700 border border-orange-200 shrink-0">
+                  {metrics.kitchenCount} dishes
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-100 text-center">
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase">On Hand</p>
+                  <p className="text-sm font-extrabold text-slate-900 mt-0.5">
+                    {metrics.totalKitchenUnits.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase">Low / Zero</p>
+                  <p className="text-sm font-extrabold text-rose-600 mt-0.5">
+                    {metrics.kitchenDepleted} / {metrics.kitchenLow}
+                  </p>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase">Active Prep</p>
+                  <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
+                    {kitchenOrders.length} orders
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="grid grid-cols-3 sm:flex items-center gap-2 w-full lg:w-auto justify-end">
-              <Link
-                to="/kitchen/audit"
-                className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition"
-              >
-                <ClipboardCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
-                <span className="truncate">Audit Board</span>
-                <ArrowUpRight className="h-3 w-3 opacity-60 hidden sm:inline shrink-0" />
-              </Link>
-
-              <button
-                onClick={() =>
-                  printReportArea(
-                    "fb-reports-printable-area",
-                    "Official F&B Executive Analysis & Stock Audit Report"
-                  )
-                }
-                className="flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition shadow-sm"
-              >
-                <Printer className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-                <span className="truncate">Print Report</span>
-              </button>
-
-              <button
-                onClick={() => loadData(true)}
-                disabled={refreshing || loading}
-                className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-2 text-xs font-medium rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition shadow-sm"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 ${refreshing ? "animate-spin text-emerald-600" : ""}`} />
-                <span className="truncate">{refreshing ? "Syncing..." : "Refresh"}</span>
-              </button>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span>Healthy catalog ratio</span>
+              <span className="font-bold text-slate-900">
+                {metrics.kitchenCount > 0
+                  ? Math.round(((metrics.kitchenCount - metrics.kitchenDepleted) / metrics.kitchenCount) * 100)
+                  : 100}% operational
+              </span>
             </div>
           </div>
 
-          {/* Date Presets & Filter Row */}
-          <div className="mt-4 sm:mt-6 pt-4 sm:pt-5 border-t border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4">
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 w-full md:w-auto flex-nowrap">
-              <span className="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1 shrink-0">
-                <Calendar className="h-3.5 w-3.5" /> Date:
+          {/* Bar Operational Analysis */}
+          <div className="rounded-2xl bg-white border border-slate-200 p-4 sm:p-6 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50 text-purple-600 border border-purple-200 shrink-0">
+                    <Wine className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm sm:text-base">Bar Operations</h3>
+                    <p className="text-[11px] sm:text-xs text-slate-500">Liquor, wines, beers, cocktails & softs</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
+                  {metrics.barCount} beverages
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-100 text-center">
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase">On Hand</p>
+                  <p className="text-sm font-extrabold text-slate-900 mt-0.5">
+                    {metrics.totalBarUnits.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase">Low / Zero</p>
+                  <p className="text-sm font-extrabold text-rose-600 mt-0.5">
+                    {metrics.barDepleted} / {metrics.barLow}
+                  </p>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase">Active Orders</p>
+                  <p className="text-sm font-extrabold text-purple-600 mt-0.5">
+                    {barOrders.length} tickets
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span>Healthy bar stock ratio</span>
+              <span className="font-bold text-slate-900">
+                {metrics.barCount > 0
+                  ? Math.round(((metrics.barCount - metrics.barDepleted) / metrics.barCount) * 100)
+                  : 100}% operational
               </span>
-              {[
-                { id: "all", label: "All Time" },
-                { id: "today", label: "Today" },
-                { id: "yesterday", label: "Yesterday" },
-                { id: "week", label: "Last 7 Days" },
-                { id: "month", label: "Last 30 Days" },
-              ].map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleApplyPreset(p.id)}
-                  className={`px-2.5 sm:px-3 py-1 text-xs rounded-lg font-medium transition shrink-0 whitespace-nowrap ${
-                    datePreset === p.id
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {p.label}
-                </button>
+            </div>
+          </div>
+        </div>
+
+        {/* TOP CONSUMED ITEMS TODAY */}
+        {topConsumedItems.length > 0 && (
+          <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Flame className="h-5 w-5 text-orange-500" />
+                <h3 className="font-bold text-slate-900 text-base">Top Consumed Items Today</h3>
+              </div>
+              <span className="text-xs text-slate-500">Ranked by POS customer consumption</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {topConsumedItems.map((it, idx) => (
+                <div key={it.id} className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span className="font-bold text-slate-400">#{idx + 1}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                        it.outlet === "bar" ? "bg-purple-100 text-purple-700" : "bg-orange-100 text-orange-700"
+                      }`}>
+                        {it.outlet}
+                      </span>
+                    </div>
+                    <h4 className="font-semibold text-slate-900 text-sm mt-1 truncate" title={it.displayName}>
+                      {it.displayName}
+                    </h4>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Sold:</span>
+                    <span className="font-extrabold text-emerald-600 text-sm">{it.soldToday} {it.unit}</span>
+                  </div>
+                </div>
               ))}
             </div>
+          </div>
+        )}
 
-            {/* Department Scope Filter */}
-            <div className="w-full md:w-auto">
-              <div className="grid grid-cols-3 gap-1.5 w-full sm:flex sm:items-center">
-                <button
-                  onClick={() => setDepartmentFilter("all")}
-                  className={`px-2.5 sm:px-3 py-1.5 sm:py-1 text-xs rounded-lg font-medium transition text-center truncate ${
-                    departmentFilter === "all"
-                      ? "bg-slate-900 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  All ({itemsAnalysis.length})
-                </button>
-                <button
-                  onClick={() => setDepartmentFilter("kitchen")}
-                  className={`px-2 sm:px-3 py-1.5 sm:py-1 text-xs rounded-lg font-medium transition text-center truncate ${
-                    departmentFilter === "kitchen"
-                      ? "bg-orange-500 text-white"
-                      : "bg-orange-50 text-orange-700 hover:bg-orange-100"
-                  }`}
-                >
-                  🍳 Kitchen ({metrics.kitchenCount})
-                </button>
-                <button
-                  onClick={() => setDepartmentFilter("bar")}
-                  className={`px-2 sm:px-3 py-1.5 sm:py-1 text-xs rounded-lg font-medium transition text-center truncate ${
-                    departmentFilter === "bar"
-                      ? "bg-purple-600 text-white"
-                      : "bg-purple-50 text-purple-700 hover:bg-purple-100"
-                  }`}
-                >
-                  🍸 Bar ({metrics.barCount})
-                </button>
-              </div>
-            </div>
+        {/* REPORT VIEW SELECTOR TABS (Hidden on Print) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4 print-hide">
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl w-full sm:w-auto overflow-x-auto no-scrollbar flex-nowrap">
+            <button
+              onClick={() => setActiveViewTab("inventory")}
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 whitespace-nowrap ${
+                activeViewTab === "inventory"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Package className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span>All F&B Stock ({filteredItemsAnalysis.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveViewTab("audits")}
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 whitespace-nowrap ${
+                activeViewTab === "audits"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <ClipboardCheck className="h-4 w-4 text-blue-600 shrink-0" />
+              <span>Audit Logs ({filteredAudits.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveViewTab("all")}
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 whitespace-nowrap ${
+                activeViewTab === "all"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Layers className="h-4 w-4 text-purple-600 shrink-0" />
+              <span>Combined Report</span>
+            </button>
+          </div>
+
+          <div className="text-xs text-slate-500 flex items-center gap-2 shrink-0">
+            <span className="font-bold text-slate-900">{itemsAnalysis.length}</span> items &bull;
+            <span className="font-bold text-slate-900">{audits.length}</span> audits
           </div>
         </div>
 
-        {/* ========================================================
-            PRINTABLE REPORT CONTAINER
-        ======================================================== */}
-        <div id="fb-reports-printable-area" className="space-y-4 sm:space-y-6">
-
-          {/* KPI CARDS */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-            {/* Total Stock On Hand */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
-                  Stock On Hand
-                </p>
-                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
-                  <Package className="h-4 w-4 sm:h-5 sm:w-5" />
-                </div>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1 sm:mt-2">
-                {metrics.totalStockUnits.toLocaleString()}{" "}
-                <span className="text-xs sm:text-sm font-semibold text-slate-500">units</span>
-              </h3>
-              <p className="text-[11px] text-slate-500 mt-1 line-clamp-1 sm:line-clamp-none">
-                Kitchen: {metrics.totalKitchenUnits.toLocaleString()} &bull; Bar: {metrics.totalBarUnits.toLocaleString()}
-              </p>
-            </div>
-
-            {/* Stock Health */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
-                  Inventory Health
-                </p>
-                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-200 shrink-0">
-                  <Activity className="h-4 w-4 sm:h-5 sm:w-5" />
-                </div>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1 sm:mt-2">
-                {metrics.healthyRate}%
-              </h3>
-              <p className="text-[11px] text-slate-500 mt-1 line-clamp-1 sm:line-clamp-none">
-                {metrics.totalHealthy} healthy &bull; {metrics.totalLow} low stock
-              </p>
-            </div>
-
-            {/* Depletions */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
-                  Depleted / Zero
-                </p>
-                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600 border border-rose-200 shrink-0">
-                  <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
-                </div>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-extrabold text-rose-600 mt-1 sm:mt-2">
-                {metrics.totalDepleted}{" "}
-                <span className="text-xs sm:text-sm font-normal text-slate-500">items</span>
-              </h3>
-              <p className="text-[11px] text-slate-500 mt-1 line-clamp-1 sm:line-clamp-none">
-                {metrics.kitchenDepleted} Kitchen &bull; {metrics.barDepleted} Bar
-              </p>
-            </div>
-
-            {/* Consumption Today */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
-                  Consumed Today
-                </p>
-                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600 border border-purple-200 shrink-0">
-                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
-                </div>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1 sm:mt-2">
-                {metrics.totalSoldToday}{" "}
-                <span className="text-xs sm:text-sm font-normal text-slate-500">units</span>
-              </h3>
-              <p className="text-[11px] text-slate-500 mt-1 line-clamp-1 sm:line-clamp-none">
-                {audits.length} recorded audit checks
-              </p>
-            </div>
-          </div>
-
-          {/* ========================================================
-              COMPARATIVE ANALYSIS (KITCHEN VS. BAR)
-          ======================================================== */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            {/* Kitchen Operational Analysis */}
-            <div className="rounded-2xl bg-white border border-slate-200 p-4 sm:p-6 shadow-sm flex flex-col justify-between">
+        {/* TAB 1: COMPREHENSIVE F&B STOCK & OPERATIONAL STATUS TABLE */}
+        {(activeViewTab === "inventory" || activeViewTab === "all") && (
+          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50 text-orange-600 border border-orange-200 shrink-0">
-                      <UtensilsCrossed className="h-4 w-4 sm:h-5 sm:w-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-sm sm:text-base">Kitchen Operations</h3>
-                      <p className="text-[11px] sm:text-xs text-slate-500">Food, starters, grills & prep lines</p>
-                    </div>
-                  </div>
-                  <span className="px-2 sm:px-2.5 py-0.5 sm:py-1 text-[11px] sm:text-xs font-bold rounded-lg bg-orange-50 text-orange-700 border border-orange-200 shrink-0">
-                    {metrics.kitchenCount} dishes
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-1.5 sm:gap-3 mt-4 sm:mt-6 pt-4 sm:pt-5 border-t border-slate-100 text-center">
-                  <div className="bg-slate-50 p-2 sm:p-3 rounded-xl border border-slate-100">
-                    <p className="text-[9px] sm:text-[11px] font-semibold text-slate-400 uppercase truncate">On Hand</p>
-                    <p className="text-xs sm:text-base font-extrabold text-slate-900 mt-0.5 sm:mt-1 truncate">
-                      {metrics.totalKitchenUnits.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="bg-slate-50 p-2 sm:p-3 rounded-xl border border-slate-100">
-                    <p className="text-[9px] sm:text-[11px] font-semibold text-slate-400 uppercase truncate">Low / Zero</p>
-                    <p className="text-xs sm:text-base font-extrabold text-rose-600 mt-0.5 sm:mt-1 truncate">
-                      {metrics.kitchenDepleted} / {metrics.kitchenLow}
-                    </p>
-                  </div>
-                  <div className="bg-slate-50 p-2 sm:p-3 rounded-xl border border-slate-100">
-                    <p className="text-[9px] sm:text-[11px] font-semibold text-slate-400 uppercase truncate">Active Prep</p>
-                    <p className="text-xs sm:text-base font-extrabold text-emerald-600 mt-0.5 sm:mt-1 truncate">
-                      {kitchenOrders.length} orders
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 flex items-center justify-between text-[11px] sm:text-xs text-slate-500">
-                <span>Healthy catalog ratio</span>
-                <span className="font-bold text-slate-900">
-                  {metrics.kitchenCount > 0
-                    ? Math.round(((metrics.kitchenCount - metrics.kitchenDepleted) / metrics.kitchenCount) * 100)
-                    : 100}
-                  % operational
-                </span>
-              </div>
-            </div>
-
-            {/* Bar Operational Analysis */}
-            <div className="rounded-2xl bg-white border border-slate-200 p-4 sm:p-6 shadow-sm flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50 text-purple-600 border border-purple-200 shrink-0">
-                      <Wine className="h-4 w-4 sm:h-5 sm:w-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-sm sm:text-base">Bar Operations</h3>
-                      <p className="text-[11px] sm:text-xs text-slate-500">Liquor, wines, beers, cocktails & softs</p>
-                    </div>
-                  </div>
-                  <span className="px-2 sm:px-2.5 py-0.5 sm:py-1 text-[11px] sm:text-xs font-bold rounded-lg bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
-                    {metrics.barCount} beverages
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-1.5 sm:gap-3 mt-4 sm:mt-6 pt-4 sm:pt-5 border-t border-slate-100 text-center">
-                  <div className="bg-slate-50 p-2 sm:p-3 rounded-xl border border-slate-100">
-                    <p className="text-[9px] sm:text-[11px] font-semibold text-slate-400 uppercase truncate">On Hand</p>
-                    <p className="text-xs sm:text-base font-extrabold text-slate-900 mt-0.5 sm:mt-1 truncate">
-                      {metrics.totalBarUnits.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="bg-slate-50 p-2 sm:p-3 rounded-xl border border-slate-100">
-                    <p className="text-[9px] sm:text-[11px] font-semibold text-slate-400 uppercase truncate">Low / Zero</p>
-                    <p className="text-xs sm:text-base font-extrabold text-rose-600 mt-0.5 sm:mt-1 truncate">
-                      {metrics.barDepleted} / {metrics.barLow}
-                    </p>
-                  </div>
-                  <div className="bg-slate-50 p-2 sm:p-3 rounded-xl border border-slate-100">
-                    <p className="text-[9px] sm:text-[11px] font-semibold text-slate-400 uppercase truncate">Active Orders</p>
-                    <p className="text-xs sm:text-base font-extrabold text-purple-600 mt-0.5 sm:mt-1 truncate">
-                      {barOrders.length} tickets
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 flex items-center justify-between text-[11px] sm:text-xs text-slate-500">
-                <span>Healthy bar stock ratio</span>
-                <span className="font-bold text-slate-900">
-                  {metrics.barCount > 0
-                    ? Math.round(((metrics.barCount - metrics.barDepleted) / metrics.barCount) * 100)
-                    : 100}
-                  % operational
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* ========================================================
-              FAST MOVING / HIGHEST CONSUMPTION TODAY
-          ======================================================== */}
-          {topConsumedItems.length > 0 && (
-            <div className="rounded-2xl bg-white border border-slate-200 p-4 sm:p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <div className="flex items-center gap-2">
-                  <Flame className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
-                  <h3 className="font-bold text-slate-900 text-sm sm:text-base">Top Consumed Items Today</h3>
+                  <Package className="h-5 w-5 text-emerald-600 shrink-0" />
+                  <h3 className="font-bold text-slate-900 text-base">
+                    All F&B Stock & Operational Status ({filteredItemsAnalysis.length})
+                  </h3>
                 </div>
-                <span className="text-[10px] sm:text-xs text-slate-500">Ranked by POS orders</span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
-                {topConsumedItems.map((it, idx) => (
-                  <div key={it.id} className="p-2.5 sm:p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between text-xs text-slate-500">
-                        <span className="font-bold text-slate-400">#{idx + 1}</span>
-                        <span className={`px-1.5 py-0.2 rounded text-[9px] sm:text-[10px] font-semibold uppercase ${
-                          it.outlet === "bar" ? "bg-purple-100 text-purple-700" : "bg-orange-100 text-orange-700"
-                        }`}>
-                          {it.outlet}
-                        </span>
-                      </div>
-                      <h4 className="font-semibold text-slate-900 text-xs sm:text-sm mt-1 truncate" title={it.displayName}>
-                        {it.displayName}
-                      </h4>
-                    </div>
-                    <div className="mt-2.5 sm:mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between">
-                      <span className="text-[11px] sm:text-xs text-slate-500">Sold:</span>
-                      <span className="font-extrabold text-emerald-600 text-xs sm:text-sm">{it.soldToday} {it.unit}</span>
-                    </div>
-                  </div>
-                ))}
+                <p className="text-xs text-slate-500 mt-1">
+                  Live stock quantities, threshold warnings, POS consumption, valuations, and audit verification states.
+                </p>
               </div>
             </div>
-          )}
 
-          {/* ========================================================
-              REPORT VIEW SELECTOR TABS
-          ======================================================== */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-slate-200 pb-3 sm:pb-4">
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl w-full sm:w-auto overflow-x-auto no-scrollbar flex-nowrap">
-              <button
-                onClick={() => setActiveViewTab("inventory")}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 whitespace-nowrap ${
-                  activeViewTab === "inventory"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Package className="h-4 w-4 text-emerald-600 shrink-0" />
-                <span>All F&B Stock ({filteredItemsAnalysis.length})</span>
-              </button>
-
-              <button
-                onClick={() => setActiveViewTab("audits")}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 whitespace-nowrap ${
-                  activeViewTab === "audits"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <ClipboardCheck className="h-4 w-4 text-blue-600 shrink-0" />
-                <span>Audit Logs ({filteredAudits.length})</span>
-              </button>
-
-              <button
-                onClick={() => setActiveViewTab("all")}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 whitespace-nowrap ${
-                  activeViewTab === "all"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Layers className="h-4 w-4 text-purple-600 shrink-0" />
-                <span>Combined Report</span>
-              </button>
-            </div>
-
-            <div className="text-xs text-slate-500 flex items-center gap-2 shrink-0">
-              <span className="font-bold text-slate-900">{itemsAnalysis.length}</span> items &bull;
-              <span className="font-bold text-slate-900">{audits.length}</span> audits
-            </div>
-          </div>
-
-          {/* ========================================================
-              TAB 1: COMPREHENSIVE F&B STOCK & OPERATIONAL STATUS TABLE
-          ======================================================== */}
-          {(activeViewTab === "inventory" || activeViewTab === "all") && (
-            <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 shrink-0" />
-                    <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-                      All F&B Stock & Operational Status ({filteredItemsAnalysis.length})
-                    </h3>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5 sm:mt-1">
-                    Live stock quantities, threshold warnings, POS consumption, valuations, and audit verification states.
-                  </p>
-                </div>
-
-                {/* Filters: Search & Stock Status */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5 w-full lg:w-auto">
-                  {/* Status Pills */}
-                  <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200 overflow-x-auto no-scrollbar flex-nowrap w-full sm:w-auto pb-1">
-                    {[
-                      { id: "all", label: `All (${itemsAnalysis.length})` },
-                      { id: "healthy", label: `In Stock (${metrics.totalHealthy})` },
-                      { id: "low", label: `Low (${metrics.totalLow})` },
-                      { id: "depleted", label: `Zero (${metrics.totalDepleted})` },
-                      {
-                        id: "approved_depleted",
-                        label: `Approved (${itemsAnalysis.filter((i) => i.isApprovedDepletion).length})`,
-                      },
-                    ].map((st) => (
-                      <button
-                        key={st.id}
-                        onClick={() => setStockStatusFilter(st.id)}
-                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition shrink-0 whitespace-nowrap ${
-                          stockStatusFilter === st.id
-                            ? "bg-slate-900 text-white"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        {st.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Search Input */}
-                  <div className="relative w-full sm:w-56">
-                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search item, SKU..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
-                    />
-                  </div>
-                </div>
+            {loading ? (
+              <div className="py-16 text-center text-slate-500">
+                <RefreshCw className="h-6 w-6 animate-spin mx-auto text-emerald-600 mb-2" />
+                <p className="text-xs">Loading F&B inventory...</p>
               </div>
+            ) : filteredItemsAnalysis.length === 0 ? (
+              <div className="py-16 text-center text-slate-500">
+                <Package className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-700">No items match your filter criteria</p>
+                <p className="text-xs text-slate-400 mt-1">Try resetting the status filter or search query.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                    <tr>
+                      <th className="py-3.5 px-4 w-10">#</th>
+                      <th className="py-3.5 px-4">Item & Category</th>
+                      <th className="py-3.5 px-4">Department</th>
+                      <th className="py-3.5 px-4 text-right">In-Line Stock</th>
+                      <th className="py-3.5 px-4 text-right">Min Level</th>
+                      <th className="py-3.5 px-4">Operational Status</th>
+                      <th className="py-3.5 px-4 text-right">Sold Today</th>
+                      <th className="py-3.5 px-4">Latest Audit Record</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedItems.map((it, idx) => {
+                      const isBar = it.outlet === "bar";
+                      const globalIdx = (currentInventoryPage - 1) * pageSize + idx + 1;
 
-              {loading ? (
-                <div className="py-16 text-center text-slate-500">
-                  <RefreshCw className="h-6 w-6 animate-spin mx-auto text-emerald-600 mb-2" />
-                  <p className="text-xs">Loading F&B inventory...</p>
-                </div>
-              ) : filteredItemsAnalysis.length === 0 ? (
-                <div className="py-16 text-center text-slate-500">
-                  <Package className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-slate-700">No items match your filter criteria</p>
-                  <p className="text-xs text-slate-400 mt-1">Try resetting the status filter or search query.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-left text-xs text-slate-600">
-                    <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
-                      <tr>
-                        <th className="py-3.5 px-4 w-10">#</th>
-                        <th className="py-3.5 px-4">Item & Category</th>
-                        <th className="py-3.5 px-4">Department</th>
-                        <th className="py-3.5 px-4 text-right">In-Line Stock</th>
-                        <th className="py-3.5 px-4 text-right">Min Level</th>
-                        <th className="py-3.5 px-4">Operational Status</th>
-                        <th className="py-3.5 px-4 text-right">Sold Today</th>
-                        <th className="py-3.5 px-4">Latest Audit Record</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredItemsAnalysis.map((it, idx) => {
-                        const isBar = it.outlet === "bar";
+                      return (
+                        <tr key={it.id} className="hover:bg-slate-50/80 transition">
+                          <td className="py-3 px-4 text-slate-400 text-[11px] font-mono">
+                            {globalIdx}
+                          </td>
 
-                        return (
-                          <tr key={it.id} className="hover:bg-slate-50/80 transition">
-                            <td className="py-3 px-4 text-slate-400 text-[11px] font-mono">
-                              {idx + 1}
-                            </td>
+                          <td className="py-3 px-4 font-semibold text-slate-900">
+                            <div>{it.displayName}</div>
+                            <div className="text-[10px] text-slate-400 font-normal flex items-center gap-1.5 mt-0.5">
+                              {it.product_code && <span>SKU: {it.product_code}</span>}
+                              {it.category_name && <span>&bull; {it.category_name}</span>}
+                            </div>
+                          </td>
 
-                            <td className="py-3 px-4 font-semibold text-slate-900">
-                              <div>{it.displayName}</div>
-                              <div className="text-[10px] text-slate-400 font-normal flex items-center gap-1.5 mt-0.5">
-                                {it.product_code && <span>SKU: {it.product_code}</span>}
-                                {it.category_name && <span>&bull; {it.category_name}</span>}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                isBar
+                                  ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                  : "bg-orange-50 text-orange-700 border border-orange-200"
+                              }`}
+                            >
+                              {isBar ? "🍸 Bar" : "🍳 Kitchen"}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                            {it.currentStock}{" "}
+                            <span className="text-[10px] font-normal text-slate-400">
+                              {it.unit}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4 text-right text-slate-400 whitespace-nowrap">
+                            {it.minStock} {it.unit}
+                          </td>
+
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            {it.isApprovedDepletion ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <ShieldCheck className="h-3 w-3" /> Approved Depletion
+                              </span>
+                            ) : it.isDepleted ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                <AlertTriangle className="h-3 w-3" /> Depleted / Zero
+                              </span>
+                            ) : it.isLow ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <AlertTriangle className="h-3 w-3" /> Low Stock
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 className="h-3 w-3" /> Healthy Stock
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            {it.soldToday > 0 ? (
+                              <span className="font-extrabold text-emerald-600">
+                                +{it.soldToday} {it.unit}
+                              </span>
+                            ) : (
+                              <span className="text-slate-300">0</span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-4 whitespace-nowrap text-[11px]">
+                            {it.latestAudit ? (
+                              <div>
+                                <span className="font-semibold text-slate-700">
+                                  {it.latestAudit.action_taken || it.latestAudit.status || "Audited"}
+                                </span>
+                                <div className="text-[10px] text-slate-400">
+                                  {new Date(it.latestAudit.created_at || it.latestAudit.createdAt).toLocaleDateString()}
+                                </div>
                               </div>
-                            </td>
+                            ) : (
+                              <span className="text-slate-300">No audits</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-slate-50 font-semibold text-slate-700 border-t border-slate-200 text-xs">
+                    <tr>
+                      <td colSpan="3" className="py-3 px-4 font-bold text-slate-900">
+                        Total ({filteredItemsAnalysis.length} Items Listed)
+                      </td>
+                      <td className="py-3 px-4 text-right font-black text-slate-900">
+                        {filteredItemsAnalysis.reduce((sum, i) => sum + i.currentStock, 0)} units
+                      </td>
+                      <td></td>
+                      <td></td>
+                      <td className="py-3 px-4 text-right font-black text-emerald-600">
+                        {filteredItemsAnalysis.reduce((sum, i) => sum + i.soldToday, 0)} units
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
 
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                  isBar
-                                    ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                    : "bg-orange-50 text-orange-700 border border-orange-200"
-                                }`}
-                              >
-                                {isBar ? "🍸 Bar" : "🍳 Kitchen"}
-                              </span>
-                            </td>
-
-                            <td className="py-3 px-4 whitespace-nowrap text-right font-black">
-                              <span
-                                className={
-                                  it.isDepleted
-                                    ? "text-rose-600 font-bold"
-                                    : it.isLow
-                                    ? "text-amber-600 font-bold"
-                                    : "text-slate-900"
-                                }
-                              >
-                                {it.currentStock}
-                              </span>{" "}
-                              <span className="text-slate-400 font-normal text-[10px]">{it.unit}</span>
-                            </td>
-
-                            <td className="py-3 px-4 whitespace-nowrap text-right text-slate-500 font-medium">
-                              {it.minStock} <span className="text-slate-400 text-[10px]">{it.unit}</span>
-                            </td>
-
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              {it.isApprovedDepletion ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
-                                  <ShieldCheck className="h-3 w-3 text-emerald-600" /> Approved Depletion
-                                </span>
-                              ) : it.isDepleted ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                  <XCircle className="h-3 w-3" /> Zero Stock
-                                </span>
-                              ) : it.isLow ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                  <AlertTriangle className="h-3 w-3" /> Low Stock
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  <CheckCircle2 className="h-3 w-3" /> In Stock
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-4 whitespace-nowrap text-right font-bold text-slate-900">
-                              {it.soldToday > 0 ? (
-                                <span className="text-emerald-600">
-                                  {it.soldToday} {it.unit}
-                                </span>
-                              ) : (
-                                <span className="text-slate-300 font-normal">0</span>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-4 text-slate-500 max-w-xs truncate">
-                              {it.latestAudit ? (
-                                <div className="text-[11px]">
-                                  <span className="font-semibold text-slate-700">
-                                    {it.latestAudit.action_taken || it.latestAudit.action || "Audited"}
-                                  </span>{" "}
-                                  <span className="text-slate-400 text-[10px]">
-                                    by {it.latestAudit.audited_by_name || it.latestAudit.auditor_name || "Auditor"} (
-                                    {new Date(it.latestAudit.created_at || it.latestAudit.createdAt).toLocaleDateString()}
-                                    )
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-slate-300 text-[11px]">— No audit record</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot className="bg-slate-50 font-bold text-slate-900 border-t-2 border-slate-200 text-xs">
-                      <tr>
-                        <td colSpan={3} className="py-3 px-4 uppercase text-[11px] text-slate-500">
-                          Total ({filteredItemsAnalysis.length} Items Listed)
-                        </td>
-                        <td className="py-3 px-4 text-right font-black text-slate-900">
-                          {filteredItemsAnalysis.reduce((sum, i) => sum + i.currentStock, 0)} units
-                        </td>
-                        <td></td>
-                        <td></td>
-                        <td className="py-3 px-4 text-right font-black text-emerald-600">
-                          {filteredItemsAnalysis.reduce((sum, i) => sum + i.soldToday, 0)} units
-                        </td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ========================================================
-              TAB 2: PHYSICAL STOCK AUDIT TRAIL
-          ======================================================== */}
-          {(activeViewTab === "audits" || activeViewTab === "all") && (
-            <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <ClipboardCheck className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 shrink-0" />
-                    <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-                      Physical Stock Audit Trail ({filteredAudits.length})
-                    </h3>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5 sm:mt-1">
-                    Verified stock checks, restored inventory, and auditor physical logs.
-                  </p>
-                </div>
-
-                {/* Search in Audits */}
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search auditor, item, notes..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
-                  />
+            {/* Pagination Controls */}
+            {inventoryTotalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 text-xs">
+                <span className="text-slate-500 font-medium">
+                  Showing page {currentInventoryPage} of {inventoryTotalPages} ({filteredItemsAnalysis.length} items total)
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    disabled={currentInventoryPage === 1}
+                    onClick={() => setCurrentInventoryPage((p) => Math.max(p - 1, 1))}
+                    className="flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 font-bold hover:bg-slate-50 disabled:opacity-40 transition"
+                  >
+                    <ChevronLeft className="h-4 w-4" /> Previous
+                  </button>
+                  <button
+                    disabled={currentInventoryPage === inventoryTotalPages}
+                    onClick={() => setCurrentInventoryPage((p) => Math.min(p + 1, inventoryTotalPages))}
+                    className="flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 font-bold hover:bg-slate-50 disabled:opacity-40 transition"
+                  >
+                    Next <ChevronRight className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
+            )}
+          </div>
+        )}
 
-              {loading ? (
-                <div className="py-16 text-center text-slate-500">
-                  <RefreshCw className="h-6 w-6 animate-spin mx-auto text-emerald-600 mb-2" />
-                  <p className="text-xs">Loading audit records...</p>
+        {/* TAB 2: PHYSICAL STOCK AUDIT TRAIL */}
+        {(activeViewTab === "audits" || activeViewTab === "all") && (
+          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck className="h-5 w-5 text-blue-600 shrink-0" />
+                  <h3 className="font-bold text-slate-900 text-base">
+                    Physical Stock Audit Trail ({filteredAudits.length})
+                  </h3>
                 </div>
-              ) : filteredAudits.length === 0 ? (
-                <div className="py-16 text-center text-slate-500">
-                  <CheckCircle2 className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-slate-700">No physical audits match your criteria</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Adjust date range or conduct audits on the F&B Audit Board.
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[680px] text-left text-xs text-slate-600">
-                    <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
-                      <tr>
-                        <th className="py-3.5 px-4">Date & Time</th>
-                        <th className="py-3.5 px-4">Product / SKU</th>
-                        <th className="py-3.5 px-4">Department</th>
-                        <th className="py-3.5 px-4">Audit Result</th>
-                        <th className="py-3.5 px-4">Count Verified</th>
-                        <th className="py-3.5 px-4">Audited By</th>
-                        <th className="py-3.5 px-4">Notes</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredAudits.map((a) => {
-                        const isBar = (a.department || a.outlet || "").toLowerCase() === "bar";
-                        const isRestored =
-                          (a.action_taken || a.action || a.status || "").toLowerCase().includes("restore") ||
-                          (a.action_taken || a.action || a.status || "").toLowerCase().includes("found");
-
-                        return (
-                          <tr key={a.id} className="hover:bg-slate-50/80 transition">
-                            <td className="py-3 px-4 whitespace-nowrap text-slate-500 font-mono text-[11px]">
-                              {new Date(a.created_at || a.createdAt).toLocaleString(undefined, {
-                                dateStyle: "short",
-                                timeStyle: "short",
-                              })}
-                            </td>
-
-                            <td className="py-3 px-4 font-semibold text-slate-900">
-                              <div>{a.product_name || a.name || `Item #${a.product_id}`}</div>
-                              {a.product_code && (
-                                <div className="text-[10px] text-slate-400 font-normal">
-                                  SKU: {a.product_code}
-                                </div>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                  isBar
-                                    ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                    : "bg-orange-50 text-orange-700 border border-orange-200"
-                                }`}
-                              >
-                                {isBar ? "🍸 Bar" : "🍳 Kitchen"}
-                              </span>
-                            </td>
-
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              {isRestored ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  <CheckCircle2 className="h-3 w-3" /> Stock Restored
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                  <XCircle className="h-3 w-3" /> Depleted Verified
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-4 whitespace-nowrap font-bold text-slate-900">
-                              {a.physical_quantity ?? a.quantity ?? (isRestored ? "Restored" : 0)}{" "}
-                              <span className="text-slate-400 font-normal text-[10px]">
-                                {a.unit || "units"}
-                              </span>
-                            </td>
-
-                            <td className="py-3 px-4 whitespace-nowrap text-slate-700 font-medium">
-                              {a.audited_by_name || a.auditor_name || "Auditor"}
-                            </td>
-
-                            <td className="py-3 px-4 text-slate-500 max-w-xs truncate" title={a.notes}>
-                              {a.notes || "—"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                <p className="text-xs text-slate-500 mt-1">
+                  Verified stock checks, restored inventory, and auditor physical logs.
+                </p>
+              </div>
             </div>
-          )}
-        </div>
 
+            {loading ? (
+              <div className="py-16 text-center text-slate-500">
+                <RefreshCw className="h-6 w-6 animate-spin mx-auto text-emerald-600 mb-2" />
+                <p className="text-xs">Loading audit records...</p>
+              </div>
+            ) : filteredAudits.length === 0 ? (
+              <div className="py-16 text-center text-slate-500">
+                <CheckCircle2 className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-700">No physical audits match your criteria</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Adjust date range or conduct audits on the F&B Audit Board.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[680px] text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                    <tr>
+                      <th className="py-3.5 px-4">Date & Time</th>
+                      <th className="py-3.5 px-4">Product / SKU</th>
+                      <th className="py-3.5 px-4">Department</th>
+                      <th className="py-3.5 px-4">Audit Result</th>
+                      <th className="py-3.5 px-4">Count Verified</th>
+                      <th className="py-3.5 px-4">Audited By</th>
+                      <th className="py-3.5 px-4">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedAudits.map((a) => {
+                      const isBar = (a.department || a.outlet || "").toLowerCase() === "bar";
+                      const isRestored =
+                        (a.action_taken || a.action || a.status || "").toLowerCase().includes("restore") ||
+                        (a.action_taken || a.action || a.status || "").toLowerCase().includes("found");
+
+                      return (
+                        <tr key={a.id} className="hover:bg-slate-50/80 transition">
+                          <td className="py-3 px-4 whitespace-nowrap text-slate-500 font-mono text-[11px]">
+                            {new Date(a.created_at || a.createdAt).toLocaleString(undefined, {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })}
+                          </td>
+
+                          <td className="py-3 px-4 font-semibold text-slate-900">
+                            <div>{a.product_name || a.name || `Item #${a.product_id}`}</div>
+                            {a.product_code && (
+                              <div className="text-[10px] text-slate-400 font-normal">
+                                SKU: {a.product_code}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                isBar
+                                  ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                  : "bg-orange-50 text-orange-700 border border-orange-200"
+                              }`}
+                            >
+                              {isBar ? "🍸 Bar" : "🍳 Kitchen"}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            {isRestored ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 className="h-3 w-3" /> Stock Restored
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                <XCircle className="h-3 w-3" /> Depleted Verified
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-4 whitespace-nowrap font-bold text-slate-900">
+                            {a.physical_quantity ?? a.quantity ?? (isRestored ? "Restored" : 0)}{" "}
+                            <span className="text-slate-400 font-normal text-[10px]">
+                              {a.unit || "units"}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4 whitespace-nowrap text-slate-700 font-medium">
+                            {a.audited_by_name || a.auditor_name || "Auditor"}
+                          </td>
+
+                          <td className="py-3 px-4 text-slate-500 max-w-xs truncate" title={a.notes}>
+                            {a.notes || "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {auditTotalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 text-xs">
+                <span className="text-slate-500 font-medium">
+                  Showing page {currentAuditPage} of {auditTotalPages} ({filteredAudits.length} audits total)
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    disabled={currentAuditPage === 1}
+                    onClick={() => setCurrentAuditPage((p) => Math.max(p - 1, 1))}
+                    className="flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 font-bold hover:bg-slate-50 disabled:opacity-40 transition"
+                  >
+                    <ChevronLeft className="h-4 w-4" /> Previous
+                  </button>
+                  <button
+                    disabled={currentAuditPage === auditTotalPages}
+                    onClick={() => setCurrentAuditPage((p) => Math.min(p + 1, auditTotalPages))}
+                    className="flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 font-bold hover:bg-slate-50 disabled:opacity-40 transition"
+                  >
+                    Next <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* FORMAL 3-COLUMN AUDIT SIGN-OFF */}
+        <div className="mt-12 pt-6 border-t-2 border-slate-900 grid grid-cols-3 gap-6 text-xs text-slate-800">
+          <div>
+            <p className="font-bold text-[10px] uppercase tracking-wider text-slate-400">Prepared By</p>
+            <p className="mt-1 font-bold text-slate-900">F&B Controller / Internal Auditor</p>
+            <div className="mt-6 border-b border-dashed border-slate-300 w-3/4"></div>
+            <p className="mt-1 text-[10px] text-slate-400">Signature & Date</p>
+          </div>
+          <div>
+            <p className="font-bold text-[10px] uppercase tracking-wider text-slate-400">Verified By</p>
+            <p className="mt-1 font-bold text-slate-900">Head Chef & Head Bartender</p>
+            <div className="mt-6 border-b border-dashed border-slate-300 w-3/4"></div>
+            <p className="mt-1 text-[10px] text-slate-400">Signature & Date</p>
+          </div>
+          <div>
+            <p className="font-bold text-[10px] uppercase tracking-wider text-slate-400">Approved By</p>
+            <p className="mt-1 font-bold text-slate-900">General Manager</p>
+            <div className="mt-6 border-b border-dashed border-slate-300 w-3/4"></div>
+            <p className="mt-1 text-[10px] text-slate-400">Signature & Date</p>
+          </div>
+        </div>
+        <div className="mt-6 pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400">
+          <span>THE OAK CLUB & LOUNGE • Food & Beverage Inventory Control & Audit</span>
+          <span>Generated: {new Date().toLocaleString()} • Confidential Internal Document</span>
+        </div>
       </div>
     </div>
   );

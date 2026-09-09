@@ -16,6 +16,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   CheckCircle2,
+  Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import api from "../../../services/api";
 
@@ -54,7 +57,43 @@ function FinanceReportsPage() {
   const [search, setSearch] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
+  const [datePreset, setDatePreset] = useState("today");
   const [typeFilter, setTypeFilter] = useState("All");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
+
+  const handleApplyPreset = (preset) => {
+    setDatePreset(preset);
+    const today = new Date();
+    const formatDate = (d) => d.toISOString().split("T")[0];
+
+    if (preset === "today") {
+      const todayStr = formatDate(today);
+      setStartDate(todayStr);
+      setEndDate(todayStr);
+    } else if (preset === "yesterday") {
+      const y = new Date(today);
+      y.setDate(y.getDate() - 1);
+      const yStr = formatDate(y);
+      setStartDate(yStr);
+      setEndDate(yStr);
+    } else if (preset === "week") {
+      const w = new Date(today);
+      w.setDate(w.getDate() - 7);
+      setStartDate(formatDate(w));
+      setEndDate(formatDate(today));
+    } else if (preset === "month") {
+      const m = new Date(today.getFullYear(), today.getMonth(), 1);
+      setStartDate(formatDate(m));
+      setEndDate(formatDate(today));
+    } else {
+      setStartDate("");
+      setEndDate("");
+    }
+    setCurrentPage(1);
+  };
 
   const fetchFinancialData = async () => {
     try {
@@ -200,69 +239,132 @@ function FinanceReportsPage() {
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [filteredLedger]);
 
-  const netProfit = totalRevenue - totalExpenses;
+  const netProfit = useMemo(() => {
+    return totalRevenue - totalExpenses;
+  }, [totalRevenue, totalExpenses]);
 
-  const totalDigitalSales = useMemo(() => {
+  const cashInflow = useMemo(() => {
     return filteredLedger
-      .filter((tx) => tx.isIncome && (tx.paymentMethod.includes("mobile") || tx.paymentMethod.includes("card") || tx.paymentMethod.includes("telebirr")))
+      .filter((tx) => tx.isIncome && (tx.paymentMethod || "").toLowerCase().includes("cash"))
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [filteredLedger]);
 
+  const digitalInflow = useMemo(() => {
+    return filteredLedger
+      .filter(
+        (tx) =>
+          tx.isIncome &&
+          ((tx.paymentMethod || "").toLowerCase().includes("telebirr") ||
+            (tx.paymentMethod || "").toLowerCase().includes("bank") ||
+            (tx.paymentMethod || "").toLowerCase().includes("transfer") ||
+            (tx.paymentMethod || "").toLowerCase().includes("cbe"))
+      )
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }, [filteredLedger]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredLedger.length / pageSize) || 1;
+  const paginatedLedger = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredLedger.slice(start, start + pageSize);
+  }, [filteredLedger, currentPage, pageSize]);
+
   const handlePrint = () => {
-    printReportArea("finance-reports-printable-area", "Finance Revenue & Expense Audit Report");
+    printReportArea("finance-reports-printable-area", "Consolidated Financial Audit Report");
+  };
+
+  const handleExportCSV = () => {
+    if (filteredLedger.length === 0) {
+      alert("No financial records available to export.");
+      return;
+    }
+
+    let csv = "THE OAK CLUB & LOUNGE - CONSOLIDATED FINANCIAL AUDIT STATEMENT\n";
+    csv += `Generated: "${new Date().toLocaleString()}"\n`;
+    csv += `Audit Period: "${startDate && endDate ? `${startDate} to ${endDate}` : "All Time"}"\n\n`;
+
+    // Metrics summary
+    csv += "FINANCIAL EXECUTIVE SUMMARY\n";
+    csv += `Total Verified Revenue,${totalRevenue.toFixed(2)} ETB\n`;
+    csv += `Total Expenses & Purchases,${totalExpenses.toFixed(2)} ETB\n`;
+    csv += `Net Cash Margin,${netProfit.toFixed(2)} ETB\n`;
+    csv += `Verified Cash Inflow,${cashInflow.toFixed(2)} ETB\n`;
+    csv += `Verified Digital Inflow,${digitalInflow.toFixed(2)} ETB\n\n`;
+
+    // Ledger stream
+    csv += "CONSOLIDATED FINANCIAL LEDGER STREAM\n";
+    csv += "Ref ID,Type,Transaction Details,Category,Payment Method,Status,Date,Time,Amount (ETB)\n";
+    filteredLedger.forEach((tx) => {
+      const sign = tx.isIncome ? "+" : "-";
+      csv += `"${tx.id}","${tx.type}","${tx.title.replace(/"/g, '""')}","${tx.category.replace(/"/g, '""')}","${tx.paymentMethod}","${tx.status}","${tx.date}","${tx.time}",${sign}${tx.amount.toFixed(2)}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Financial_Audit_Report_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
     <div className="space-y-6">
-      {/* SCREEN HEADER */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-            <Wallet className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900">
-              Executive Financial Audit & Profit Report
-            </h1>
-            <p className="text-sm font-medium text-slate-500">
-              Real-time financial ledger, verified sales revenue, operating expenses & net margin.
-            </p>
-          </div>
+      {/* SCREEN HEADER (Hidden on Print) */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between print-hide">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">
+            Consolidated Financial Reports
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Audit live restaurant revenue, operating expenditures, supplier bills, and net cash margins.
+          </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
           <button
+            type="button"
             onClick={fetchFinancialData}
             disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
           <button
+            type="button"
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 transition shadow-2xs"
+          >
+            <Download className="h-4 w-4 text-emerald-600" />
+            Export CSV
+          </button>
+          <button
+            type="button"
             onClick={handlePrint}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-700"
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition shadow-sm"
           >
             <Printer className="h-4 w-4" />
-            Print Financial Audit
+            Print Report
           </button>
         </div>
       </div>
 
-      {/* KPI SUMMARY CARDS */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* KPI STAT CARDS (Hidden on Print) */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 print-hide">
         <ReportStatCard
-          title="Verified Sales Revenue"
+          title="Verified Revenue"
           value={loading ? "..." : `${totalRevenue.toLocaleString()} ETB`}
-          description="Gross POS sales collected"
+          description="Total settled POS sales inflow"
           icon={TrendingUp}
           colorClass="text-emerald-600"
           bgClass="bg-emerald-50"
         />
         <ReportStatCard
-          title="Total Expenses & Purchases"
+          title="Operating & Stock Expenses"
           value={loading ? "..." : `${totalExpenses.toLocaleString()} ETB`}
-          description="Operating & stock costs"
+          description="Costs, purchases, and vouchers"
           icon={TrendingDown}
           colorClass="text-red-600"
           bgClass="bg-red-50"
@@ -270,194 +372,262 @@ function FinanceReportsPage() {
         <ReportStatCard
           title="Net Cash Margin"
           value={loading ? "..." : `${netProfit.toLocaleString()} ETB`}
-          description={netProfit >= 0 ? "Positive Net Cashflow" : "Net Deficit"}
-          icon={netProfit >= 0 ? ArrowUpRight : ArrowDownRight}
+          description={netProfit >= 0 ? "Operating profit surplus" : "Operating deficit"}
+          icon={Wallet}
           colorClass={netProfit >= 0 ? "text-emerald-600" : "text-red-600"}
           bgClass={netProfit >= 0 ? "bg-emerald-50" : "bg-red-50"}
         />
         <ReportStatCard
-          title="Digital Money (Telebirr/Card)"
-          value={loading ? "..." : `${totalDigitalSales.toLocaleString()} ETB`}
-          description="Non-cash transactions"
+          title="Digital vs Cash Ratio"
+          value={loading ? "..." : `${digitalInflow.toLocaleString()} ETB`}
+          description={`Cash: ${cashInflow.toLocaleString()} ETB`}
           icon={CreditCard}
-          colorClass="text-indigo-600"
-          bgClass="bg-indigo-50"
+          colorClass="text-blue-600"
+          bgClass="bg-blue-50"
         />
       </div>
 
-      {/* FILTER & TOOLBAR */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between print:hidden">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search transaction ID, category, or payment method..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-sm outline-none transition focus:border-emerald-500 focus:bg-white"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-slate-400" />
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-500"
-            />
-            <span className="text-xs font-bold text-slate-400">to</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-500"
-            />
+      {/* UNIFIED FILTER TOOLBAR (Hidden on Print) */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print-hide">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          {/* Quick Date Presets */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { id: "all", label: "All Time" },
+              { id: "today", label: "Today" },
+              { id: "yesterday", label: "Yesterday" },
+              { id: "week", label: "This Week" },
+              { id: "month", label: "This Month" },
+            ].map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => handleApplyPreset(preset.id)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                  datePreset === preset.id
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-slate-400" />
+          {/* Search, Custom Dates & Type */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-full sm:w-56">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search transaction, ref, method..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 py-1.5 pl-8 pr-3 text-xs outline-none focus:border-blue-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-500">From:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setDatePreset("custom");
+                  setCurrentPage(1);
+                }}
+                className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-500">To:</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setDatePreset("custom");
+                  setCurrentPage(1);
+                }}
+                className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
+              />
+            </div>
+
             <select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-500"
+              onChange={(e) => {
+                setTypeFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
             >
               <option value="All">All Transactions</option>
-              <option value="Revenue">Sales Revenue Only</option>
-              <option value="Expense">Expenses & Purchases Only</option>
+              <option value="Revenue">Revenue Inflow Only</option>
+              <option value="Expense">Expense & Purchases Outflow</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* PRINTABLE FINANCIAL AUDIT REPORT */}
-      <div id="finance-reports-printable-area" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
-        {/* REPORT HEADER */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-5">
-          <div>
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">THE OAK CLUB</h2>
-            <p className="text-xs font-bold text-slate-500 uppercase">Executive Financial & Profit Margin Audit Report</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs font-bold text-slate-500">Period: <span className="text-slate-900">{startDate} to {endDate}</span></p>
-            <p className="text-xs text-slate-400">Total Ledger Entries: {filteredLedger.length}</p>
+      {/* PRINTABLE REPORT DOCUMENT CONTAINER */}
+      <div id="finance-reports-printable-area" className="space-y-6">
+        {/* OFFICIAL EXECUTIVE PRINT HEADER */}
+        <div className="border-b-2 border-slate-900 pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">
+                THE OAK CLUB & LOUNGE
+              </h1>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mt-0.5">
+                CONSOLIDATED FINANCIAL STATEMENT, REVENUE & EXPENSE AUDIT REPORT
+              </p>
+            </div>
+            <div className="text-right text-xs">
+              <h2 className="font-bold text-slate-900">Official Financial Audit</h2>
+              <p className="text-slate-600 mt-0.5">Generated: {new Date().toLocaleString()}</p>
+              <p className="text-slate-600">
+                Audit Period:{" "}
+                <span className="font-bold text-slate-900">
+                  {startDate && endDate ? `${startDate} to ${endDate}` : "All Time"}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* EXECUTIVE FINANCIAL SUMMARY (Printed onto paper/PDF) */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
-          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
-            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Verified Sales Revenue</p>
-            <p className="mt-1 text-xl font-black text-emerald-700">
-              {totalRevenue.toLocaleString()} ETB
-            </p>
-            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Gross POS sales collected</p>
-          </div>
-
-          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
-            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Total Expenses & Purchases</p>
-            <p className="mt-1 text-xl font-black text-red-600">
-              {totalExpenses.toLocaleString()} ETB
-            </p>
-            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Operating & stock costs</p>
-          </div>
-
-          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
-            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Net Cash Margin</p>
-            <p className={`mt-1 text-xl font-black ${netProfit >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-              {netProfit.toLocaleString()} ETB
-            </p>
-            <p className="text-[10px] font-medium text-slate-400 mt-0.5">{netProfit >= 0 ? "Positive Net Cashflow" : "Net Deficit"}</p>
-          </div>
-
-          <div className="rounded-lg bg-white p-3 border border-slate-200/60 shadow-2xs">
-            <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Digital Money (Telebirr/Card)</p>
-            <p className="mt-1 text-xl font-black text-indigo-700">
-              {totalDigitalSales.toLocaleString()} ETB
-            </p>
-            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Non-cash electronic split</p>
+        {/* CARDLESS HORIZONTAL METRICS BAR (SIDE-BY-SIDE WITHOUT CARDS) */}
+        <div className="side-metrics-bar border-y border-slate-300 py-2.5 my-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 text-xs text-slate-700 w-full">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Verified Revenue:</span>
+              <strong className="text-emerald-700 font-black">+{totalRevenue.toLocaleString()} ETB</strong>
+            </div>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Total Outflows:</span>
+              <strong className="text-red-700 font-black">-{totalExpenses.toLocaleString()} ETB</strong>
+            </div>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">NET CASH MARGIN:</span>
+              <strong className={`font-black ${netProfit >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                {netProfit.toLocaleString()} ETB
+              </strong>
+            </div>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Cash Inflow:</span>
+              <strong className="text-slate-900 font-black">{cashInflow.toLocaleString()} ETB</strong>
+            </div>
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Digital / Bank:</span>
+              <strong className="text-sky-700 font-black">{digitalInflow.toLocaleString()} ETB</strong>
+            </div>
           </div>
         </div>
 
         {/* FINANCIAL LEDGER STREAM TABLE */}
-        <div>
-          <h3 className="text-sm font-extrabold text-slate-900 mb-3 flex items-center gap-2">
-            <FileText className="h-4 w-4 text-emerald-600" />
-            Consolidated Financial Revenue & Expense Ledger Stream
-          </h3>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                <FileText size={16} />
+              </div>
+              <div>
+                <h2 className="font-bold text-slate-900 text-sm">Consolidated Financial Ledger Stream</h2>
+                <p className="text-xs text-slate-500">Comprehensive chronological audit trail of all revenue, operating costs, and purchases</p>
+              </div>
+            </div>
+            <span className="text-xs font-semibold text-slate-500">
+              Showing {filteredLedger.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to{" "}
+              {Math.min(currentPage * pageSize, filteredLedger.length)} of {filteredLedger.length}
+            </span>
+          </div>
 
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <div className="overflow-x-auto">
             <table className="w-full text-left text-xs min-w-[750px]">
-              <thead className="bg-slate-50 font-extrabold text-slate-600 uppercase border-b border-slate-200">
+              <thead className="bg-slate-100/70 font-extrabold uppercase text-slate-600 border-b border-slate-200">
                 <tr>
-                  <th className="px-4 py-3">Ref ID</th>
-                  <th className="px-4 py-3">Transaction Details</th>
-                  <th className="px-4 py-3">Category</th>
-                  <th className="px-4 py-3">Payment Method</th>
-                  <th className="px-4 py-3 text-center">Audit Status</th>
-                  <th className="px-4 py-3 text-right">Date & Time</th>
-                  <th className="px-4 py-3 text-right">Amount (ETB)</th>
+                  <th className="px-5 py-3">Ref ID</th>
+                  <th className="px-5 py-3">Transaction Details</th>
+                  <th className="px-5 py-3">Category</th>
+                  <th className="px-5 py-3">Payment Method</th>
+                  <th className="px-5 py-3 text-center">Audit Status</th>
+                  <th className="px-5 py-3 text-right">Date & Time</th>
+                  <th className="px-5 py-3 text-right">Amount (ETB)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="px-4 py-6 text-center text-slate-400">Loading financial ledger records...</td>
+                    <td colSpan="7" className="px-5 py-8 text-center text-slate-400">Loading financial ledger records...</td>
                   </tr>
-                ) : filteredLedger.length > 0 ? (
-                  filteredLedger.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-slate-50/80">
-                      <td className="px-4 py-3 font-mono font-bold text-slate-900">{tx.id}</td>
-                      <td className="px-4 py-3 font-bold text-slate-900">{tx.title}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-600">{tx.category}</td>
-                      <td className="px-4 py-3 capitalize font-semibold text-slate-700">{tx.paymentMethod.replace("_", " ")}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-black ${
-                          tx.status === "Verified"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}>
+                ) : paginatedLedger.length > 0 ? (
+                  paginatedLedger.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-slate-50/80 transition">
+                      <td className="px-5 py-3 font-mono font-bold text-slate-900">{tx.id}</td>
+                      <td className="px-5 py-3 font-bold text-slate-900">{tx.title}</td>
+                      <td className="px-5 py-3 font-semibold text-slate-600">{tx.category}</td>
+                      <td className="px-5 py-3 capitalize font-semibold text-slate-700">{tx.paymentMethod.replace("_", " ")}</td>
+                      <td className="px-5 py-3 text-center">
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                            tx.status === "Verified"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
                           {tx.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-500">{tx.date} {tx.time}</td>
-                      <td className={`px-4 py-3 text-right font-black text-sm ${
-                        tx.isIncome ? "text-emerald-700 bg-emerald-50/40" : "text-red-700 bg-red-50/40"
-                      }`}>
+                      <td className="px-5 py-3 text-right font-mono text-slate-500">{tx.date} {tx.time}</td>
+                      <td
+                        className={`px-5 py-3 text-right font-black text-sm ${
+                          tx.isIncome ? "text-emerald-700 bg-emerald-50/40" : "text-red-700 bg-red-50/40"
+                        }`}
+                      >
                         {tx.isIncome ? "+" : "-"}{tx.amount.toLocaleString()} ETB
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="7" className="px-4 py-6 text-center text-slate-400 italic">No financial transactions match your selected search or date range.</td>
+                    <td colSpan="7" className="px-5 py-8 text-center text-slate-400 italic">
+                      No financial transactions match your selected search or date range.
+                    </td>
                   </tr>
                 )}
               </tbody>
               {filteredLedger.length > 0 && (
                 <tfoot>
                   <tr className="border-t-2 border-slate-300 bg-slate-100 font-black text-slate-900">
-                    <td colSpan="6" className="px-4 py-3 text-right text-xs uppercase tracking-wider">
+                    <td colSpan="6" className="px-5 py-3 text-right text-xs uppercase tracking-wider">
                       Verified Revenue Subtotal:
                     </td>
-                    <td className="px-4 py-3 text-right text-sm font-black text-emerald-800">
+                    <td className="px-5 py-3 text-right text-sm font-black text-emerald-800">
                       +{totalRevenue.toLocaleString()} ETB
                     </td>
                   </tr>
                   <tr className="bg-slate-100 font-black text-slate-900">
-                    <td colSpan="6" className="px-4 py-2.5 text-right text-xs uppercase tracking-wider">
+                    <td colSpan="6" className="px-5 py-2.5 text-right text-xs uppercase tracking-wider">
                       Total Expenses & Purchases:
                     </td>
-                    <td className="px-4 py-2.5 text-right text-sm font-black text-red-700">
+                    <td className="px-5 py-2.5 text-right text-sm font-black text-red-700">
                       -{totalExpenses.toLocaleString()} ETB
                     </td>
                   </tr>
                   <tr className="bg-slate-200/90 font-black text-slate-950 border-t border-slate-300">
-                    <td colSpan="6" className="px-4 py-3 text-right text-xs uppercase tracking-wider">
+                    <td colSpan="6" className="px-5 py-3 text-right text-xs uppercase tracking-wider">
                       NET CASH MARGIN:
                     </td>
-                    <td className={`px-4 py-3 text-right text-base font-black ${netProfit >= 0 ? "text-emerald-800" : "text-red-800"}`}>
+                    <td
+                      className={`px-5 py-3 text-right text-base font-black ${
+                        netProfit >= 0 ? "text-emerald-800" : "text-red-800"
+                      }`}
+                    >
                       {netProfit.toLocaleString()} ETB
                     </td>
                   </tr>
@@ -465,19 +635,65 @@ function FinanceReportsPage() {
               )}
             </table>
           </div>
+
+          {/* Pagination Bar (Hidden on Print) */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 bg-slate-50/50 print-hide">
+              <span className="text-xs text-slate-500">
+                Page <strong className="text-slate-800">{currentPage}</strong> of{" "}
+                <strong className="text-slate-800">{totalPages}</strong>
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                >
+                  <ChevronLeft size={14} /> Previous
+                </button>
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* OFFICIAL EXECUTIVE PRINT FOOTER */}
-        <div className="mt-10 pt-4 border-t-2 border-slate-900">
-          <div className="flex justify-between items-center text-xs text-slate-900 font-bold">
-            <div>
-              <p className="font-extrabold uppercase">THE OAK CLUB — FINANCIAL AUDIT STATEMENT</p>
-              <p className="text-[10px] text-slate-500 font-normal">Confidential • Executive Financial & Fiscal Audit Report</p>
+        {/* OFFICIAL EXECUTIVE 3-COLUMN SIGN-OFF FOOTER */}
+        <div className="mt-8 pt-6 border-t-2 border-slate-900 text-xs">
+          <div className="grid grid-cols-3 gap-6 text-slate-800">
+            <div className="border-t border-slate-400 pt-2">
+              <p className="font-extrabold uppercase text-slate-900">PREPARED BY:</p>
+              <p className="text-[11px] text-slate-600 mt-1">Finance Officer / Head Accountant</p>
+              <div className="mt-6 border-b border-dotted border-slate-400 w-3/4"></div>
+              <p className="text-[10px] text-slate-400 mt-1">Signature & Date</p>
             </div>
-            <div className="text-right">
-              <p>Finance Officer / Accountant: ______________________</p>
-              <p className="mt-2">General Manager Approval: _______________________</p>
+
+            <div className="border-t border-slate-400 pt-2">
+              <p className="font-extrabold uppercase text-slate-900">VERIFIED BY:</p>
+              <p className="text-[11px] text-slate-600 mt-1">Internal Financial Auditor</p>
+              <div className="mt-6 border-b border-dotted border-slate-400 w-3/4"></div>
+              <p className="text-[10px] text-slate-400 mt-1">Signature & Date</p>
             </div>
+
+            <div className="border-t border-slate-400 pt-2">
+              <p className="font-extrabold uppercase text-slate-900">APPROVED BY:</p>
+              <p className="text-[11px] text-slate-600 mt-1">General Manager / Executive Admin</p>
+              <div className="mt-6 border-b border-dotted border-slate-400 w-3/4"></div>
+              <p className="text-[10px] text-slate-400 mt-1">Signature & Date</p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-between items-center text-[10px] text-slate-400">
+            <span>THE OAK CLUB & LOUNGE • CONFIDENTIAL FINANCIAL STATEMENT & FISCAL AUDIT</span>
+            <span>SYSTEM TIMESTAMP: {new Date().toISOString()}</span>
           </div>
         </div>
       </div>

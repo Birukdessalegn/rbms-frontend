@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   RefreshCw,
   Printer,
+  Download,
   Package,
   CreditCard,
   Wine,
@@ -681,6 +682,49 @@ export default function MasterReportsPage() {
 
   const formatMoney = (val) => `${Number(val || 0).toLocaleString()} ETB`;
 
+  /* Structured CSV Export Functionality */
+  const handleExportCSV = () => {
+    if (ledgerRows.length === 0) {
+      alert("No operations data available to export.");
+      return;
+    }
+
+    const headers = [
+      "Transaction ID",
+      "Department",
+      "Description / Details",
+      "Responsible Staff",
+      "Status",
+      "Date",
+      "Amount (ETB)",
+    ];
+
+    const csvRows = ledgerRows.map((r) => [
+      `"${(r.id || "").replace(/"/g, '""')}"`,
+      `"${(r.department || "").replace(/"/g, '""')}"`,
+      `"${(r.title || "").replace(/"/g, '""')}"`,
+      `"${(r.user || "").replace(/"/g, '""')}"`,
+      `"${(r.status || "").replace(/"/g, '""')}"`,
+      `"${r.date ? new Date(r.date).toLocaleDateString() : ""}"`,
+      Number(r.amount || 0).toFixed(2),
+    ]);
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...csvRows.map((row) => row.join(","))].join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `Master_Operations_Report_${activeDept.toUpperCase()}_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -700,6 +744,15 @@ export default function MasterReportsPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+            title="Export CSV"
+          >
+            <Download className="h-4 w-4 text-slate-500" />
+            Export CSV
+          </button>
+
           <button
             onClick={() => printReportArea("master-reports-printable-area", "Master_Operations_Report")}
             className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-slate-800 transition"
@@ -1149,18 +1202,30 @@ export default function MasterReportsPage() {
             </div>
           )}
         </div>
-              {/* OFFICIAL EXECUTIVE PRINT FOOTER */}
-        <div className="mt-10 pt-4 border-t-2 border-slate-900">
-          <div className="flex justify-between items-center text-xs text-slate-900 font-bold">
-            <div>
-              <p className="font-extrabold uppercase">THE OAK CLUB — {activeDept.toUpperCase()} AUDIT STATEMENT</p>
-              <p className="text-[10px] text-slate-500 font-normal">Confidential • Operational & Financial Audit Report</p>
-            </div>
-            <div className="text-right">
-              <p>Prepared by (Supervisor): ______________________</p>
-              <p className="mt-2">General Manager Approval: _______________________</p>
-            </div>
+              {/* FORMAL 3-COLUMN AUDIT SIGN-OFF */}
+        <div className="mt-12 pt-6 border-t-2 border-slate-900 grid grid-cols-3 gap-6 text-xs text-slate-800">
+          <div>
+            <p className="font-bold text-[10px] uppercase tracking-wider text-slate-400">Prepared By</p>
+            <p className="mt-1 font-bold text-slate-900">Operations Supervisor / Auditor</p>
+            <div className="mt-6 border-b border-dashed border-slate-300 w-3/4"></div>
+            <p className="mt-1 text-[10px] text-slate-400">Signature & Date</p>
           </div>
+          <div>
+            <p className="font-bold text-[10px] uppercase tracking-wider text-slate-400">Verified By</p>
+            <p className="mt-1 font-bold text-slate-900">Internal Audit & F&B Controller</p>
+            <div className="mt-6 border-b border-dashed border-slate-300 w-3/4"></div>
+            <p className="mt-1 text-[10px] text-slate-400">Signature & Date</p>
+          </div>
+          <div>
+            <p className="font-bold text-[10px] uppercase tracking-wider text-slate-400">Approved By</p>
+            <p className="mt-1 font-bold text-slate-900">General Manager</p>
+            <div className="mt-6 border-b border-dashed border-slate-300 w-3/4"></div>
+            <p className="mt-1 text-[10px] text-slate-400">Signature & Date</p>
+          </div>
+        </div>
+        <div className="mt-6 pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400">
+          <span>THE OAK CLUB & LOUNGE • Enterprise Operations & Departmental Audit</span>
+          <span>Generated: {new Date().toLocaleString()} • Confidential Internal Document</span>
         </div>
       </div>
 

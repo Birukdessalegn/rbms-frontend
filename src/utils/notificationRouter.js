@@ -149,9 +149,38 @@ export const getNotificationRoute = (notification, userRole = "") => {
     return `/bar${barOrderQuery}`;
   }
 
-  // 6. Expenses
-  if (refType === "expense" || title.includes("expense")) {
-    return "/expenses";
+  // 6. Expenses & Recurring Bills
+  if (
+    refType === "expense" ||
+    refType === "recurring_expense" ||
+    title.includes("expense") ||
+    message.includes("expense") ||
+    title.includes("recurring") ||
+    message.includes("recurring") ||
+    title.includes("payment due") ||
+    message.includes("payment due") ||
+    title.includes("bill") ||
+    message.includes("bill")
+  ) {
+    const isRecurring =
+      refType === "recurring_expense" ||
+      title.includes("recurring") ||
+      message.includes("recurring") ||
+      title.includes("due") ||
+      message.includes("due");
+
+    const matchExp =
+      notification.message?.match(/(EXP-[\w-]+)/i)?.[1] ||
+      notification.title?.match(/(EXP-[\w-]+)/i)?.[1] ||
+      "";
+
+    const expenseQuery = buildQuery({
+      expenseId: !isRecurring ? refId : undefined,
+      recurringId: isRecurring ? refId : undefined,
+      tab: isRecurring ? "recurring" : undefined,
+      expenseNumber: matchExp,
+    });
+    return `/expenses${expenseQuery}`;
   }
 
   // 7. Purchasing

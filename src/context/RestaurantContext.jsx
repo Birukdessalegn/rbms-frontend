@@ -8,13 +8,15 @@ import {
 
 import api from "../services/api";
 import audioService from "../services/audioService";
+import { useAuth } from "./AuthContext";
 
 const RestaurantContext = createContext();
 
 
 export function RestaurantProvider({ children }) {
-const [tables, setTables] = useState([]);
-const [loadingTables, setLoadingTables] = useState(false);
+  const { user } = useAuth();
+  const [tables, setTables] = useState([]);
+  const [loadingTables, setLoadingTables] = useState(false);
   const [kitchenOrders, setKitchenOrders] = useState([]);
   const [loadingKitchen, setLoadingKitchen] = useState(false);
 
@@ -36,6 +38,7 @@ const [loadingTables, setLoadingTables] = useState(false);
   // ============================================================
 
   const addNotification = (notification) => {
+    if (!user) return;
     const item = {
       id: Date.now() + Math.random(),
       ...notification,
@@ -51,6 +54,7 @@ const [loadingTables, setLoadingTables] = useState(false);
   // Fetch Tables
   // ============================================================
 const fetchTables = async () => {
+  if (!user) return;
   try {
     const response = await api("/tables");
     const loadedTables =
@@ -72,94 +76,75 @@ const fetchTables = async () => {
   // ============================================================
 
   const fetchKitchenOrders = async () => {
+    if (!user) return;
     try {
       setLoadingKitchen(true);
 
-      const response = await api("/kitchen");
+      const response = await api("/kitchen/orders");
+      const loadedOrders =
+        response.orders ||
+        response.data?.orders ||
+        response.data ||
+        (Array.isArray(response) ? response : []);
 
-      const orders = response.orders || [];
-
-      const previousOrders = previousOrdersRef.current;
-
-      // ========================================================
-      // FIRST LOAD
-      // ========================================================
-
-      if (previousOrders === null) {
-        previousOrdersRef.current = orders;
-        setKitchenOrders(orders);
-        return;
-      }
-
-      // ========================================================
-      // CHECK FOR CHANGES
-      // ========================================================
-
-      orders.forEach((order) => {
-        const previousOrder = previousOrders.find(
-          (item) => item.id === order.id
+      if (previousOrdersRef.current !== null) {
+        const newOrders = loadedOrders.filter(
+          (order) =>
+            order.status === "pending" &&
+            !previousOrdersRef.current.some(
+              (prevOrder) => prevOrder.id === order.id
+            )
         );
 
-        // ------------------------------------------------------
-        // NEW KITCHEN ORDER
-        // ------------------------------------------------------
+        newOrders.forEach((order) => {
+          const key = `kitchen-sound-${order.id}`;
 
-        if (!previousOrder) {
-          const notificationKey = `new-${order.id}`;
-
-          if (!notifiedOrdersRef.current.has(notificationKey)) {
-            notifiedOrdersRef.current.add(notificationKey);
-
+          if (!notifiedOrdersRef.current.has(key)) {
+            notifiedOrdersRef.current.add(key);
             audioService.playNewOrderSound();
 
             addNotification({
               type: "new_order",
               title: "New Kitchen Order",
-              message: `${order.order_number} received${
-                order.table_number
-                  ? ` for ${order.table_number}`
-                  : ""
-              }`,
+              message: `Order #${order.order_number || order.id} has arrived.`,
               orderId: order.id,
+              orderNumber: order.order_number,
+              tableNumber: order.table_number,
             });
           }
-        }
+        });
 
-        // ------------------------------------------------------
-        // ORDER BECAME READY
-        // ------------------------------------------------------
+        const readyOrders = loadedOrders.filter(
+          (order) =>
+            order.status === "ready" &&
+            previousOrdersRef.current.some(
+              (prevOrder) =>
+                prevOrder.id === order.id &&
+                prevOrder.status !== "ready"
+            )
+        );
 
-        if (
-          previousOrder &&
-          previousOrder.status !== "ready" &&
-          order.status === "ready"
-        ) {
-          const notificationKey = `ready-${order.id}`;
+        readyOrders.forEach((order) => {
+          const key = `ready-sound-${order.id}`;
 
-          if (!notifiedOrdersRef.current.has(notificationKey)) {
-            notifiedOrdersRef.current.add(notificationKey);
-
-            audioService.playOrderReadySound();
+          if (!notifiedOrdersRef.current.has(key)) {
+            notifiedOrdersRef.current.add(key);
+            audioService.playReadyOrderSound();
 
             addNotification({
               type: "ready",
               title: "Order Ready",
-              message: `${order.order_number} is ready${
-                order.table_number
-                  ? ` for ${order.table_number}`
-                  : ""
-              }`,
+              message: `Order #${order.order_number || order.id} is ready for pickup.`,
               orderId: order.id,
+              orderNumber: order.order_number,
+              tableNumber: order.table_number,
             });
           }
-        }
-      });
+        });
+      }
 
-      // Update previous backend state
-      previousOrdersRef.current = orders;
-
-      // Update UI
-      setKitchenOrders(orders);
+      previousOrdersRef.current = loadedOrders;
+      setKitchenOrders(loadedOrders);
     } catch (error) {
       console.error(
         "Failed to fetch kitchen orders:",
@@ -175,6 +160,7 @@ const fetchTables = async () => {
   // ============================================================
 
   const fetchBackendNotifications = async () => {
+    if (!user) return;
     try {
       const response = await api("/notifications?limit=25");
       const list = response?.notifications || response?.data || (Array.isArray(response) ? response : []);
@@ -193,7 +179,7 @@ const fetchTables = async () => {
           }
         });
 
-        // Trigger floating toast for the latest unread alert
+        // Trigger floating toast for the latest unread alert only when logged in
         if (newlyReceivedUnread.length > 0) {
           const latest = newlyReceivedUnread[0];
           setActiveToast({
@@ -231,10 +217,19 @@ const fetchTables = async () => {
   };
 
   // ============================================================
-  // INITIAL LOAD + POLLING
+  // INITIAL LOAD + POLLING (AUTHENTICATED USERS ONLY)
   // ============================================================
 
   useEffect(() => {
+    // If not logged in, reset states and do not poll
+    if (!user) {
+      setNotifications([]);
+      setActiveToast(null);
+      setKitchenOrders([]);
+      setTables([]);
+      return;
+    }
+
     fetchKitchenOrders();
     fetchTables();
     fetchBackendNotifications();
@@ -246,7 +241,7 @@ const fetchTables = async () => {
     }, 8000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   // ============================================================
   // SEND ORDER TO KITCHEN

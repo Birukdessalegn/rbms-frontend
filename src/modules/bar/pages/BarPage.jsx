@@ -210,7 +210,113 @@ function BarPage() {
   };
 
   // ============================================================
-  // COUNTERS
+  // FORMAT ORDER ITEMS
+  // ============================================================
+
+  const parseItems = (rawItems) => {
+    if (!rawItems) return [];
+    if (Array.isArray(rawItems)) return rawItems;
+    if (typeof rawItems === "string") {
+      try {
+        return JSON.parse(rawItems);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const formatItems = (order) => {
+    if (!order) return "No drink items specified";
+
+    const rawItems =
+      order.items || order.order_items || order.orderItems || order.products;
+    const items = parseItems(rawItems);
+
+    if (items && items.length > 0) {
+      return items
+        .map((item) => {
+          const quantity = Number(item.quantity || item.qty || 1);
+          const name =
+            item.product_name ||
+            item.name ||
+            item.title ||
+            item.item_name ||
+            item.productName ||
+            item.description ||
+            (item.productId || item.product_id
+              ? `Product #${item.productId || item.product_id}`
+              : "Drink Item");
+
+          const notes = item.notes ? ` (${item.notes})` : "";
+          return `${quantity}x ${name}${notes}`;
+        })
+        .join(", ");
+    }
+
+    if (order.items_summary) return order.items_summary;
+    if (order.drink_name) return order.drink_name;
+    if (order.product_name)
+      return `${order.quantity || 1}x ${order.product_name}`;
+    if (order.description) return order.description;
+
+    return "No drink items specified";
+  };
+
+  const getItemList = (order) => {
+    if (!order) return [];
+
+    const rawItems =
+      order.items || order.order_items || order.orderItems || order.products;
+    const items = parseItems(rawItems);
+
+    if (items && items.length > 0) {
+      return items.map((item) => {
+        const quantity = Number(item.quantity || item.qty || 1);
+        const name =
+          item.product_name ||
+          item.name ||
+          item.title ||
+          item.item_name ||
+          item.productName ||
+          item.description ||
+          (item.productId || item.product_id
+            ? `Product #${item.productId || item.product_id}`
+            : "Drink Item");
+
+        const price = Number(item.unit_price || item.price || item.product_price || 0);
+        const notes = item.notes || "";
+        return { quantity, name, price, notes };
+      });
+    }
+
+    if (order.drink_name || order.product_name) {
+      return [
+        {
+          quantity: Number(order.quantity || 1),
+          name: order.drink_name || order.product_name || order.description || "Drink Item",
+          price: Number(order.unit_price || order.price || order.total_amount || 0),
+          notes: order.notes || "",
+        },
+      ];
+    }
+
+    if (order.items_summary || order.description) {
+      return [
+        {
+          quantity: 1,
+          name: order.items_summary || order.description,
+          price: 0,
+          notes: "",
+        },
+      ];
+    }
+
+    return [{ quantity: 1, name: "Drink Item", price: 0, notes: "" }];
+  };
+
+  // ============================================================
+  // COUNTERS & FILTERED ORDERS
   // ============================================================
 
   const newOrders = orders.filter(
@@ -228,13 +334,55 @@ function BarPage() {
     (order) => order.status === "ready"
   ).length;
 
-  const displayedOrders = orders.filter((order) => {
-    const s = (order.status || "").toLowerCase();
-    if (activeTab === "new") return s === "pending" || s === "confirmed" || s === "new";
-    if (activeTab === "preparing") return s === "preparing" || s === "in_progress";
-    if (activeTab === "ready") return s === "ready";
-    return true;
-  });
+  const displayedOrders = useMemo(() => {
+    return orders.filter((order) => {
+      // 1. Status tab filter
+      const s = (order.status || "").toLowerCase();
+      let matchesTab = true;
+      if (activeTab === "new") matchesTab = s === "pending" || s === "confirmed" || s === "new";
+      else if (activeTab === "preparing") matchesTab = s === "preparing" || s === "in_progress";
+      else if (activeTab === "ready") matchesTab = s === "ready";
+
+      if (!matchesTab) return false;
+
+      // 2. Search query filter
+      if (!searchQuery.trim()) return true;
+
+      const q = searchQuery.toLowerCase().trim();
+
+      // Check order number / ID
+      const orderNum = String(order.order_number || order.orderNumber || order.id || "").toLowerCase();
+      if (orderNum.includes(q)) return true;
+
+      // Check table
+      const tableNum = String(order.table_number || order.tableName || order.table_name || order.table || "").toLowerCase();
+      if (tableNum.includes(q)) return true;
+
+      // Check customer or waiter
+      const customer = String(order.customer_name || order.customer || "").toLowerCase();
+      const waiter = String(order.waiter_name || order.server_name || order.waiter || "").toLowerCase();
+      if (customer.includes(q) || waiter.includes(q)) return true;
+
+      // Check formatted items string (contains drink names, quantities, and notes)
+      const itemsStr = formatItems(order).toLowerCase();
+      if (itemsStr.includes(q)) return true;
+
+      // Check individual items
+      const items = getItemList(order);
+      const matchesItem = items.some((item) => {
+        const iName = (item.name || "").toLowerCase();
+        const iNotes = (item.notes || "").toLowerCase();
+        return iName.includes(q) || iNotes.includes(q);
+      });
+      if (matchesItem) return true;
+
+      // Check notes or description
+      const notes = String(order.notes || order.description || "").toLowerCase();
+      if (notes.includes(q)) return true;
+
+      return false;
+    });
+  }, [orders, activeTab, searchQuery]);
 
   // Today's Orders Count
   const today = new Date().toDateString();
@@ -446,111 +594,7 @@ function BarPage() {
     setSearchParams(newParams, { replace: true });
   };
 
-  // ============================================================
-  // FORMAT ORDER ITEMS
-  // ============================================================
 
-  const parseItems = (rawItems) => {
-    if (!rawItems) return [];
-    if (Array.isArray(rawItems)) return rawItems;
-    if (typeof rawItems === "string") {
-      try {
-        return JSON.parse(rawItems);
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  };
-
-  const formatItems = (order) => {
-    if (!order) return "No drink items specified";
-
-    const rawItems =
-      order.items || order.order_items || order.orderItems || order.products;
-    const items = parseItems(rawItems);
-
-    if (items && items.length > 0) {
-      return items
-        .map((item) => {
-          const quantity = Number(item.quantity || item.qty || 1);
-          const name =
-            item.product_name ||
-            item.name ||
-            item.title ||
-            item.item_name ||
-            item.productName ||
-            item.description ||
-            (item.productId || item.product_id
-              ? `Product #${item.productId || item.product_id}`
-              : "Drink Item");
-
-          const notes = item.notes ? ` (${item.notes})` : "";
-          return `${quantity}x ${name}${notes}`;
-        })
-        .join(", ");
-    }
-
-    if (order.items_summary) return order.items_summary;
-    if (order.drink_name) return order.drink_name;
-    if (order.product_name)
-      return `${order.quantity || 1}x ${order.product_name}`;
-    if (order.description) return order.description;
-
-    return "No drink items specified";
-  };
-
-  const getItemList = (order) => {
-    if (!order) return [];
-
-    const rawItems =
-      order.items || order.order_items || order.orderItems || order.products;
-    const items = parseItems(rawItems);
-
-    if (items && items.length > 0) {
-      return items.map((item) => {
-        const quantity = Number(item.quantity || item.qty || 1);
-        const name =
-          item.product_name ||
-          item.name ||
-          item.title ||
-          item.item_name ||
-          item.productName ||
-          item.description ||
-          (item.productId || item.product_id
-            ? `Product #${item.productId || item.product_id}`
-            : "Drink Item");
-
-        const price = Number(item.unit_price || item.price || item.product_price || 0);
-        const notes = item.notes || "";
-        return { quantity, name, price, notes };
-      });
-    }
-
-    if (order.drink_name || order.product_name) {
-      return [
-        {
-          quantity: Number(order.quantity || 1),
-          name: order.drink_name || order.product_name || order.description || "Drink Item",
-          price: Number(order.unit_price || order.price || order.total_amount || 0),
-          notes: order.notes || "",
-        },
-      ];
-    }
-
-    if (order.items_summary || order.description) {
-      return [
-        {
-          quantity: 1,
-          name: order.items_summary || order.description,
-          price: 0,
-          notes: "",
-        },
-      ];
-    }
-
-    return [{ quantity: 1, name: "Drink Item", price: 0, notes: "" }];
-  };
 
   // ============================================================
   // FORMAT TIME
@@ -879,8 +923,18 @@ function BarPage() {
                 placeholder="Search drink or category..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 py-2 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+                  title="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -1048,16 +1102,40 @@ function BarPage() {
         ====================================================== */
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 border-b border-slate-200 p-5 lg:flex-row lg:items-center lg:justify-between">
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              Drink Orders
-            </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3.5 flex-1 max-w-2xl">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                Drink Orders
+              </h2>
 
-            <p className="text-sm text-slate-500">
-              Manage drink preparation
-            </p>
+              <p className="text-sm text-slate-500">
+                Manage drink preparation
+              </p>
+            </div>
+
+            {/* SEARCH DRINKS & TICKETS */}
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search drinks, tickets, tables..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 transition focus:border-purple-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 shadow-xs"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+                  title="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* FILTER TABS & VIEW TOGGLE */}
@@ -1135,27 +1213,62 @@ function BarPage() {
 
         </div>
 
+        {/* SEARCH MATCHES SUMMARY BAR */}
+        {searchQuery.trim() && (
+          <div className="mx-5 mt-4 flex items-center justify-between rounded-xl bg-purple-50/80 px-4 py-2 border border-purple-200/70 text-xs text-purple-900 animate-fade-in">
+            <div className="flex items-center gap-2">
+              <Search className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+              <span>
+                Found <strong>{displayedOrders.length}</strong> {displayedOrders.length === 1 ? "order" : "orders"} matching "<strong>{searchQuery}</strong>"
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="font-bold text-purple-700 hover:text-purple-900 underline ml-2"
+            >
+              Clear Search
+            </button>
+          </div>
+        )}
 
         {/* ====================================================
             EMPTY STATE
         ==================================================== */}
 
         {displayedOrders.length === 0 && !error && (
-          <div className="flex min-h-[250px] flex-col items-center justify-center px-5 text-center">
+          <div className="flex min-h-[250px] flex-col items-center justify-center px-5 py-8 text-center">
 
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-50 text-purple-500">
               <Wine className="h-7 w-7" />
             </div>
 
             <h3 className="mt-4 text-base font-bold text-slate-800">
-              {activeTab === "all" ? "No drink orders" : `No ${activeTab} drink orders`}
+              {searchQuery.trim()
+                ? `No drink orders matching "${searchQuery}"`
+                : activeTab === "all"
+                ? "No drink orders"
+                : `No ${activeTab} drink orders`}
             </h3>
 
-            <p className="mt-1 text-sm text-slate-500">
-              {activeTab === "all"
+            <p className="mt-1 text-sm text-slate-500 max-w-sm">
+              {searchQuery.trim()
+                ? "Try searching for a different drink name, table number, or customer name."
+                : activeTab === "all"
                 ? "New drink orders from the POS will appear here."
                 : `There are currently no orders with status "${activeTab}".`}
             </p>
+
+            {searchQuery.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-purple-100 px-3.5 py-1.5 text-xs font-bold text-purple-700 hover:bg-purple-200 transition"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear Search
+              </button>
+            )}
 
           </div>
         )}
@@ -1232,35 +1345,55 @@ function BarPage() {
                       </p>
 
                       <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                        {itemList.map((it, i) => (
-                          <div
-                            key={i}
-                            className="flex items-center justify-between rounded-xl bg-slate-50 p-2.5 border border-slate-100 text-xs"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-purple-100 font-extrabold text-purple-700 text-xs">
-                                {it.quantity}x
-                              </span>
+                        {itemList.map((it, i) => {
+                          const q = searchQuery.toLowerCase().trim();
+                          const isMatchedItem = Boolean(
+                            q && (
+                              (it.name || "").toLowerCase().includes(q) ||
+                              (it.notes && it.notes.toLowerCase().includes(q))
+                            )
+                          );
 
-                              <div className="min-w-0">
-                                <p className="font-bold text-slate-900 truncate">
-                                  {it.name}
-                                </p>
-                                {it.notes && (
-                                  <p className="text-[11px] text-amber-700 font-semibold truncate">
-                                    Note: {it.notes}
+                          return (
+                            <div
+                              key={i}
+                              className={`flex items-center justify-between rounded-xl p-2.5 border text-xs transition ${
+                                isMatchedItem
+                                  ? "bg-purple-100/90 border-purple-400 ring-2 ring-purple-300 shadow-xs"
+                                  : "bg-slate-50 border-slate-100"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span
+                                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg font-extrabold text-xs ${
+                                    isMatchedItem
+                                      ? "bg-purple-700 text-white shadow-xs"
+                                      : "bg-purple-100 text-purple-700"
+                                  }`}
+                                >
+                                  {it.quantity}x
+                                </span>
+
+                                <div className="min-w-0">
+                                  <p className={`truncate ${isMatchedItem ? "font-black text-purple-950" : "font-bold text-slate-900"}`}>
+                                    {it.name}
                                   </p>
-                                )}
+                                  {it.notes && (
+                                    <p className="text-[11px] text-amber-700 font-semibold truncate">
+                                      Note: {it.notes}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                            </div>
 
-                            {it.price > 0 && (
-                              <span className="font-bold text-slate-600 shrink-0 ml-2">
-                                {(it.price * it.quantity).toFixed(2)} ETB
-                              </span>
-                            )}
-                          </div>
-                        ))}
+                              {it.price > 0 && (
+                                <span className="font-bold text-slate-600 shrink-0 ml-2">
+                                  {(it.price * it.quantity).toFixed(2)} ETB
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 

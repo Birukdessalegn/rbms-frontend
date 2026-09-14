@@ -21,14 +21,16 @@ export default function NotificationToast() {
 
   // Auto-dismiss after 7 seconds
   useEffect(() => {
-    if (!activeToast) return;
+    if (!activeToast || !user) return;
     const timer = setTimeout(() => {
       dismissToast();
     }, 7000);
     return () => clearTimeout(timer);
-  }, [activeToast, dismissToast]);
+  }, [activeToast, user, dismissToast]);
 
-  if (!activeToast) return null;
+  // Never render notifications on login page or when user is not logged in
+  const isLoginPage = typeof window !== "undefined" && window.location.pathname.includes("/login");
+  if (!user || !activeToast || isLoginPage) return null;
 
   const targetRoute = getNotificationRoute(activeToast, user?.role);
 

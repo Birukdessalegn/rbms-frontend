@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ProductCard from "./ProductCard";
 import api from "../../../services/api";
+import { getProductApplicableMap } from "../../products/ProductsPage";
 
 function ProductGrid({
   onAddProduct,
@@ -35,6 +36,15 @@ function ProductGrid({
   }, []);
 
 const filteredProducts = products.filter((product) => {
+  const localMap = getProductApplicableMap();
+  const localApp = localMap[String(product.id)] || localMap[String(product.product_code || product.productCode)];
+  const applicableFor = (product.applicable_for || product.applicableFor || localApp || "both").toLowerCase();
+
+  // Exclude raw materials & ingredients from the POS waiter screen
+  if (applicableFor === "inventory") {
+    return false;
+  }
+
   const matchesCategory =
     activeCategory === "all" ||
     product.category_name?.toLowerCase() ===

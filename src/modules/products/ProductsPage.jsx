@@ -38,6 +38,25 @@ export const formatImageUrl = (url) => {
   return `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
 };
 
+export const getProductApplicableMap = () => {
+  try {
+    return JSON.parse(localStorage.getItem("rbms_product_applicable_map") || "{}");
+  } catch {
+    return {};
+  }
+};
+
+export const setProductApplicableFor = (productIdOrCode, applicableFor = "both") => {
+  try {
+    if (!productIdOrCode) return;
+    const map = getProductApplicableMap();
+    map[String(productIdOrCode)] = applicableFor;
+    localStorage.setItem("rbms_product_applicable_map", JSON.stringify(map));
+  } catch (err) {
+    console.warn("Could not save product applicable map", err);
+  }
+};
+
 export const getCustomShotsMap = () => {
   try {
     return JSON.parse(localStorage.getItem("rbms_custom_shots_map") || "{}");
@@ -75,6 +94,7 @@ function ProductsPage() {
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [applicableFilter, setApplicableFilter] = useState("all"); // "all" | "both" | "sales" | "inventory"
 
   const [activeTab, setActiveTab] = useState("catalog"); // "catalog" | "menu"
   const [menuAudienceFilter, setMenuAudienceFilter] = useState("all"); // "all" | "customer" | "employee"
@@ -99,6 +119,7 @@ function ProductsPage() {
     isTodaysSpecial: false,
     shotsCapacity: "30",
     isShotItem: false,
+    applicableFor: "both", // "both" | "sales" | "inventory"
   });
 
   // ============================================================
@@ -112,6 +133,7 @@ function ProductsPage() {
       const response = await api("/products");
       const rawProducts = response.products || [];
       const localMap = getCustomShotsMap();
+      const appMap = getProductApplicableMap();
       const enriched = rawProducts.map((p) => {
         const cat = (p.category_name || p.category || p.type || "").toLowerCase();
         const pName = (p.name || p.product_name || "").toLowerCase();
@@ -155,12 +177,17 @@ function ProductsPage() {
           ? Number(p.shots_capacity || p.shotsCapacity || p.bottle_shots || local?.shots || 30)
           : 0;
 
+        const localApp = appMap[String(p.id)] || appMap[String(p.product_code || p.productCode)];
+        const resolvedApplicableFor = p.applicable_for || p.applicableFor || localApp || "both";
+
         return {
           ...p,
           shots_capacity: cap,
           shotsCapacity: cap,
           is_shot_item: Boolean(isShot),
           isShotItem: Boolean(isShot),
+          applicable_for: resolvedApplicableFor,
+          applicableFor: resolvedApplicableFor,
         };
       });
 
@@ -290,6 +317,7 @@ function ProductsPage() {
       isTodaysSpecial: false,
       shotsCapacity: "30",
       isShotItem: false,
+      applicableFor: "both",
     });
 
     setShowModal(true);
@@ -319,6 +347,10 @@ function ProductsPage() {
       localData?.isShotItem ??
       (Number(resolvedShots) > 0);
 
+    const appMap = getProductApplicableMap();
+    const localApp = appMap[String(prod.id)] || appMap[String(prod.product_code || prod.productCode)];
+    const resolvedApplicableFor = prod.applicable_for || prod.applicableFor || localApp || "both";
+
     setForm({
       productCode: prod.product_code || prod.productCode || "",
       name: prod.name || "",
@@ -335,6 +367,7 @@ function ProductsPage() {
       isTodaysSpecial: prod.is_todays_special ?? prod.isTodaysSpecial ?? false,
       shotsCapacity: resolvedShots,
       isShotItem: Boolean(resolvedIsShotItem),
+      applicableFor: resolvedApplicableFor,
     });
 
     setShowModal(true);
@@ -366,11 +399,11 @@ function ProductsPage() {
         throw new Error("Product name is required");
       }
 
-      if (form.price === "") {
+      if (form.applicableFor !== "inventory" && form.price === "") {
         throw new Error("Selling price is required");
       }
 
-      if (Number(form.price) < 0) {
+      if (form.price !== "" && Number(form.price) < 0) {
         throw new Error("Selling price cannot be negative");
       }
 
@@ -421,6 +454,10 @@ function ProductsPage() {
       formData.append("isShotItem", String(form.isShotItem));
       formData.append("is_shot_item", String(form.isShotItem));
 
+      const appFor = form.applicableFor || "both";
+      formData.append("applicableFor", appFor);
+      formData.append("applicable_for", appFor);
+
       formData.append("unit", form.unit || "pcs");
       formData.append("menuType", form.menuType || "both");
       formData.append("menu_type", form.menuType || "both");
@@ -452,14 +489,16 @@ function ProductsPage() {
         body: formData,
       });
 
-      // Persist custom shots immediately to local registry so it's instantly available
+      // Persist custom shots and applicable_for immediately to local registry so it's instantly available
       const savedShotsNum = Number(safeShotsCapacity);
       const savedProdId = editingProduct?.id || res?.product?.id || res?.id || res?.data?.id;
       if (savedProdId) {
         setCustomProductShots(savedProdId, savedShotsNum, form.isShotItem);
+        setProductApplicableFor(savedProdId, appFor);
       }
       if (code) {
         setCustomProductShots(code, savedShotsNum, form.isShotItem);
+        setProductApplicableFor(code, appFor);
       }
 
       setSuccess(editingProduct ? "Product updated successfully." : "Product created successfully.");
@@ -531,15 +570,22 @@ function ProductsPage() {
         String(product.category_id) ===
           String(categoryFilter);
 
+      const prodApp = (product.applicable_for || product.applicableFor || "both").toLowerCase();
+      const matchesApplicable =
+        applicableFilter === "all" ||
+        prodApp === applicableFilter.toLowerCase();
+
       return (
         matchesSearch &&
-        matchesCategory
+        matchesCategory &&
+        matchesApplicable
       );
     });
   }, [
     products,
     search,
     categoryFilter,
+    applicableFilter,
   ]);
 
   // ============================================================
@@ -827,6 +873,18 @@ function ProductsPage() {
 
             </select>
 
+            {/* Purpose / Applicable Filter */}
+            <select
+              value={applicableFilter}
+              onChange={(e) => setApplicableFilter(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500"
+            >
+              <option value="all">All Purposes</option>
+              <option value="both">🔄 Sales & Stock</option>
+              <option value="sales">💳 POS Sales Only</option>
+              <option value="inventory">📦 Raw Inventory / Ingredients</option>
+            </select>
+
           </div>
 
         </div>
@@ -877,6 +935,10 @@ function ProductsPage() {
 
                   <th className="px-5 py-4">
                     Menu Audience
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Applicable For
                   </th>
 
                   {activeTab === "menu" && (
@@ -1062,6 +1124,26 @@ function ProductsPage() {
 
                         </td>
 
+                        {/* Applicable For Column */}
+                        <td className="px-5 py-4">
+                          {((product.applicable_for || product.applicableFor || "both").toLowerCase() === "inventory") ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                              <Package className="h-3 w-3 text-amber-600" />
+                              Raw Inventory
+                            </span>
+                          ) : ((product.applicable_for || product.applicableFor || "both").toLowerCase() === "sales") ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                              POS Sales Only
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">
+                              <span className="h-2 w-2 rounded-full bg-blue-500" />
+                              Sales & Stock
+                            </span>
+                          )}
+                        </td>
+
                         {/* Today's Special Toggle (Menu Tab) */}
 
                         {activeTab === "menu" && (
@@ -1158,11 +1240,13 @@ function ProductsPage() {
               <div>
 
                 <h2 className="text-lg font-bold text-slate-900">
-                  Add Product
+                  {editingProduct ? "Edit Product" : "Add Product"}
                 </h2>
 
                 <p className="mt-1 text-xs text-slate-500">
-                  Create a food, drink, or bar product.
+                  {editingProduct
+                    ? "Update product details, pricing, and system purpose."
+                    : "Create a food, drink, bar product, or raw inventory item."}
                 </p>
 
               </div>
@@ -1182,6 +1266,43 @@ function ProductsPage() {
               onSubmit={handleCreateProduct}
               className="space-y-5 p-6"
             >
+
+              {/* Purpose / Applicable For */}
+              <div className="grid gap-4 md:grid-cols-2">
+
+                <FormField label="Applicable For *">
+                  <select
+                    name="applicableFor"
+                    value={form.applicableFor || "both"}
+                    onChange={handleChange}
+                    className={inputClass}
+                  >
+                    <option value="both">Both Sales And Inventory</option>
+                    <option value="sales">Sales (POS Menu Item Only)</option>
+                    <option value="inventory">Inventory (Raw Material / Ingredient)</option>
+                  </select>
+                </FormField>
+
+                <div className="flex items-center pt-1 md:pt-5">
+                  {form.applicableFor === "inventory" ? (
+                    <div className="w-full rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
+                      <span className="font-bold flex items-center gap-1 mb-0.5">📦 Raw Material / Ingredient</span>
+                      Tracked in stock & purchasing. Automatically hidden from the POS waiter screen.
+                    </div>
+                  ) : form.applicableFor === "sales" ? (
+                    <div className="w-full rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-900">
+                      <span className="font-bold flex items-center gap-1 mb-0.5">💳 POS Sales Only</span>
+                      Sold at POS without tracking single retail stock units.
+                    </div>
+                  ) : (
+                    <div className="w-full rounded-xl border border-blue-200 bg-blue-50 p-2.5 text-xs text-blue-900">
+                      <span className="font-bold flex items-center gap-1 mb-0.5">🔄 Both Sales & Inventory</span>
+                      Sold on POS and automatically decrements inventory count when ordered.
+                    </div>
+                  )}
+                </div>
+
+              </div>
 
               {/* Name + Code */}
 
@@ -1698,8 +1819,8 @@ function ProductsPage() {
                   )}
 
                   {saving
-                    ? "Creating..."
-                    : "Create Product"}
+                    ? (editingProduct ? "Saving Changes..." : "Creating...")
+                    : (editingProduct ? "Update Changes" : "Create Product")}
 
                 </button>
 

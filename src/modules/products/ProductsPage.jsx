@@ -926,6 +926,10 @@ function ProductsPage() {
                   </th>
 
                   <th className="px-5 py-4">
+                    Applicable For
+                  </th>
+
+                  <th className="px-5 py-4">
                     Customer Price
                   </th>
 
@@ -935,10 +939,6 @@ function ProductsPage() {
 
                   <th className="px-5 py-4">
                     Menu Audience
-                  </th>
-
-                  <th className="px-5 py-4">
-                    Applicable For
                   </th>
 
                   {activeTab === "menu" && (
@@ -1048,6 +1048,26 @@ function ProductsPage() {
 
                         </td>
 
+                        {/* Applicable For Column */}
+                        <td className="px-5 py-4">
+                          {((product.applicable_for || product.applicableFor || "both").toLowerCase() === "inventory") ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                              <Package className="h-3 w-3 text-amber-600" />
+                              Raw Inventory
+                            </span>
+                          ) : ((product.applicable_for || product.applicableFor || "both").toLowerCase() === "sales") ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                              POS Sales Only
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">
+                              <span className="h-2 w-2 rounded-full bg-blue-500" />
+                              Sales & Stock
+                            </span>
+                          )}
+                        </td>
+
                         {/* Customer Price */}
 
                         <td className="px-5 py-4 font-semibold text-slate-900">
@@ -1122,26 +1142,6 @@ function ProductsPage() {
                             </span>
                           )}
 
-                        </td>
-
-                        {/* Applicable For Column */}
-                        <td className="px-5 py-4">
-                          {((product.applicable_for || product.applicableFor || "both").toLowerCase() === "inventory") ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
-                              <Package className="h-3 w-3 text-amber-600" />
-                              Raw Inventory
-                            </span>
-                          ) : ((product.applicable_for || product.applicableFor || "both").toLowerCase() === "sales") ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
-                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                              POS Sales Only
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">
-                              <span className="h-2 w-2 rounded-full bg-blue-500" />
-                              Sales & Stock
-                            </span>
-                          )}
                         </td>
 
                         {/* Today's Special Toggle (Menu Tab) */}
@@ -1267,43 +1267,6 @@ function ProductsPage() {
               className="space-y-5 p-6"
             >
 
-              {/* Purpose / Applicable For */}
-              <div className="grid gap-4 md:grid-cols-2">
-
-                <FormField label="Applicable For *">
-                  <select
-                    name="applicableFor"
-                    value={form.applicableFor || "both"}
-                    onChange={handleChange}
-                    className={inputClass}
-                  >
-                    <option value="both">Both Sales And Inventory</option>
-                    <option value="sales">Sales (POS Menu Item Only)</option>
-                    <option value="inventory">Inventory (Raw Material / Ingredient)</option>
-                  </select>
-                </FormField>
-
-                <div className="flex items-center pt-1 md:pt-5">
-                  {form.applicableFor === "inventory" ? (
-                    <div className="w-full rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
-                      <span className="font-bold flex items-center gap-1 mb-0.5">📦 Raw Material / Ingredient</span>
-                      Tracked in stock & purchasing. Automatically hidden from the POS waiter screen.
-                    </div>
-                  ) : form.applicableFor === "sales" ? (
-                    <div className="w-full rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-900">
-                      <span className="font-bold flex items-center gap-1 mb-0.5">💳 POS Sales Only</span>
-                      Sold at POS without tracking single retail stock units.
-                    </div>
-                  ) : (
-                    <div className="w-full rounded-xl border border-blue-200 bg-blue-50 p-2.5 text-xs text-blue-900">
-                      <span className="font-bold flex items-center gap-1 mb-0.5">🔄 Both Sales & Inventory</span>
-                      Sold on POS and automatically decrements inventory count when ordered.
-                    </div>
-                  )}
-                </div>
-
-              </div>
-
               {/* Name + Code */}
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -1335,7 +1298,7 @@ function ProductsPage() {
 
               </div>
 
-              {/* Category + Unit */}
+              {/* Category + Applicable For (Side by Side) */}
 
               <div className="grid gap-4 md:grid-cols-2">
 
@@ -1367,6 +1330,47 @@ function ProductsPage() {
 
                 </FormField>
 
+                <FormField label="Applicable For *">
+
+                  <select
+                    name="applicableFor"
+                    value={form.applicableFor || "both"}
+                    onChange={handleChange}
+                    className={inputClass}
+                  >
+                    <option value="both">Both Sales And Inventory</option>
+                    <option value="sales">Sales (POS Menu Item Only)</option>
+                    <option value="inventory">Inventory (Raw Material / Ingredient)</option>
+                  </select>
+
+                </FormField>
+
+              </div>
+
+              {/* Applicable For Indicator Banner */}
+              <div>
+                {form.applicableFor === "inventory" ? (
+                  <div className="w-full rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
+                    <span className="font-bold flex items-center gap-1 mb-0.5">📦 Raw Material / Ingredient</span>
+                    Tracked in stock & purchasing. Automatically hidden from the POS waiter screen.
+                  </div>
+                ) : form.applicableFor === "sales" ? (
+                  <div className="w-full rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-900">
+                    <span className="font-bold flex items-center gap-1 mb-0.5">💳 POS Sales Only</span>
+                    Sold at POS without tracking single retail stock units.
+                  </div>
+                ) : (
+                  <div className="w-full rounded-xl border border-blue-200 bg-blue-50 p-2.5 text-xs text-blue-900">
+                    <span className="font-bold flex items-center gap-1 mb-0.5">🔄 Both Sales & Inventory</span>
+                    Sold on POS and automatically decrements inventory count when ordered.
+                  </div>
+                )}
+              </div>
+
+              {/* Portion / Unit & Staff Price */}
+
+              <div className="grid gap-4 md:grid-cols-2">
+
                 <FormField label="Portion / Unit">
 
                   <select
@@ -1396,6 +1400,21 @@ function ProductsPage() {
                       <option value="kg">Kilogram (kg)</option>
                     </optgroup>
                   </select>
+
+                </FormField>
+
+                <FormField label="Staff Price (ETB)">
+
+                  <input
+                    type="number"
+                    name="staffPrice"
+                    value={form.staffPrice}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className={inputClass}
+                  />
 
                 </FormField>
 
@@ -1472,25 +1491,6 @@ function ProductsPage() {
                   </div>
                 </div>
               )}
-
-              <div className="grid gap-4 md:grid-cols-2">
-
-                <FormField label="Staff Price (ETB)">
-
-                  <input
-                    type="number"
-                    name="staffPrice"
-                    value={form.staffPrice}
-                    onChange={handleChange}
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    className={inputClass}
-                  />
-
-                </FormField>
-
-              </div>
 
               {/* Menu Scope & Today's Special */}
 

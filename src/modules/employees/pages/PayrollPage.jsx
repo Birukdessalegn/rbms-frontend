@@ -242,7 +242,7 @@ function PayrollPage() {
                   <th className="px-4 py-3.5">Employee</th>
                   <th className="px-4 py-3.5">Department</th>
                   <th className="px-4 py-3.5 text-right">Base Salary</th>
-                  <th className="px-4 py-3.5 text-center">Days (Wrk/Abs)</th>
+                  <th className="px-4 py-3.5 text-center">Attendance (Worked / Absent)</th>
                   <th className="px-4 py-3.5 text-right">Pension (7%)</th>
                   <th className="px-4 py-3.5 text-right">Income Tax</th>
                   <th className="px-4 py-3.5 text-right">Total Deductions</th>
@@ -268,11 +268,11 @@ function PayrollPage() {
                       {Number(emp.base_salary || 0).toLocaleString()} ETB
                     </td>
 
-                    <td className="px-4 py-4 text-center text-xs">
-                      <span className="font-bold text-emerald-700">{emp.days_worked || 0}w</span>
-                      {" / "}
+                    <td className="px-4 py-4 text-center text-xs whitespace-nowrap">
+                      <span className="font-bold text-emerald-700">{emp.days_worked || 0} worked</span>
+                      <span className="text-slate-300 mx-1">/</span>
                       <span className={Number(emp.days_absent) > 0 ? "font-bold text-rose-600" : "text-slate-400"}>
-                        {emp.days_absent || 0}a
+                        {emp.days_absent || 0} absent
                       </span>
                     </td>
 

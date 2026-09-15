@@ -739,29 +739,14 @@ function ProductsPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => {
-              setCategoryModalError("");
-              setCategoryModalSuccess("");
-              setCategoryForm({ name: "", type: "food", description: "" });
-              setShowCategoryModal(true);
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
-          >
-            <Tag className="h-4 w-4 text-emerald-600" />
-            Add Category
-          </button>
+        <button
+          onClick={openCreateModal}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700"
+        >
+          <Plus className="h-4 w-4" />
 
-          <button
-            onClick={openCreateModal}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            Add Product
-          </button>
-        </div>
+          Add Product
+        </button>
 
       </div>
 

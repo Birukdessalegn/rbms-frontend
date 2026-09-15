@@ -421,9 +421,12 @@ function BarPage() {
 
     return products.filter((p) => {
       const cat = (p.category_name || p.category || p.type || "").toLowerCase();
+      const catType = (p.category_type || p.categoryType || "").toLowerCase();
       const pName = (p.product_name || p.name || "").toLowerCase();
 
       const isDrinkCat =
+        catType === "bar" ||
+        catType === "beverage" ||
         cat.includes("bar") ||
         cat.includes("drink") ||
         cat.includes("beverage") ||
@@ -439,7 +442,11 @@ function BarPage() {
         cat.includes("vodka") ||
         cat.includes("tequila") ||
         cat.includes("brandy") ||
-        cat.includes("cognac");
+        cat.includes("cognac") ||
+        cat.includes("juice") ||
+        cat.includes("water") ||
+        cat.includes("soda") ||
+        cat.includes("soft");
 
       const isDrinkName =
         pName.includes("beer") ||
@@ -450,7 +457,15 @@ function BarPage() {
         pName.includes("gin") ||
         pName.includes("shot") ||
         pName.includes("bottle") ||
-        pName.includes("cocktail");
+        pName.includes("cocktail") ||
+        pName.includes("juice") ||
+        pName.includes("water") ||
+        pName.includes("soda") ||
+        pName.includes("coca") ||
+        pName.includes("fanta") ||
+        pName.includes("sprite") ||
+        pName.includes("pepsi") ||
+        pName.includes("cider");
 
       return (
         isDrinkCat ||

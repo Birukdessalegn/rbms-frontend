@@ -17,9 +17,20 @@ import {
   Sparkles,
   Users,
   Printer,
+  MessageCircle,
+  Send,
+  Copy,
+  Check,
+  Crown,
 } from "lucide-react";
 import api from "../../../services/api";
 import { printThermalReceipt } from "../../../utils/printHelper";
+import {
+  formatVipReceiptText,
+  getWhatsAppReceiptUrl,
+  getTelegramReceiptUrl,
+  copyReceiptToClipboard,
+} from "../utils/vipReceiptFormatter";
 
 function PaymentModal({
   order,
@@ -105,6 +116,8 @@ function PaymentModal({
   const [fullOrder, setFullOrder] = useState(order);
   const [success, setSuccess] = useState(false);
   const [partialSuccessData, setPartialSuccessData] = useState(null);
+  const [vipPaymentSuccessData, setVipPaymentSuccessData] = useState(null);
+  const [copiedReceipt, setCopiedReceipt] = useState(false);
 
   const [successfulAmount, setSuccessfulAmount] =
     useState(0);
@@ -720,6 +733,15 @@ function PaymentModal({
           setPaidQuantities(newPaidQuantities);
         }
 
+        const isVipPartial = (paymentMethod === "credit" || paymentMethod === "vip");
+        const freshVipPartial = response?.vip_customer || selectedVip;
+        const calcDebtPartial = response?.vip_customer?.current_debt !== undefined
+          ? Number(response.vip_customer.current_debt)
+          : Number(selectedVipStats?.debt || 0) + payableAmount;
+        const calcLimitPartial = Number(freshVipPartial?.credit_limit || selectedVipStats?.limit || 0);
+        const isUnlPartial = selectedVipStats?.isUnlimited || false;
+        const remLimPartial = isUnlPartial ? 999999999 : Math.max(0, calcLimitPartial - calcDebtPartial);
+
         // 2. Set partial success popup payload
         setPartialSuccessData({
           amount: payableAmount,
@@ -732,6 +754,14 @@ function PaymentModal({
           splitWays,
           reference: currentReference,
           response,
+          isVip: isVipPartial,
+          customerName: freshVipPartial?.name || customerName.trim() || "VIP Customer",
+          customerPhone: freshVipPartial?.phone || customerPhone.trim() || "",
+          tier: freshVipPartial?.tier || selectedVip?.tier || "VIP Customer",
+          creditLimit: calcLimitPartial,
+          currentDebt: calcDebtPartial,
+          remainingLimit: remLimPartial,
+          isUnlimited: isUnlPartial,
         });
         return;
       }
@@ -759,19 +789,52 @@ function PaymentModal({
         payableAmount
       );
 
-      setSuccess(true);
+      const isVipFull = (paymentMethod === "credit" || paymentMethod === "vip");
+      if (isVipFull) {
+        const freshVip = response?.vip_customer || selectedVip;
+        const calcDebt = response?.vip_customer?.current_debt !== undefined
+          ? Number(response.vip_customer.current_debt)
+          : Number(selectedVipStats?.debt || 0) + payableAmount;
+        const calcLimit = Number(freshVip?.credit_limit || selectedVipStats?.limit || 0);
+        const isUnl = selectedVipStats?.isUnlimited || false;
+        const remLim = isUnl ? 999999999 : Math.max(0, calcLimit - calcDebt);
 
-      setTimeout(() => {
+        setVipPaymentSuccessData({
+          customerName: freshVip?.name || customerName.trim() || "VIP Customer",
+          customerPhone: freshVip?.phone || customerPhone.trim() || "",
+          tier: freshVip?.tier || selectedVip?.tier || "Gold VIP",
+          orderNumber: fullOrder?.order_number || fullOrder?.id || order?.id || "N/A",
+          tableNumber: fullOrder?.table_number || order?.table_number || "",
+          chargedAmount: payableAmount,
+          creditLimit: calcLimit,
+          currentDebt: calcDebt,
+          remainingLimit: remLim,
+          isUnlimited: isUnl,
+          items: fullOrder?.items || order?.items || [],
+          response,
+          date: new Date(),
+        });
+
+        setSuccess(true);
+
         if (onPaymentSuccess) {
-          onPaymentSuccess(
-            response,
-            order,
-            true
-          );
+          onPaymentSuccess(response, order, true);
         }
+      } else {
+        setSuccess(true);
 
-        onClose();
-      }, 1500);
+        setTimeout(() => {
+          if (onPaymentSuccess) {
+            onPaymentSuccess(
+              response,
+              order,
+              true
+            );
+          }
+
+          onClose();
+        }, 1500);
+      }
 
     } catch (err) {
       console.error(
@@ -877,6 +940,61 @@ function PaymentModal({
               Print Share Receipt (Slip)
             </button>
 
+            {partialSuccessData.isVip && (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const rText = formatVipReceiptText({
+                      restaurantName: "RESTAURANT & BAR",
+                      customerName: partialSuccessData.customerName,
+                      customerPhone: partialSuccessData.customerPhone,
+                      tier: partialSuccessData.tier,
+                      orderNumber: partialSuccessData.orderNumber,
+                      tableNumber: partialSuccessData.tableNumber,
+                      items: partialSuccessData.paidItems,
+                      chargedAmount: partialSuccessData.amount,
+                      creditLimit: partialSuccessData.creditLimit,
+                      currentDebt: partialSuccessData.currentDebt,
+                      remainingLimit: partialSuccessData.remainingLimit,
+                      isUnlimited: partialSuccessData.isUnlimited,
+                    });
+                    const url = getWhatsAppReceiptUrl(partialSuccessData.customerPhone, rText);
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                  className="flex items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 px-3 text-xs font-bold text-white shadow-xs transition cursor-pointer"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp Receipt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const rText = formatVipReceiptText({
+                      restaurantName: "RESTAURANT & BAR",
+                      customerName: partialSuccessData.customerName,
+                      customerPhone: partialSuccessData.customerPhone,
+                      tier: partialSuccessData.tier,
+                      orderNumber: partialSuccessData.orderNumber,
+                      tableNumber: partialSuccessData.tableNumber,
+                      items: partialSuccessData.paidItems,
+                      chargedAmount: partialSuccessData.amount,
+                      creditLimit: partialSuccessData.creditLimit,
+                      currentDebt: partialSuccessData.currentDebt,
+                      remainingLimit: partialSuccessData.remainingLimit,
+                      isUnlimited: partialSuccessData.isUnlimited,
+                    });
+                    const url = getTelegramReceiptUrl(rText);
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                  className="flex items-center justify-center gap-1.5 rounded-2xl bg-sky-500 hover:bg-sky-600 py-3 px-3 text-xs font-bold text-white shadow-xs transition cursor-pointer"
+                >
+                  <Send className="h-4 w-4" />
+                  Telegram Receipt
+                </button>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={async () => {
@@ -918,6 +1036,158 @@ function PaymentModal({
    * SUCCESS POPUP 
    */
   if (success) {
+    // 1. If payment was settled via VIP Credit, show the VIP Receipt & Statement Screen with 1-Click WhatsApp & Telegram buttons
+    if (vipPaymentSuccessData) {
+      const receiptText = formatVipReceiptText({
+        restaurantName: "RESTAURANT & BAR",
+        customerName: vipPaymentSuccessData.customerName,
+        customerPhone: vipPaymentSuccessData.customerPhone,
+        tier: vipPaymentSuccessData.tier,
+        orderNumber: vipPaymentSuccessData.orderNumber,
+        tableNumber: vipPaymentSuccessData.tableNumber,
+        items: vipPaymentSuccessData.items,
+        chargedAmount: vipPaymentSuccessData.chargedAmount,
+        creditLimit: vipPaymentSuccessData.creditLimit,
+        currentDebt: vipPaymentSuccessData.currentDebt,
+        remainingLimit: vipPaymentSuccessData.remainingLimit,
+        isUnlimited: vipPaymentSuccessData.isUnlimited,
+        date: vipPaymentSuccessData.date,
+      });
+
+      const handleSendWhatsApp = () => {
+        const url = getWhatsAppReceiptUrl(vipPaymentSuccessData.customerPhone, receiptText);
+        window.open(url, "_blank", "noopener,noreferrer");
+      };
+
+      const handleSendTelegram = () => {
+        const url = getTelegramReceiptUrl(receiptText);
+        window.open(url, "_blank", "noopener,noreferrer");
+      };
+
+      const handleCopy = async () => {
+        await copyReceiptToClipboard(receiptText);
+        setCopiedReceipt(true);
+        setTimeout(() => setCopiedReceipt(false), 3000);
+      };
+
+      return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-7 text-center shadow-2xl border border-slate-100 space-y-4">
+            
+            {/* Header Icon */}
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 border border-amber-200 text-amber-600 shadow-xs">
+              <Crown className="h-8 w-8" />
+            </div>
+
+            <div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-0.5 text-xs font-bold text-amber-800 uppercase tracking-wider mb-1">
+                VIP Credit Settled
+              </div>
+              <h2 className="text-xl font-black text-slate-900">
+                {vipPaymentSuccessData.customerName}
+              </h2>
+              <p className="text-xs text-slate-500 font-medium">
+                {vipPaymentSuccessData.tier} &bull; {vipPaymentSuccessData.customerPhone || "No Phone Recorded"}
+              </p>
+            </div>
+
+            {/* Statement Card */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-2.5 text-xs text-left">
+              <div className="flex justify-between items-center text-slate-900 pb-2 border-b border-slate-200/80">
+                <span className="font-bold text-slate-600">Billed This Visit:</span>
+                <span className="text-base font-black text-blue-700">
+                  {vipPaymentSuccessData.chargedAmount.toFixed(2)} ETB
+                </span>
+              </div>
+
+              <div className="flex justify-between text-slate-600 font-medium pt-1">
+                <span>Order Reference:</span>
+                <span className="font-bold text-slate-800">#{vipPaymentSuccessData.orderNumber}</span>
+              </div>
+
+              <div className="flex justify-between text-slate-600 font-medium">
+                <span>Credit Ceiling / Limit:</span>
+                <span className="font-bold text-slate-800">
+                  {vipPaymentSuccessData.isUnlimited ? "Unlimited" : `${vipPaymentSuccessData.creditLimit.toLocaleString()} ETB`}
+                </span>
+              </div>
+
+              <div className="flex justify-between text-slate-600 font-medium">
+                <span>Accumulated Debt:</span>
+                <span className="font-bold text-amber-700">
+                  {vipPaymentSuccessData.currentDebt.toLocaleString()} ETB
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center text-emerald-950 font-extrabold text-sm border-t border-slate-200/80 pt-2.5 mt-1 bg-emerald-50/60 -mx-4 -mb-4 p-3 rounded-b-2xl border-emerald-100">
+                <span className="text-emerald-900 font-bold">Remaining Available Limit:</span>
+                <span className="text-emerald-700 font-black text-base">
+                  {vipPaymentSuccessData.isUnlimited 
+                    ? "Unlimited" 
+                    : `${vipPaymentSuccessData.remainingLimit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
+                </span>
+              </div>
+            </div>
+
+            {/* 1-Click Action Buttons */}
+            <div className="space-y-2 pt-1">
+              {/* WhatsApp 1-Click Button */}
+              <button
+                type="button"
+                onClick={handleSendWhatsApp}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 px-4 text-sm font-black text-white shadow-md shadow-emerald-600/20 active:scale-[0.98] transition cursor-pointer"
+              >
+                <MessageCircle className="h-5 w-5" />
+                Send WhatsApp Receipt
+              </button>
+
+              {/* Telegram 1-Click Button */}
+              <button
+                type="button"
+                onClick={handleSendTelegram}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-sky-500 hover:bg-sky-600 py-3 px-4 text-sm font-black text-white shadow-md shadow-sky-500/20 active:scale-[0.98] transition cursor-pointer"
+              >
+                <Send className="h-5 w-5" />
+                Send Telegram Receipt
+              </button>
+
+              {/* Copy Receipt Text Button */}
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 py-2.5 px-4 text-xs font-bold text-slate-700 active:scale-[0.98] transition cursor-pointer"
+              >
+                {copiedReceipt ? (
+                  <>
+                    <Check className="h-4 w-4 text-emerald-600" />
+                    <span className="text-emerald-700">Receipt Copied to Clipboard!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 text-slate-500" />
+                    <span>Copy Receipt Statement</span>
+                  </>
+                )}
+              </button>
+
+              {/* Done / Close Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                }}
+                className="w-full rounded-2xl py-2 text-xs font-bold text-slate-400 hover:text-slate-700 transition cursor-pointer"
+              >
+                Done / Close Window
+              </button>
+            </div>
+
+          </div>
+        </div>
+      );
+    }
+
+    // 2. Standard payment success popup for cash/bank transfer
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
 
@@ -947,7 +1217,7 @@ function PaymentModal({
           </p>
 
           <div className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">
-            Order #{fullOrder.order_number}
+            Order #{fullOrder?.order_number || order?.order_number}
           </div>
 
           <p className="mt-4 text-xs text-gray-400">

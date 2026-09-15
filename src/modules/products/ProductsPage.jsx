@@ -720,7 +720,7 @@ function ProductsPage() {
       const matchesCategory =
         categoryFilter === "all" ||
         String(product.category_id) === String(categoryFilter) ||
-        (categoryFilter === "group_food" && (
+        ((categoryFilter === "food" || categoryFilter === "group_food") && (
           (product.category_type || "").toLowerCase() === "food" ||
           (product.category_name || "").toLowerCase().includes("food") ||
           (product.category_name || "").toLowerCase().includes("kitchen")
@@ -730,13 +730,18 @@ function ProductsPage() {
           (product.category_type || "").toLowerCase().includes("fruit") ||
           (product.name || "").toLowerCase().includes("fruit")
         )) ||
-        (categoryFilter === "group_bar" && (
+        ((categoryFilter === "drink" || categoryFilter === "group_bar") && (
           (product.category_type || "").toLowerCase() === "bar" ||
           (product.category_type || "").toLowerCase() === "beverage" ||
           (product.category_name || "").toLowerCase().includes("bar") ||
           (product.category_name || "").toLowerCase().includes("drink") ||
           (product.category_name || "").toLowerCase().includes("beer") ||
           (product.category_name || "").toLowerCase().includes("wine")
+        )) ||
+        (categoryFilter === "inventory" && (
+          (product.category_type || "").toLowerCase() === "inventory" ||
+          (product.category_name || "").toLowerCase().includes("inventory") ||
+          (product.applicable_for || "").toLowerCase() === "inventory"
         ));
 
       const prodApp = (product.applicable_for || product.applicableFor || "both").toLowerCase();
@@ -769,6 +774,40 @@ function ProductsPage() {
     selectedTagFilter,
     applicableFilter,
   ]);
+
+  // Standard 3-Department Category Architecture: Food, Drink, Inventory
+  const standardCategories = useMemo(() => {
+    const foodCat = categories.find(
+      (c) => (c.name || "").toLowerCase() === "food" || (c.type || "").toLowerCase() === "food"
+    );
+    const drinkCat = categories.find(
+      (c) =>
+        (c.name || "").toLowerCase() === "drink" ||
+        (c.type || "").toLowerCase() === "bar" ||
+        (c.type || "").toLowerCase() === "beverage"
+    );
+    const invCat = categories.find(
+      (c) =>
+        (c.name || "").toLowerCase() === "inventory" ||
+        (c.type || "").toLowerCase() === "inventory" ||
+        (c.name || "").toLowerCase() === "store" ||
+        (c.type || "").toLowerCase() === "supply"
+    );
+
+    const list = [];
+    if (foodCat) list.push({ ...foodCat, name: "Food", type: "food" });
+    if (drinkCat) list.push({ ...drinkCat, name: "Drink", type: "bar" });
+    if (invCat) list.push({ ...invCat, name: "Inventory", type: "inventory" });
+
+    if (list.length === 0) {
+      return categories.filter((c) => {
+        const n = (c.name || "").toLowerCase();
+        return n === "food" || n === "drink" || n === "inventory";
+      });
+    }
+
+    return list;
+  }, [categories]);
 
   // Dynamic tags list with live item counts
   const availableTags = useMemo(() => {
@@ -812,13 +851,23 @@ function ProductsPage() {
   const foodProducts = products.filter(
     (product) =>
       product.category_type === "food" ||
-      (product.category_name || "").toLowerCase().includes("fruit") ||
-      (product.category_type || "").toLowerCase().includes("fruit")
+      (product.category_name || "").toLowerCase().includes("food") ||
+      (product.category_name || "").toLowerCase().includes("kitchen")
   ).length;
 
   const barProducts = products.filter(
     (product) =>
-      product.category_type === "bar"
+      product.category_type === "bar" ||
+      product.category_type === "beverage" ||
+      (product.category_name || "").toLowerCase().includes("bar") ||
+      (product.category_name || "").toLowerCase().includes("drink")
+  ).length;
+
+  const inventoryProducts = products.filter(
+    (product) =>
+      product.category_type === "inventory" ||
+      (product.category_name || "").toLowerCase().includes("inventory") ||
+      (product.applicable_for || "").toLowerCase() === "inventory"
   ).length;
 
   // ============================================================
@@ -1714,26 +1763,7 @@ function ProductsPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
 
-                <FormField
-                  label={
-                    <span className="flex items-center justify-between w-full">
-                      <span>Category</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCategoryModalError("");
-                          setCategoryModalSuccess("");
-                          setCategoryForm({ name: "", type: "food", description: "" });
-                          setShowCategoryModal(true);
-                        }}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline"
-                      >
-                        <Plus className="h-3 w-3" />
-                        New Category
-                      </button>
-                    </span>
-                  }
-                >
+                <FormField label="Category *">
 
                   <select
                     name="categoryId"
@@ -1746,7 +1776,7 @@ function ProductsPage() {
                       Select category
                     </option>
 
-                    {categories.map(
+                    {standardCategories.map(
                       (category) => (
                         <option
                           key={category.id}
@@ -1756,6 +1786,14 @@ function ProductsPage() {
                         </option>
                       )
                     )}
+
+                    {editingProduct &&
+                      form.categoryId &&
+                      !standardCategories.some((c) => String(c.id) === String(form.categoryId)) && (
+                        <option value={form.categoryId}>
+                          {categories.find((c) => String(c.id) === String(form.categoryId))?.name || "Current Category"}
+                        </option>
+                      )}
 
                   </select>
 

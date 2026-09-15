@@ -17,6 +17,8 @@ import {
   BookOpen,
   Upload,
   Image as ImageIcon,
+  Apple,
+  Tag,
 } from "lucide-react";
 
 import api from "../../services/api";
@@ -122,6 +124,17 @@ function ProductsPage() {
     applicableFor: "both", // "both" | "sales" | "inventory"
   });
 
+  // Category Modal State
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
+  const [categoryForm, setCategoryForm] = useState({
+    name: "",
+    type: "food",
+    description: "",
+  });
+  const [categoryModalError, setCategoryModalError] = useState("");
+  const [categoryModalSuccess, setCategoryModalSuccess] = useState("");
+
   // ============================================================
   // FETCH PRODUCTS
   // ============================================================
@@ -140,6 +153,8 @@ function ProductsPage() {
         const isFoodOrSoft =
           cat.includes("food") ||
           cat.includes("kitchen") ||
+          cat.includes("fruit") ||
+          pName.includes("fruit") ||
           cat.includes("beer") ||
           cat.includes("soft") ||
           cat.includes("water") ||
@@ -220,6 +235,56 @@ function ProductsPage() {
   };
 
   // ============================================================
+  // CREATE CATEGORY
+  // ============================================================
+
+  const handleCreateCategory = async (e) => {
+    e?.preventDefault?.();
+    const catName = categoryForm.name?.trim();
+    if (!catName) {
+      setCategoryModalError("Category name is required.");
+      return;
+    }
+
+    try {
+      setCategorySubmitting(true);
+      setCategoryModalError("");
+      setCategoryModalSuccess("");
+
+      const response = await api("/products/categories", {
+        method: "POST",
+        body: JSON.stringify({
+          name: catName,
+          type: categoryForm.type || "food",
+          description: categoryForm.description?.trim() || "",
+        }),
+      });
+
+      const newCategory = response.category;
+      await fetchCategories();
+
+      if (newCategory?.id) {
+        setForm((previous) => ({
+          ...previous,
+          categoryId: String(newCategory.id),
+        }));
+      }
+
+      setCategoryModalSuccess(`Category "${catName}" created successfully!`);
+      setTimeout(() => {
+        setShowCategoryModal(false);
+        setCategoryForm({ name: "", type: "food", description: "" });
+        setCategoryModalSuccess("");
+      }, 700);
+    } catch (err) {
+      console.error("Failed to create category:", err);
+      setCategoryModalError(err.message || "Failed to create category");
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  // ============================================================
   // INITIAL LOAD
   // ============================================================
 
@@ -255,7 +320,7 @@ function ProductsPage() {
       if (name === "categoryId") {
         const catObj = categories.find((c) => String(c.id) === String(value));
         const catType = (catObj?.type || catObj?.name || "").toLowerCase();
-        if (catType.includes("food") || catType.includes("kitchen")) {
+        if (catType.includes("food") || catType.includes("kitchen") || catType.includes("fruit")) {
           if (["bottle", "shot", "half_bottle"].includes(updated.unit)) {
             updated.unit = "plate";
           }
@@ -600,7 +665,9 @@ function ProductsPage() {
 
   const foodProducts = products.filter(
     (product) =>
-      product.category_type === "food"
+      product.category_type === "food" ||
+      (product.category_name || "").toLowerCase().includes("fruit") ||
+      (product.category_type || "").toLowerCase().includes("fruit")
   ).length;
 
   const barProducts = products.filter(
@@ -612,8 +679,13 @@ function ProductsPage() {
   // CATEGORY ICON
   // ============================================================
 
-  const getCategoryIcon = (type) => {
-    switch (type) {
+  const getCategoryIcon = (type, name = "") => {
+    const t = (type || "").toLowerCase();
+    const n = (name || "").toLowerCase();
+    if (t.includes("fruit") || n.includes("fruit")) {
+      return Apple;
+    }
+    switch (t) {
       case "food":
         return Utensils;
 
@@ -621,6 +693,7 @@ function ProductsPage() {
         return Wine;
 
       case "drink":
+      case "beverage":
         return Coffee;
 
       default:
@@ -666,14 +739,29 @@ function ProductsPage() {
           </p>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4" />
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              setCategoryModalError("");
+              setCategoryModalSuccess("");
+              setCategoryForm({ name: "", type: "food", description: "" });
+              setShowCategoryModal(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+          >
+            <Tag className="h-4 w-4 text-emerald-600" />
+            Add Category
+          </button>
 
-          Add Product
-        </button>
+          <button
+            onClick={openCreateModal}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4" />
+            Add Product
+          </button>
+        </div>
 
       </div>
 
@@ -969,7 +1057,8 @@ function ProductsPage() {
 
                     const CategoryIcon =
                       getCategoryIcon(
-                        product.category_type
+                        product.category_type,
+                        product.category_name
                       );
 
                     const menuScope = product.menu_type || "both";
@@ -1302,7 +1391,26 @@ function ProductsPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
 
-                <FormField label="Category">
+                <FormField
+                  label={
+                    <span className="flex items-center justify-between w-full">
+                      <span>Category</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCategoryModalError("");
+                          setCategoryModalSuccess("");
+                          setCategoryForm({ name: "", type: "food", description: "" });
+                          setShowCategoryModal(true);
+                        }}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                      >
+                        <Plus className="h-3 w-3" />
+                        New Category
+                      </button>
+                    </span>
+                  }
+                >
 
                   <select
                     name="categoryId"
@@ -1554,7 +1662,7 @@ function ProductsPage() {
               {(() => {
                 const selectedCat = categories.find((c) => String(c.id) === String(form.categoryId));
                 const catType = (selectedCat?.type || selectedCat?.name || "").toLowerCase();
-                const isFoodCategory = catType.includes("food") || catType.includes("kitchen");
+                const isFoodCategory = catType.includes("food") || catType.includes("kitchen") || catType.includes("fruit");
                 if (isFoodCategory && !form.isShotItem) return null;
 
                 return (
@@ -1830,6 +1938,183 @@ function ProductsPage() {
 
           </div>
 
+        </div>
+      )}
+
+      {/* ======================================================
+          CREATE CATEGORY MODAL
+      ====================================================== */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl transition-all">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <Tag className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Add Product Category
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Create a new category for foods, fruits, or beverages.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCategoryModal(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleCreateCategory} className="mt-4 space-y-4">
+              {/* Category Quick Suggestions */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+                  Quick Suggestions
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: "Fruit", type: "food" },
+                    { label: "Dessert", type: "food" },
+                    { label: "Salad", type: "food" },
+                    { label: "Wine", type: "bar" },
+                    { label: "Juice", type: "beverage" },
+                    { label: "Cocktail", type: "bar" },
+                  ].map((sug) => (
+                    <button
+                      key={sug.label}
+                      type="button"
+                      onClick={() =>
+                        setCategoryForm((prev) => ({
+                          ...prev,
+                          name: sug.label,
+                          type: sug.type,
+                        }))
+                      }
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition"
+                    >
+                      + {sug.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Category Name */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">
+                  Category Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Fruit, Fresh Salads, Appetizers..."
+                  value={categoryForm.name}
+                  onChange={(e) =>
+                    setCategoryForm((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                />
+              </div>
+
+              {/* Department / Category Type */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">
+                  Target Department / Operational Type *
+                </label>
+                <select
+                  value={categoryForm.type}
+                  onChange={(e) =>
+                    setCategoryForm((prev) => ({
+                      ...prev,
+                      type: e.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                >
+                  <option value="food">
+                    Kitchen & Food (Fruit, Kitchen meals, dishes)
+                  </option>
+                  <option value="bar">
+                    Bar & Liquor (Beers, spirits, wines)
+                  </option>
+                  <option value="beverage">
+                    Non-Alcoholic Beverages (Sodas, juices, water, coffee)
+                  </option>
+                  <option value="supply">
+                    Supply / Operational Materials
+                  </option>
+                  <option value="other">Other</option>
+                </select>
+                <p className="text-[11px] text-slate-500">
+                  Determines which department receives tickets when ordered via POS.
+                </p>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">
+                  Description (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Brief description..."
+                  value={categoryForm.description}
+                  onChange={(e) =>
+                    setCategoryForm((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                />
+              </div>
+
+              {/* Error & Success alerts */}
+              {categoryModalError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600 font-medium">
+                  {categoryModalError}
+                </div>
+              )}
+
+              {categoryModalSuccess && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  {categoryModalSuccess}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(false)}
+                  disabled={categorySubmitting}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={categorySubmitting}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {categorySubmitting && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                  {categorySubmitting ? "Creating..." : "Save Category"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

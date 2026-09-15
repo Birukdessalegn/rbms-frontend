@@ -19,7 +19,7 @@ import { useState, useRef, useEffect } from "react";
 
 const menuItems = [
   {
-    name: "POS Terminal",
+    name: "Menu Page",
     path: "/pos",
     icon: ShoppingCart,
   },
@@ -234,7 +234,7 @@ function POSLayout() {
               </span>
 
               <span className="font-bold text-blue-950 text-base md:text-lg tracking-tight">
-                {isReportsPage ? "POS Reports" : "Point of Sale"}
+                {isReportsPage ? "POS Reports" : location.pathname === "/pos" ? "Menu Page" : "Point of Sale"}
               </span>
 
             </div>

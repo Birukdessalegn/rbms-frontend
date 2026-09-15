@@ -78,7 +78,7 @@ const navigationGroups = [
 
         children: [
           {
-            name: "POS Terminal",
+            name: "Menu Page",
             path: "/pos",
             icon: ShoppingCart,
           },

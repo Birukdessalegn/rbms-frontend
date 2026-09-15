@@ -141,8 +141,24 @@ function PayslipModal({ isOpen, onClose, item, periodMonth }) {
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Reference No</span>
-                  <p className="font-mono text-slate-600 mt-0.5 text-[11px]">{refCode}</p>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Shift / Work Hours</span>
+                  <p className="font-semibold text-slate-700 mt-0.5">
+                    {item.shift_start_time && item.shift_end_time
+                      ? `${String(item.shift_start_time).slice(0, 5)} - ${String(item.shift_end_time).slice(0, 5)}`
+                      : "18:00 - 07:00"}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Hire Date</span>
+                  <p className="font-semibold text-slate-700 mt-0.5">
+                    {item.hire_date
+                      ? new Date(item.hire_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                      : "Official Staff"}
+                    {item.is_prorated && (
+                      <span className="ml-1 text-[10px] font-bold text-blue-700">({item.active_days}d prorated)</span>
+                    )}
+                  </p>
                 </div>
 
                 <div>

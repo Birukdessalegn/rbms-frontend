@@ -241,6 +241,22 @@ function AttendancePage() {
     }
   };
 
+  // Trigger 7:00 AM Night-Shift Auto-Marker
+  const handleTriggerAutoMark = async () => {
+    try {
+      setActionLoading(true);
+      const res = await api("/attendance/auto-mark", { method: "POST" });
+      showToast("success", res.message || "Shift absentees marked successfully");
+      await loadTodayAttendance();
+      if (activeTab === "history") await loadAttendanceLogs();
+    } catch (err) {
+      console.error("Auto-mark failed:", err);
+      showToast("error", err.message || "Failed to run shift auto-marker");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Open Single Employee Attendance History Modal
   const handleViewEmployeeHistory = async (emp) => {
     try {
@@ -348,11 +364,21 @@ function AttendancePage() {
           </div>
 
           <button
+            onClick={handleTriggerAutoMark}
+            disabled={actionLoading}
+            title="Automatically mark staff without check-ins as absent for the concluded night shift"
+            className="flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-700 disabled:opacity-50 transition cursor-pointer"
+          >
+            <Clock size={16} className={actionLoading ? "animate-spin text-amber-400" : "text-amber-400"} />
+            {actionLoading ? "Marking..." : "Run 7 AM Auto-Marker"}
+          </button>
+
+          <button
             onClick={() => {
               loadTodayAttendance();
               if (activeTab === "history") loadAttendanceLogs();
             }}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 cursor-pointer"
           >
             <RefreshCw size={16} className={loading ? "animate-spin text-blue-600" : "text-gray-500"} />
             Refresh

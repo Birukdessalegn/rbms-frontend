@@ -307,6 +307,8 @@ function EmployeesPage() {
     setEditingEmployee(employee);
 
     const parsedShift = parseShiftStringToTimes(employee.shift);
+    const resolvedStartTime = employee.shift_start_time ? String(employee.shift_start_time).slice(0, 5) : parsedShift.startTime;
+    const resolvedEndTime = employee.shift_end_time ? String(employee.shift_end_time).slice(0, 5) : parsedShift.endTime;
     const un = getEmployeeUsername(employee);
 
     const empRoleName = String(employee.role?.name || employee.role_name || employee.role || "").toLowerCase().trim();
@@ -330,8 +332,8 @@ function EmployeesPage() {
       phone: employee.phone || "",
       roleId: matchedRole ? String(matchedRole.id) : (employee.role_id || employee.roleId ? String(employee.role_id || employee.roleId) : ""),
       departmentId: matchedDept ? String(matchedDept.id) : (employee.department_id || employee.departmentId ? String(employee.department_id || employee.departmentId) : ""),
-      shiftStartTime: parsedShift.startTime,
-      shiftEndTime: parsedShift.endTime,
+      shiftStartTime: resolvedStartTime,
+      shiftEndTime: resolvedEndTime,
       hireDate: formattedHireDate,
       salary: employee.salary !== null && employee.salary !== undefined ? String(employee.salary) : "",
       status: employee.status || "active",
@@ -424,6 +426,11 @@ function EmployeesPage() {
         department_id: Number(form.departmentId),
         department: selectedDept?.name || null,
         departmentName: selectedDept?.name || null,
+
+        shiftStartTime: form.shiftStartTime || "18:00",
+        shift_start_time: form.shiftStartTime || "18:00",
+        shiftEndTime: form.shiftEndTime || "07:00",
+        shift_end_time: form.shiftEndTime || "07:00",
 
         shift: form.shiftStartTime && form.shiftEndTime
           ? `${formatTimeTo12Hour(form.shiftStartTime)} - ${formatTimeTo12Hour(form.shiftEndTime)}`

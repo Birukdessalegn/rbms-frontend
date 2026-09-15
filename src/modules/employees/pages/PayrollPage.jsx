@@ -254,18 +254,45 @@ function PayrollPage() {
                 {filteredItems.map((emp) => (
                   <tr key={emp.employee_id} className="hover:bg-slate-50/70 transition">
                     <td className="px-5 py-4">
-                      <p className="font-bold text-slate-900">
-                        {emp.first_name} {emp.last_name}
-                      </p>
-                      <p className="text-xs text-slate-400">{emp.employee_code}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-slate-900">
+                          {emp.first_name} {emp.last_name}
+                        </p>
+                        {emp.is_prorated && (
+                          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
+                            New Hire ({emp.active_days}d)
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                        <span>{emp.employee_code}</span>
+                        {emp.hire_date && (
+                          <>
+                            <span>•</span>
+                            <span className="text-[11px] text-slate-500">
+                              Hired {new Date(emp.hire_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </td>
 
                     <td className="px-4 py-4 text-xs font-semibold text-slate-700">
-                      {emp.department_name || "General"}
+                      <div>{emp.department_name || "General"}</div>
+                      {emp.shift_start_time && emp.shift_end_time && (
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          {String(emp.shift_start_time).slice(0, 5)} - {String(emp.shift_end_time).slice(0, 5)}
+                        </div>
+                      )}
                     </td>
 
                     <td className="px-4 py-4 text-right font-semibold text-slate-900">
-                      {Number(emp.base_salary || 0).toLocaleString()} ETB
+                      <div>{Number(emp.base_salary || 0).toLocaleString()} ETB</div>
+                      {emp.is_prorated && (
+                        <div className="text-[10px] font-medium text-slate-400">
+                          Prorated from {Number(emp.full_base_salary || 0).toLocaleString()} ETB
+                        </div>
+                      )}
                     </td>
 
                     <td className="px-4 py-4 text-center text-xs whitespace-nowrap">

@@ -99,7 +99,7 @@ function PaymentModal({
     const debt = Number(selectedVip.current_debt || selectedVip.currentDebt || selectedVip.debt || 0);
     const tier = (selectedVip.tier || "").toLowerCase();
     const isPromoter = tier.includes("promoter");
-    const isUnlimited = isPromoter || tier.includes("gold") || tier.includes("unlimited") || limit <= 0 || limit >= 999999;
+    const isUnlimited = tier.includes("gold") || tier.includes("unlimited") || (!isPromoter && limit >= 999999);
     const available = isUnlimited ? 999999999 : Math.max(limit - debt, 0);
     return { limit, debt, available, isUnlimited, isPromoter };
   }, [selectedVip]);
@@ -1935,7 +1935,7 @@ function PaymentModal({
                         const vDebt = Number(v.current_debt || v.currentDebt || v.debt || 0);
                         const vTier = (v.tier || "").toLowerCase();
                         const isPromoter = vTier.includes("promoter");
-                        const isUnl = isPromoter || vTier.includes("gold") || vTier.includes("unlimited") || vLimit <= 0 || vLimit >= 999999;
+                        const isUnl = vTier.includes("gold") || vTier.includes("unlimited") || (!isPromoter && vLimit >= 999999);
 
                         return (
                           <button
@@ -1976,7 +1976,7 @@ function PaymentModal({
                                 Available: {isUnl ? "♾️ Unlimited" : `${Math.max(vLimit - vDebt, 0).toLocaleString()} ETB`}
                               </span>
                               <span className="text-[10px] text-slate-500 block">
-                                {isUnl ? (isPromoter ? "Promoter Tab (Unlimited Money)" : "Unlimited Credit Ceiling") : `Limit: ${vLimit.toLocaleString()} • Debt: ${vDebt.toLocaleString()}`}
+                                {isUnl ? "Unlimited Credit Ceiling" : `Limit: ${vLimit.toLocaleString()} • Debt: ${vDebt.toLocaleString()}`}
                               </span>
                             </div>
                           </button>

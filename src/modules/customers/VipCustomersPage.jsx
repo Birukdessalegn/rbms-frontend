@@ -91,7 +91,7 @@ export default function VipCustomersPage() {
       name: "",
       phone: "",
       tier: "Promoter",
-      creditLimit: "999999999",
+      creditLimit: "15000",
       company: "",
       notes: "",
     });
@@ -107,7 +107,7 @@ export default function VipCustomersPage() {
     setEditingCustomer(cust);
     const tier = cust.tier || "Promoter";
     const tierLower = tier.toLowerCase();
-    const isUnl = tierLower.includes("promoter") || tierLower.includes("gold") || tierLower.includes("unlimited");
+    const isUnl = tierLower.includes("gold") || tierLower.includes("unlimited");
     setForm({
       name: cust.name || "",
       phone: cust.phone || "",
@@ -421,7 +421,7 @@ export default function VipCustomersPage() {
             className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-amber-500"
           >
             <option value="all">All VIP Tiers</option>
-            <option value="Promoter">🎟️ Promoter (Unlimited)</option>
+            <option value="Promoter">🎟️ Promoter</option>
             <option value="Gold VIP">👑 Gold VIP (Unlimited)</option>
             <option value="Executive">Executive</option>
             <option value="Regular VIP">Regular VIP</option>
@@ -459,7 +459,7 @@ export default function VipCustomersPage() {
                   const limit = Number(cust.credit_limit || 0);
                   const custTier = (cust.tier || "").toLowerCase();
                   const isPromoter = custTier.includes("promoter");
-                  const isUnlimited = isPromoter || custTier.includes("gold") || custTier.includes("unlimited") || limit <= 0 || limit >= 999999;
+                  const isUnlimited = custTier.includes("gold") || custTier.includes("unlimited") || (!isPromoter && limit >= 999999);
                   const available = isUnlimited ? Infinity : Math.max(limit - debt, 0);
                   const isMaxedOut = !isUnlimited && debt >= limit && limit > 0;
 
@@ -647,7 +647,6 @@ export default function VipCustomersPage() {
                     onChange={(e) => {
                       const val = e.target.value;
                       const isUnl =
-                        val.toLowerCase().includes("promoter") ||
                         val.toLowerCase().includes("gold") ||
                         val.toLowerCase().includes("unlimited");
                       setForm({
@@ -658,7 +657,7 @@ export default function VipCustomersPage() {
                     }}
                     className="w-full rounded-xl border border-amber-300 bg-amber-50/50 px-3 py-2.5 text-sm font-bold text-amber-950 outline-none focus:border-amber-500"
                   >
-                    <option value="Promoter">🎟️ Promoter (Unlimited Money / Credit)</option>
+                    <option value="Promoter">🎟️ Promoter</option>
                     <option value="Gold VIP">👑 Gold VIP (Unlimited Credit)</option>
                     <option value="Executive">Executive</option>
                     <option value="Regular VIP">Regular VIP</option>
@@ -670,15 +669,15 @@ export default function VipCustomersPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Approved Credit Limit (ETB) * {(form.tier.toLowerCase().includes("promoter") || form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")) && "(♾️ Unlimited Money Active)"}
+                    Approved Credit Limit (ETB) * {(form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")) && "(♾️ Unlimited Money Active)"}
                   </label>
                   <input
                     type="number"
                     required
-                    disabled={form.tier.toLowerCase().includes("promoter") || form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")}
+                    disabled={form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")}
                     min="0"
                     step="1000"
-                    value={(form.tier.toLowerCase().includes("promoter") || form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")) ? "999999999" : form.creditLimit}
+                    value={(form.tier.toLowerCase().includes("gold") || form.tier.toLowerCase().includes("unlimited")) ? "999999999" : form.creditLimit}
                     onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
                     placeholder="15000"
                     className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-bold text-slate-900 outline-none focus:border-amber-500 disabled:bg-purple-100/70 disabled:text-purple-950 disabled:border-purple-300"

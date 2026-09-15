@@ -1699,16 +1699,16 @@ export default function AdminDashboardPage() {
 
 function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics = {}, formatMoney }) {
   const [chartTimeframe, setChartTimeframe] = useState("monthly"); // "daily" | "weekly" | "monthly"
-  const [activeIdx, setActiveIdx] = useState(5);
+  const [activeIdx, setActiveIdx] = useState(new Date().getMonth());
 
-  const baseRevenue = metrics?.grossRevenue > 0 ? metrics.grossRevenue : 134789;
-  const baseExpenses = metrics?.totalExpenses > 0 ? metrics.totalExpenses : 120678;
-  const baseProfit = metrics?.netRevenue > 0 ? metrics.netRevenue : 245600;
+  // Real database metrics with zero fallback when database is empty
+  const baseRevenue = Number(metrics?.grossRevenue) || 0;
+  const baseExpenses = Number(metrics?.totalExpenses) || 0;
+  const baseProfit = Number(metrics?.netRevenue) || 0;
 
   // Dynamic Trend Data Processing based on Selected Timeframe (Daily / Weekly / Monthly)
   const trendData = useMemo(() => {
     let points = [];
-    let factors = [];
     let getPeriodKey = (d) => "";
 
     if (chartTimeframe === "daily") {
@@ -1721,7 +1721,6 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
         { label: "Sat", x: 473 },
         { label: "Sun", x: 560 },
       ];
-      factors = [0.45, 0.65, 0.58, 0.82, 0.70, 1.00, 0.88];
       getPeriodKey = (d) => d.toLocaleDateString("en-US", { weekday: "short" });
     } else if (chartTimeframe === "weekly") {
       points = [
@@ -1730,28 +1729,28 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
         { label: "Wk 3", x: 386 },
         { label: "Wk 4", x: 560 },
       ];
-      factors = [0.60, 0.82, 0.75, 1.00];
       getPeriodKey = (d) => `Wk ${Math.min(Math.ceil(d.getDate() / 7), 4)}`;
     } else {
-      // Monthly (Default)
+      // Monthly (Default: all 12 months)
       points = [
-        { label: "Jan", x: 40 },
-        { label: "Feb", x: 105 },
-        { label: "Mar", x: 170 },
-        { label: "Apr", x: 235 },
-        { label: "May", x: 300 },
-        { label: "Jun", x: 365 },
-        { label: "Jul", x: 430 },
-        { label: "Aug", x: 495 },
-        { label: "Sep", x: 560 },
+        { label: "Jan", x: 35 },
+        { label: "Feb", x: 84 },
+        { label: "Mar", x: 133 },
+        { label: "Apr", x: 182 },
+        { label: "May", x: 231 },
+        { label: "Jun", x: 280 },
+        { label: "Jul", x: 329 },
+        { label: "Aug", x: 378 },
+        { label: "Sep", x: 427 },
+        { label: "Oct", x: 476 },
+        { label: "Nov", x: 525 },
+        { label: "Dec", x: 565 },
       ];
-      factors = [0.55, 0.72, 0.60, 0.85, 0.68, 1.00, 0.78, 0.92, 0.81];
       getPeriodKey = (d) => d.toLocaleDateString("en-US", { month: "short" });
     }
 
     const valMap = {};
     points.forEach((p) => { valMap[p.label] = 0; });
-    let hasRealData = false;
 
     // 1. Group real orders
     if (Array.isArray(orders) && orders.length > 0) {
@@ -1771,7 +1770,6 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
               const amt = Number(ord.total_amount || ord.total || ord.grand_total || 0);
               if (valMap[key] !== undefined) {
                 valMap[key] += amt;
-                if (amt > 0) hasRealData = true;
               }
             }
           }
@@ -1779,8 +1777,8 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
       });
     }
 
-    // 2. Or fallback to dashboardStats sales_chart
-    if (!hasRealData && dashboardStats) {
+    // 2. Or fallback to dashboardStats sales_chart if orders array wasn't provided
+    if (dashboardStats && (!Array.isArray(orders) || orders.length === 0)) {
       const chartList =
         dashboardStats.sales_chart ||
         dashboardStats.monthly_sales ||
@@ -1797,34 +1795,45 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
           const amt = Number(item.sales || item.revenue || item.total || 0);
           if (key && valMap[key] !== undefined) {
             valMap[key] += amt;
-            if (amt > 0) hasRealData = true;
           }
         });
       }
     }
 
-    const baseGross = baseRevenue;
     const revenues = points.map((p) => valMap[p.label] || 0);
-    const maxRev = Math.max(...revenues, baseGross, 1000);
+    const maxRev = Math.max(...revenues, 0);
 
-    return points.map((p, idx) => {
+    return points.map((p) => {
       const rev = valMap[p.label] || 0;
-      const displayRev = hasRealData
-        ? rev
-        : Math.round(baseGross * factors[idx % factors.length]);
-
-      const ratio = maxRev > 0 ? displayRev / maxRev : 0.5;
-      const y = Math.round(110 - ratio * 72);
+      // Real ratio: if no revenue in DB, ratio is 0 and y sits on bottom baseline 135
+      const ratio = maxRev > 0 ? rev / maxRev : 0;
+      const y = Math.round(135 - ratio * 95);
 
       return {
         ...p,
-        income: displayRev,
+        income: rev,
         y,
       };
     });
-  }, [orders, dashboardStats, baseRevenue, chartTimeframe]);
+  }, [orders, dashboardStats, chartTimeframe]);
 
   const activePoint = trendData[activeIdx] || trendData[Math.min(activeIdx, trendData.length - 1)] || trendData[0];
+
+  // Dynamic growth calculation between consecutive periods
+  const growth = useMemo(() => {
+    if (!trendData || trendData.length < 2) return { percent: 0, isPositive: true };
+    const current = trendData[activeIdx]?.income || 0;
+    const previous = trendData[activeIdx > 0 ? activeIdx - 1 : 0]?.income || 0;
+
+    if (previous === 0) {
+      return { percent: current > 0 ? 100 : 0, isPositive: true };
+    }
+    const diff = ((current - previous) / previous) * 100;
+    return {
+      percent: Math.abs(Math.round(diff * 10) / 10),
+      isPositive: diff >= 0,
+    };
+  }, [trendData, activeIdx]);
 
   // Dynamic Bezier Spline Path Generator
   const pathD = useMemo(() => {
@@ -1867,7 +1876,7 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
         <div className="flex items-center rounded-xl bg-amber-100/60 p-1 text-xs font-bold border border-amber-200/80 self-start sm:self-auto">
           <button
             type="button"
-            onClick={() => { setChartTimeframe("daily"); setActiveIdx(5); }}
+            onClick={() => { setChartTimeframe("daily"); setActiveIdx(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1); }}
             className={`rounded-lg px-3 py-1 transition ${
               chartTimeframe === "daily"
                 ? "bg-amber-500 text-white shadow-xs"
@@ -1878,7 +1887,7 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
           </button>
           <button
             type="button"
-            onClick={() => { setChartTimeframe("weekly"); setActiveIdx(3); }}
+            onClick={() => { setChartTimeframe("weekly"); setActiveIdx(Math.min(Math.ceil(new Date().getDate() / 7) - 1, 3)); }}
             className={`rounded-lg px-3 py-1 transition ${
               chartTimeframe === "weekly"
                 ? "bg-amber-500 text-white shadow-xs"
@@ -1889,7 +1898,7 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
           </button>
           <button
             type="button"
-            onClick={() => { setChartTimeframe("monthly"); setActiveIdx(5); }}
+            onClick={() => { setChartTimeframe("monthly"); setActiveIdx(new Date().getMonth()); }}
             className={`rounded-lg px-3 py-1 transition ${
               chartTimeframe === "monthly"
                 ? "bg-amber-500 text-white shadow-xs"
@@ -1908,18 +1917,22 @@ function SmoothMonthlyRevenueChart({ dashboardStats, orders, expenses, metrics =
           <div>
             <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">
               {chartTimeframe === "daily"
-                ? "Average Daily Income"
+                ? "Daily Income"
                 : chartTimeframe === "weekly"
-                ? "Average Weekly Income"
-                : "Average Monthly Income"}
+                ? "Weekly Income"
+                : "Total Income"}
             </p>
             <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
               {formatMoney(baseRevenue)}
             </p>
 
-            <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-100/90 px-3 py-1 text-xs font-extrabold text-emerald-800 border border-emerald-300">
+            <div className={`mt-2.5 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-extrabold border ${
+              growth.isPositive
+                ? "bg-emerald-100/90 text-emerald-800 border-emerald-300"
+                : "bg-amber-100/90 text-amber-800 border-amber-300"
+            }`}>
               <TrendingUp className="h-3.5 w-3.5" />
-              <span>34.67%</span>
+              <span>{growth.percent}%</span>
               <span className="text-slate-500 font-normal">vs previous period</span>
             </div>
           </div>

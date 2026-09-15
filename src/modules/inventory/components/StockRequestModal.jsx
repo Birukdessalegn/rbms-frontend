@@ -183,9 +183,7 @@ export default function StockRequestModal({
               <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
               <span>Are you sure you want to ask for stock restock?</span>
             </div>
-            <p className="text-[11px] text-amber-700 leading-relaxed pl-6">
-              This will officially register a restock requisition for the Store Manager and F&B Controller to approve and prepare dispatch.
-            </p>
+            
           </div>
 
           {/* ERROR / SUCCESS ALERTS */}

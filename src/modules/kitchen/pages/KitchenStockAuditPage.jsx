@@ -1000,7 +1000,7 @@ export default function KitchenStockAuditPage() {
                           title={`Confirm zero stock in ${isBar ? "bar counter" : "kitchen"}`}
                         >
                           <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                          <span className="truncate">Approve Depleted</span>
+                          <span className="truncate">Approve Available</span>
                         </button>
 
                         <button
@@ -1535,7 +1535,7 @@ export default function KitchenStockAuditPage() {
                 <ClipboardCheck className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-base font-bold text-slate-900 truncate">Approve Depleted Stock</h3>
+                <h3 className="text-base font-bold text-slate-900 truncate">Approve Available Stock</h3>
                 <p className="text-xs text-slate-500 truncate">
                   Confirm physical check in {depletionModalItem.outlet === "bar" ? "Bar Counter" : "Kitchen"}
                 </p>

@@ -165,7 +165,7 @@ const navigationGroups = [
             icon: Wine,
           },
           {
-            name: "Bar Order Terminal",
+            name: "Menu Page",
             path: "/pos",
             icon: ShoppingCart,
           },
@@ -529,12 +529,19 @@ function DashboardLayout() {
 
   let activeGroupTitle = "Overview";
 
+  let matchFound = false;
+
   for (const group of navigationGroups) {
+    if (matchFound) break;
+
     for (const item of group.items) {
       if (item.path === currentPath) {
         activeItemName = item.name;
 
         activeGroupTitle = group.title;
+
+        matchFound = true;
+        break;
       }
 
       if (item.children) {
@@ -547,6 +554,9 @@ function DashboardLayout() {
           activeItemName = child.name;
 
           activeGroupTitle = item.name;
+
+          matchFound = true;
+          break;
         }
       }
     }

@@ -8,6 +8,7 @@ import {
   X,
   Truck,
   ArrowUpRight,
+  Tag,
 } from "lucide-react";
 import { useEffect, useState, useRef, useMemo } from "react";
 import api from "../../../services/api";
@@ -15,6 +16,25 @@ import audioService from "../../../services/audioService";
 import NewOrderAlertModal from "../../../components/common/NewOrderAlertModal";
 import IncomingDeliveryBanner from "../../../components/common/IncomingDeliveryBanner";
 import StockTransferModal from "../../inventory/components/StockTransferModal";
+
+const parseOrderItems = (order) => {
+  if (!order) return [];
+  let rawItems = order.items || order.order_items || order.products || [];
+  if (typeof rawItems === "string") {
+    try {
+      rawItems = JSON.parse(rawItems);
+    } catch {
+      rawItems = [];
+    }
+  }
+  if (Array.isArray(rawItems) && rawItems.length > 0) {
+    return rawItems;
+  }
+  if (order.items_summary) {
+    return [{ name: order.items_summary, quantity: 1 }];
+  }
+  return [];
+};
 
 function KitchenPage({ filterStatus = "all", pageTitle = null }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,6 +48,7 @@ function KitchenPage({ filterStatus = "all", pageTitle = null }) {
   const [alertOrder, setAlertOrder] = useState(null);
   const [kitchenStock, setKitchenStock] = useState([]);
   const [activeTab, setActiveTab] = useState("orders"); // "orders" | "inventory"
+  const [kitchenTagFilter, setKitchenTagFilter] = useState("all");
 
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [restockProduct, setRestockProduct] = useState(null);
@@ -35,28 +56,45 @@ function KitchenPage({ filterStatus = "all", pageTitle = null }) {
   const prevOrdersRef = useRef(null);
 
   const displayedOrders = useMemo(() => {
-    if (!filterStatus || filterStatus === "all") return kitchenOrders;
-    const fs = filterStatus.toLowerCase();
-    if (fs === "new" || fs === "pending") {
-      return kitchenOrders.filter((o) => {
+    return kitchenOrders.filter((o) => {
+      // 1. Status Filter
+      if (filterStatus && filterStatus !== "all") {
+        const fs = filterStatus.toLowerCase();
         const s = (o.status || "").toLowerCase();
-        return s === "pending" || s === "new" || s === "confirmed";
-      });
-    }
-    if (fs === "preparing") {
-      return kitchenOrders.filter((o) => (o.status || "").toLowerCase() === "preparing");
-    }
-    if (fs === "ready") {
-      return kitchenOrders.filter((o) => (o.status || "").toLowerCase() === "ready");
-    }
-    if (fs === "completed" || fs === "history") {
-      return kitchenOrders.filter((o) => {
-        const s = (o.status || "").toLowerCase();
-        return s === "completed" || s === "served" || s === "ready";
-      });
-    }
-    return kitchenOrders;
-  }, [kitchenOrders, filterStatus]);
+        if (fs === "new" || fs === "pending") {
+          if (s !== "pending" && s !== "new" && s !== "confirmed") return false;
+        } else if (fs === "preparing") {
+          if (s !== "preparing") return false;
+        } else if (fs === "ready") {
+          if (s !== "ready") return false;
+        } else if (fs === "completed" || fs === "history") {
+          if (s !== "completed" && s !== "served" && s !== "ready") return false;
+        }
+      }
+
+      // 2. Kitchen Tag / Station Filter
+      if (kitchenTagFilter && kitchenTagFilter !== "all") {
+        const items = parseOrderItems(o);
+        const tf = kitchenTagFilter.toLowerCase();
+        const hasMatchingItem = items.some((item) => {
+          const name = (item.product_name || item.name || item.description || "").toLowerCase();
+          const cat = (item.category || item.category_name || "").toLowerCase();
+          const tags = (item.tags || item.tag || "").toLowerCase();
+
+          if (tags.includes(tf) || cat.includes(tf) || name.includes(tf)) return true;
+          if (tf === "fruit" && (tags.includes("fruit") || cat.includes("fruit") || name.includes("fruit"))) return true;
+          if (tf === "fast food" && (tags.includes("fast") || tags.includes("burger") || tags.includes("pizza") || name.includes("burger") || name.includes("pizza"))) return true;
+          if (tf === "salad" && (tags.includes("salad") || name.includes("salad"))) return true;
+          if (tf === "hot meals" && (tags.includes("main") || tags.includes("hot") || tags.includes("habesha") || cat.includes("food"))) return true;
+          return false;
+        });
+
+        if (!hasMatchingItem) return false;
+      }
+
+      return true;
+    });
+  }, [kitchenOrders, filterStatus, kitchenTagFilter]);
 
   const fetchKitchenOrders = async () => {
     try {
@@ -439,14 +477,47 @@ function KitchenPage({ filterStatus = "all", pageTitle = null }) {
       {/* Orders */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
 
-        <div className="border-b border-gray-200 px-5 py-4">
-          <h2 className="font-semibold text-gray-900">
-            Kitchen Orders
-          </h2>
+        <div className="border-b border-gray-200 px-5 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="font-semibold text-gray-900">
+              Kitchen Orders
+            </h2>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Orders sent from the POS system.
-          </p>
+            <p className="mt-1 text-sm text-gray-500">
+              Orders sent from the POS system.
+            </p>
+          </div>
+
+          {/* Kitchen Station / Tag Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+            <span className="text-xs font-semibold text-gray-400 flex items-center gap-1 mr-1">
+              <Tag className="h-3.5 w-3.5" /> Station:
+            </span>
+            {[
+              { id: "all", label: "All Stations" },
+              { id: "hot meals", label: "Hot Meals / Main" },
+              { id: "fruit", label: "Fruit Station" },
+              { id: "salad", label: "Salads / Cold" },
+              { id: "fast food", label: "Fast Food / Grill" },
+              { id: "dessert", label: "Dessert" },
+            ].map((station) => {
+              const active = kitchenTagFilter === station.id;
+              return (
+                <button
+                  key={station.id}
+                  type="button"
+                  onClick={() => setKitchenTagFilter(station.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                    active
+                      ? "bg-amber-500 text-white shadow-xs font-bold"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {station.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {displayedOrders.length === 0 ? (

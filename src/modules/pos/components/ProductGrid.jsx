@@ -45,19 +45,27 @@ const filteredProducts = products.filter((product) => {
     return false;
   }
 
+  const selCat = String(activeCategory || "all").toLowerCase().trim();
+  const pCatName = (product.category_name || "").toLowerCase();
+  const pCatType = (product.category_type || "").toLowerCase();
+  const pTags = (product.tags || product.tag || "").toLowerCase();
+  const pName = (product.name || "").toLowerCase();
+
   const matchesCategory =
-    activeCategory === "all" ||
-    product.category_name?.toLowerCase() ===
-      activeCategory.toLowerCase() ||
-    product.category_type?.toLowerCase() ===
-      activeCategory.toLowerCase() ||
-    (activeCategory === "drinks" &&
-      product.category_type?.toLowerCase() === "beverage");
+    selCat === "all" ||
+    String(product.category_id) === selCat ||
+    pCatName === selCat ||
+    pTags.includes(selCat) ||
+    (selCat === "food" && (pCatType === "food" || pCatName.includes("food") || pCatName.includes("kitchen"))) ||
+    (selCat === "drinks" && (pCatType === "beverage" || pCatType === "bar" || pCatName.includes("drink") || pCatName.includes("beer") || pCatName.includes("wine"))) ||
+    (selCat === "fruit" && (pTags.includes("fruit") || pCatName.includes("fruit") || pName.includes("fruit"))) ||
+    (selCat === "bar" && (pCatType === "bar" || pCatName.includes("bar") || pCatName.includes("beer") || pCatName.includes("wine") || pTags.includes("beer") || pTags.includes("whiskey")));
 
   const matchesSearch =
-    product.name
-      ?.toLowerCase()
-      .includes(searchTerm.toLowerCase());
+    !searchTerm.trim() ||
+    pName.includes(searchTerm.toLowerCase()) ||
+    pTags.includes(searchTerm.toLowerCase()) ||
+    pCatName.includes(searchTerm.toLowerCase());
 
   return matchesCategory && matchesSearch;
 });

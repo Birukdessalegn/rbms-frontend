@@ -82,37 +82,40 @@ export const setCustomProductShots = (productIdOrCode, shots, isShotItem = true)
 };
 
 // ============================================================
-// AUTOMATIC CATEGORY-BASED PRODUCT CODE GENERATOR
 // ============================================================
-export const getCategoryPrefix = (categoryName = "", categoryType = "") => {
+// AUTOMATIC CATEGORY & TAG-BASED PRODUCT CODE GENERATOR
+// ============================================================
+export const getCategoryPrefix = (categoryName = "", categoryType = "", tags = "") => {
+  const tag = String(tags || "").trim().toUpperCase();
   const name = String(categoryName || "").trim().toUpperCase();
   const type = String(categoryType || "").trim().toUpperCase();
 
-  if (name.includes("FRUIT")) return "FR";
-  if (name.includes("FOOD")) return "FD";
-  if (name.includes("BEVERAGE") || name.includes("SOFT")) return "BV";
-  if (name.includes("BAR") || name.includes("LIQUOR") || name.includes("SPIRIT")) return "BR";
-  if (name.includes("SUPPL") || name.includes("KITCHEN")) return "KS";
-  if (name.includes("DESSERT")) return "DS";
-  if (name.includes("SALAD")) return "SL";
-  if (name.includes("WINE")) return "WN";
-  if (name.includes("BEER")) return "BR";
-  if (name.includes("COCKTAIL")) return "CK";
-  if (name.includes("SNACK")) return "SN";
+  if (tag.includes("FRUIT") || name.includes("FRUIT")) return "FR";
+  if (tag.includes("BEER") || name.includes("BEER")) return "BR";
+  if (tag.includes("JUICE") || name.includes("JUICE")) return "JC";
+  if (tag.includes("WINE") || name.includes("WINE")) return "WN";
+  if (tag.includes("WHISKEY") || tag.includes("SPIRIT") || name.includes("WHISKEY")) return "SP";
+  if (tag.includes("COCKTAIL") || name.includes("COCKTAIL")) return "CK";
+  if (tag.includes("FAST") || tag.includes("BURGER") || tag.includes("PIZZA")) return "FF";
+  if (tag.includes("SALAD") || name.includes("SALAD")) return "SL";
+  if (tag.includes("DESSERT") || name.includes("DESSERT")) return "DS";
+  if (tag.includes("SNACK") || name.includes("SNACK")) return "SN";
+  if (tag.includes("COFFEE") || tag.includes("TEA") || name.includes("COFFEE")) return "CF";
+  if (tag.includes("WATER") || name.includes("WATER")) return "WT";
 
-  if (type === "FOOD") return "FD";
-  if (type === "BAR") return "BR";
-  if (type === "BEVERAGE") return "BV";
-  if (type === "SUPPLY") return "KS";
+  if (name.includes("FOOD") || type === "FOOD") return "FD";
+  if (name.includes("BEVERAGE") || name.includes("SOFT") || type === "BEVERAGE") return "BV";
+  if (name.includes("BAR") || type === "BAR") return "BR";
+  if (name.includes("SUPPL") || type === "SUPPLY") return "KS";
 
-  const clean = name.replace(/[^A-Z0-9]/g, "");
-  return clean.slice(0, 3) || "PRD";
+  const clean = tag ? tag.replace(/[^A-Z0-9]/g, "").slice(0, 2) : name.replace(/[^A-Z0-9]/g, "").slice(0, 3);
+  return clean || "PRD";
 };
 
-export const getNextProductCodeForCategory = (categoryId, categories = [], products = []) => {
+export const getNextProductCodeForCategory = (categoryId, categories = [], products = [], tags = "") => {
   if (!categoryId) return "";
   const catObj = categories.find((c) => String(c.id) === String(categoryId));
-  const prefix = getCategoryPrefix(catObj?.name, catObj?.type);
+  const prefix = getCategoryPrefix(catObj?.name, catObj?.type, tags);
 
   let maxNum = 0;
   const prefixDash = `${prefix}-`;
@@ -156,6 +159,7 @@ function ProductsPage() {
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [selectedTagFilter, setSelectedTagFilter] = useState("all");
   const [applicableFilter, setApplicableFilter] = useState("all"); // "all" | "both" | "sales" | "inventory"
 
   const [activeTab, setActiveTab] = useState("catalog"); // "catalog" | "menu"
@@ -169,6 +173,7 @@ function ProductsPage() {
     productCode: "",
     name: "",
     categoryId: "",
+    tags: "",
     description: "",
     price: "",
     costPrice: "",
@@ -446,6 +451,7 @@ function ProductsPage() {
       productCode: initialCode,
       name: "",
       categoryId: initialCatId,
+      tags: "",
       description: "",
       price: "",
       costPrice: 0,
@@ -496,6 +502,7 @@ function ProductsPage() {
       productCode: prod.product_code || prod.productCode || "",
       name: prod.name || "",
       categoryId: prod.category_id || prod.categoryId || "",
+      tags: prod.tags || prod.tag || "",
       description: prod.description || "",
       price: prod.price || "",
       costPrice: prod.cost_price || prod.costPrice || 0,
@@ -598,6 +605,10 @@ function ProductsPage() {
       const appFor = form.applicableFor || "both";
       formData.append("applicableFor", appFor);
       formData.append("applicable_for", appFor);
+
+      const safeTags = (form.tags || "").trim();
+      formData.append("tags", safeTags);
+      formData.append("tag", safeTags);
 
       formData.append("unit", form.unit || "pcs");
       formData.append("menuType", form.menuType || "both");
@@ -708,26 +719,85 @@ function ProductsPage() {
 
       const matchesCategory =
         categoryFilter === "all" ||
-        String(product.category_id) ===
-          String(categoryFilter);
+        String(product.category_id) === String(categoryFilter) ||
+        (categoryFilter === "group_food" && (
+          (product.category_type || "").toLowerCase() === "food" ||
+          (product.category_name || "").toLowerCase().includes("food") ||
+          (product.category_name || "").toLowerCase().includes("kitchen")
+        )) ||
+        (categoryFilter === "group_fruit" && (
+          (product.category_name || "").toLowerCase().includes("fruit") ||
+          (product.category_type || "").toLowerCase().includes("fruit") ||
+          (product.name || "").toLowerCase().includes("fruit")
+        )) ||
+        (categoryFilter === "group_bar" && (
+          (product.category_type || "").toLowerCase() === "bar" ||
+          (product.category_type || "").toLowerCase() === "beverage" ||
+          (product.category_name || "").toLowerCase().includes("bar") ||
+          (product.category_name || "").toLowerCase().includes("drink") ||
+          (product.category_name || "").toLowerCase().includes("beer") ||
+          (product.category_name || "").toLowerCase().includes("wine")
+        ));
 
       const prodApp = (product.applicable_for || product.applicableFor || "both").toLowerCase();
       const matchesApplicable =
         applicableFilter === "all" ||
         prodApp === applicableFilter.toLowerCase();
 
+      const pTags = (product.tags || product.tag || "").toLowerCase();
+      const selTag = selectedTagFilter.toLowerCase().trim();
+      const matchesTag =
+        selTag === "all" ||
+        pTags.includes(selTag) ||
+        (selTag === "fruit" && ((product.category_name || "").toLowerCase().includes("fruit") || product.name?.toLowerCase().includes("fruit"))) ||
+        (selTag === "beer" && ((product.category_name || "").toLowerCase().includes("beer") || product.name?.toLowerCase().includes("beer"))) ||
+        (selTag === "juice" && ((product.category_name || "").toLowerCase().includes("juice") || product.name?.toLowerCase().includes("juice"))) ||
+        (selTag === "wine" && ((product.category_name || "").toLowerCase().includes("wine") || product.name?.toLowerCase().includes("wine"))) ||
+        (selTag === "whiskey" && ((product.category_name || "").toLowerCase().includes("whiskey") || (product.category_name || "").toLowerCase().includes("spirit") || product.name?.toLowerCase().includes("whiskey")));
+
       return (
         matchesSearch &&
         matchesCategory &&
-        matchesApplicable
+        matchesApplicable &&
+        matchesTag
       );
     });
   }, [
     products,
     search,
     categoryFilter,
+    selectedTagFilter,
     applicableFilter,
   ]);
+
+  // Dynamic tags list with live item counts
+  const availableTags = useMemo(() => {
+    const tagMap = new Map();
+    products.forEach((p) => {
+      const rawTags = (p.tags || p.tag) ? String(p.tags || p.tag).split(",") : [];
+      if (rawTags.length === 0) {
+        const pName = (p.name || "").toLowerCase();
+        const cName = (p.category_name || "").toLowerCase();
+        if (pName.includes("fruit") || cName.includes("fruit")) rawTags.push("Fruit");
+        else if (pName.includes("beer") || cName.includes("beer")) rawTags.push("Beer");
+        else if (pName.includes("juice") || cName.includes("juice")) rawTags.push("Juice");
+        else if (pName.includes("wine") || cName.includes("wine")) rawTags.push("Wine");
+        else if (pName.includes("whiskey") || cName.includes("whiskey") || cName.includes("spirit")) rawTags.push("Whiskey");
+        else if (pName.includes("salad") || cName.includes("salad")) rawTags.push("Salad");
+        else if (pName.includes("burger") || pName.includes("pizza") || cName.includes("fast")) rawTags.push("Fast Food");
+      }
+      rawTags.forEach((t) => {
+        const clean = t.trim();
+        if (clean) {
+          tagMap.set(clean, (tagMap.get(clean) || 0) + 1);
+        }
+      });
+    });
+
+    return Array.from(tagMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [products]);
 
   // ============================================================
   // SUMMARY
@@ -1038,6 +1108,167 @@ function ProductsPage() {
 
         </div>
 
+        {/* Category Quick-Filter Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
+          <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1">
+            <Tag className="h-3.5 w-3.5" />
+            Categories:
+          </span>
+
+          {/* All */}
+          <button
+            type="button"
+            onClick={() => setCategoryFilter("all")}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shrink-0 ${
+              categoryFilter === "all"
+                ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            All Products
+            <span className={`ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] ${
+              categoryFilter === "all" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+            }`}>
+              {products.length}
+            </span>
+          </button>
+
+          {/* Food Group */}
+          <button
+            type="button"
+            onClick={() => setCategoryFilter(categoryFilter === "group_food" ? "all" : "group_food")}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shrink-0 ${
+              categoryFilter === "group_food"
+                ? "bg-amber-600 text-white shadow-sm shadow-amber-600/20"
+                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <Utensils className="h-3.5 w-3.5 text-amber-500" />
+            Food & Kitchen
+            <span className={`ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] ${
+              categoryFilter === "group_food" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+            }`}>
+              {foodProducts}
+            </span>
+          </button>
+
+          {/* Fruit Group */}
+          <button
+            type="button"
+            onClick={() => setCategoryFilter(categoryFilter === "group_fruit" ? "all" : "group_fruit")}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shrink-0 ${
+              categoryFilter === "group_fruit"
+                ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <Apple className="h-3.5 w-3.5 text-emerald-500" />
+            Fruit
+            <span className={`ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] ${
+              categoryFilter === "group_fruit" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+            }`}>
+              {products.filter((p) => (p.category_name || "").toLowerCase().includes("fruit") || (p.name || "").toLowerCase().includes("fruit")).length}
+            </span>
+          </button>
+
+          {/* Bar Group */}
+          <button
+            type="button"
+            onClick={() => setCategoryFilter(categoryFilter === "group_bar" ? "all" : "group_bar")}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shrink-0 ${
+              categoryFilter === "group_bar"
+                ? "bg-purple-600 text-white shadow-sm shadow-purple-600/20"
+                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <Wine className="h-3.5 w-3.5 text-purple-500" />
+            Bar & Drinks
+            <span className={`ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] ${
+              categoryFilter === "group_bar" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+            }`}>
+              {barProducts}
+            </span>
+          </button>
+
+          {/* Individual Dynamic Categories */}
+          {categories.map((cat) => {
+            const count = products.filter(
+              (p) => String(p.category_id) === String(cat.id)
+            ).length;
+            const isCatActive = String(categoryFilter) === String(cat.id);
+            const CatIcon = getCategoryIcon(cat.type, cat.name);
+
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setCategoryFilter(isCatActive ? "all" : String(cat.id))}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shrink-0 ${
+                  isCatActive
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <CatIcon className="h-3.5 w-3.5" />
+                {cat.name}
+                <span className={`ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] ${
+                  isCatActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Specific Tags Quick-Filter Bar */}
+        {availableTags.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto border-b border-slate-100 bg-white px-4 py-2 scrollbar-thin">
+            <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1">
+              <Tag className="h-3 w-3 text-blue-500" />
+              Tags:
+            </span>
+
+            {/* All Tags */}
+            <button
+              type="button"
+              onClick={() => setSelectedTagFilter("all")}
+              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition shrink-0 ${
+                selectedTagFilter === "all"
+                  ? "bg-slate-800 text-white shadow-xs"
+                  : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              All Tags
+            </button>
+
+            {availableTags.map((tag) => {
+              const isTagActive = selectedTagFilter.toLowerCase() === tag.name.toLowerCase();
+              return (
+                <button
+                  key={tag.name}
+                  type="button"
+                  onClick={() => setSelectedTagFilter(isTagActive ? "all" : tag.name.toLowerCase())}
+                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition shrink-0 ${
+                    isTagActive
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  #{tag.name}
+                  <span
+                    className={`ml-0.5 rounded-full px-1 py-0.1 text-[9px] font-extrabold ${
+                      isTagActive ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {tag.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Table / Content */}
 
         {filteredProducts.length === 0 ? (
@@ -1190,12 +1421,17 @@ function ProductsPage() {
                         {/* Category */}
 
                         <td className="px-5 py-4">
-
-                          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-                            {product.category_name ||
-                              "Uncategorized"}
-                          </span>
-
+                          <div className="flex flex-col gap-1 items-start">
+                            <span className="rounded-full bg-blue-50 px-3 py-0.5 text-xs font-medium text-blue-700">
+                              {product.category_name || "Uncategorized"}
+                            </span>
+                            {(product.tags || product.tag) && (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                                <Tag className="h-2.5 w-2.5" />
+                                {product.tags || product.tag}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Applicable For Column */}
@@ -1540,6 +1776,88 @@ function ProductsPage() {
 
                 </FormField>
 
+              </div>
+
+              {/* Specific Category Tag Input & Suggestion Badges */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Tag className="h-3.5 w-3.5 text-blue-600" />
+                    Specific Category Tag (Subcategory)
+                  </label>
+                  {form.tags && (
+                    <button
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, tags: "" }))}
+                      className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 hover:underline"
+                    >
+                      Clear tag
+                    </button>
+                  )}
+                </div>
+
+                <input
+                  type="text"
+                  name="tags"
+                  placeholder="e.g. Fruit, Beer, Juice, Fast Food, Salad, Whiskey..."
+                  value={form.tags || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm((prev) => ({
+                      ...prev,
+                      tags: val,
+                      productCode: !editingProduct && prev.categoryId
+                        ? getNextProductCodeForCategory(prev.categoryId, categories, products, val)
+                        : prev.productCode,
+                    }));
+                  }}
+                  className={inputClass}
+                />
+
+                {/* Suggestion Quick-Click Badges */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[11px] font-semibold text-slate-400 mr-0.5">Quick Suggestions:</span>
+                  {(() => {
+                    const curCat = categories.find((c) => String(c.id) === String(form.categoryId));
+                    const curType = (curCat?.type || "").toLowerCase();
+                    const curName = (curCat?.name || "").toLowerCase();
+
+                    const isDrink = curType === "bar" || curType === "beverage" || curName.includes("bar") || curName.includes("drink");
+                    const isFood = curType === "food" || curName.includes("food") || curName.includes("kitchen");
+
+                    const suggestions = isDrink
+                      ? ["Beer", "Soft Drink", "Juice", "Wine", "Whiskey", "Vodka", "Gin", "Cocktail", "Water", "Coffee"]
+                      : isFood
+                      ? ["Fruit", "Main Dish", "Fast Food", "Salad", "Breakfast", "Appetizer", "Dessert", "Snacks"]
+                      : ["Fruit", "Beer", "Juice", "Main Dish", "Fast Food", "Wine", "Whiskey", "Salad", "Water"];
+
+                    return suggestions.map((t) => {
+                      const isSelected = (form.tags || "").toLowerCase() === t.toLowerCase();
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => {
+                            setForm((prev) => ({
+                              ...prev,
+                              tags: t,
+                              productCode: !editingProduct && prev.categoryId
+                                ? getNextProductCodeForCategory(prev.categoryId, categories, products, t)
+                                : prev.productCode,
+                            }));
+                          }}
+                          className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold transition shadow-2xs ${
+                            isSelected
+                              ? "border-blue-600 bg-blue-600 text-white shadow-xs"
+                              : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+                          }`}
+                        >
+                          + {t}
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
               </div>
 
               {/* Applicable For Indicator Banner */}

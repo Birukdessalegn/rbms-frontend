@@ -367,40 +367,35 @@ function POSPage() {
             />
           </div>
 
-          {/* Products */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            {/* Categories */}
-            <div className="flex gap-2">
-              {["all", "food", "drinks"].map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() => setActiveCategory(category)}
-                  className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-                    activeCategory === category
-                      ? "bg-blue-600 text-white"
-                      : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  {category === "all"
-                    ? "All"
-                    : category === "food"
-                    ? "Food"
-                    : "Drinks"}
-                </button>
-              ))}
+          {/* Products Search & Categories */}
+          <div className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">
+                  Select Menu Items
+                </h2>
+                <p className="text-xs text-gray-500">
+                  Filter by category or tag to quickly add items to the ticket.
+                </p>
+              </div>
+
+              {/* Search */}
+              <div className="w-full sm:w-72">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search products or tags (#fruit, #beer)..."
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-2xs font-semibold"
+                />
+              </div>
             </div>
 
-            {/* Search */}
-            <div className="w-full sm:w-64">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search products..."
-                className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
+            {/* Dynamic Category & Tag Tabs */}
+            <CategoryTabs
+              activeCategory={activeCategory}
+              onSelectCategory={setActiveCategory}
+            />
           </div>
 
           <div className="mt-5">

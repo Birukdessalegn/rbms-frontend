@@ -24,6 +24,7 @@ import {
   Truck,
   ArrowUpRight,
   X,
+  Tag,
 } from "lucide-react";
 import api from "../../../services/api";
 import audioService from "../../../services/audioService";
@@ -50,6 +51,7 @@ function BarPage() {
   const [mainSectionTab, setMainSectionTab] = useState("orders"); // "orders" | "inventory"
   const [barStockList, setBarStockList] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
 
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [restockProduct, setRestockProduct] = useState(null);
@@ -541,16 +543,51 @@ function BarPage() {
     });
   }, [products, orders, barStockList]);
 
-  // Search filtered bar drinks
+  // Dynamic categories and tags with counts present in bar items
+  const barCategories = useMemo(() => {
+    const catMap = new Map();
+    barDrinks.forEach((d) => {
+      const tag = String(d.tags || d.tag || "").trim();
+      const cat = (d.category_name || d.category || "").trim();
+      const label = tag || cat || "Bar Drink";
+      catMap.set(label, (catMap.get(label) || 0) + 1);
+    });
+
+    const list = Array.from(catMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return [{ name: "All", count: barDrinks.length }, ...list];
+  }, [barDrinks]);
+
+  // Search & category/tag filtered bar drinks
   const filteredBarDrinks = useMemo(() => {
-    if (!searchQuery.trim()) return barDrinks;
-    const q = searchQuery.toLowerCase();
-    return barDrinks.filter(
-      (d) =>
-        (d.product_name || d.name || "").toLowerCase().includes(q) ||
-        (d.category_name || d.category || "").toLowerCase().includes(q)
-    );
-  }, [barDrinks, searchQuery]);
+    return barDrinks.filter((d) => {
+      const q = searchQuery.toLowerCase().trim();
+      const pTags = (d.tags || d.tag || "").toLowerCase();
+      const cat = (d.category_name || d.category || "").toLowerCase().trim();
+      const pName = (d.product_name || d.name || "").toLowerCase();
+
+      const matchesSearch =
+        !q ||
+        pName.includes(q) ||
+        cat.includes(q) ||
+        pTags.includes(q);
+
+      const sel = selectedCategory.toLowerCase().trim();
+      const matchesCategory =
+        sel === "all" ||
+        cat === sel ||
+        pTags.includes(sel) ||
+        (sel === "beers" && (pTags.includes("beer") || cat.includes("beer") || pName.includes("beer"))) ||
+        (sel === "soft drinks" && (pTags.includes("soft") || cat.includes("soft") || cat.includes("soda") || cat.includes("water") || pName.includes("water") || pName.includes("coca"))) ||
+        (sel === "juices" && (pTags.includes("juice") || cat.includes("juice") || pName.includes("juice"))) ||
+        (sel === "wines" && (pTags.includes("wine") || cat.includes("wine") || pName.includes("wine"))) ||
+        (sel === "spirits" && (pTags.includes("whiskey") || pTags.includes("spirit") || cat.includes("whiskey") || cat.includes("spirit") || cat.includes("vodka") || cat.includes("gin") || cat.includes("rum") || pName.includes("whiskey")));
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [barDrinks, searchQuery, selectedCategory]);
 
   // Auto-switch to inventory tab if URL contains focusDrink or productId
   useEffect(() => {
@@ -951,6 +988,39 @@ function BarPage() {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Bar Category Filter Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1">
+              <Tag className="h-3.5 w-3.5" />
+              Category:
+            </span>
+
+            {barCategories.map((cat) => {
+              const isActive = selectedCategory.toLowerCase() === cat.name.toLowerCase();
+              return (
+                <button
+                  key={cat.name}
+                  type="button"
+                  onClick={() => setSelectedCategory(isActive && cat.name !== "All" ? "all" : cat.name.toLowerCase())}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shrink-0 ${
+                    isActive
+                      ? "bg-purple-600 text-white shadow-sm shadow-purple-600/20"
+                      : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  {cat.name}
+                  <span
+                    className={`ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] ${
+                      isActive ? "bg-white/20 text-white" : "bg-purple-50 text-purple-700 font-extrabold"
+                    }`}
+                  >
+                    {cat.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {filteredBarDrinks.length === 0 ? (

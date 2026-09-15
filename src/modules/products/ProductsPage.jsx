@@ -81,6 +81,66 @@ export const setCustomProductShots = (productIdOrCode, shots, isShotItem = true)
   }
 };
 
+// ============================================================
+// AUTOMATIC CATEGORY-BASED PRODUCT CODE GENERATOR
+// ============================================================
+export const getCategoryPrefix = (categoryName = "", categoryType = "") => {
+  const name = String(categoryName || "").trim().toUpperCase();
+  const type = String(categoryType || "").trim().toUpperCase();
+
+  if (name.includes("FRUIT")) return "FR";
+  if (name.includes("FOOD")) return "FD";
+  if (name.includes("BEVERAGE") || name.includes("SOFT")) return "BV";
+  if (name.includes("BAR") || name.includes("LIQUOR") || name.includes("SPIRIT")) return "BR";
+  if (name.includes("SUPPL") || name.includes("KITCHEN")) return "KS";
+  if (name.includes("DESSERT")) return "DS";
+  if (name.includes("SALAD")) return "SL";
+  if (name.includes("WINE")) return "WN";
+  if (name.includes("BEER")) return "BR";
+  if (name.includes("COCKTAIL")) return "CK";
+  if (name.includes("SNACK")) return "SN";
+
+  if (type === "FOOD") return "FD";
+  if (type === "BAR") return "BR";
+  if (type === "BEVERAGE") return "BV";
+  if (type === "SUPPLY") return "KS";
+
+  const clean = name.replace(/[^A-Z0-9]/g, "");
+  return clean.slice(0, 3) || "PRD";
+};
+
+export const getNextProductCodeForCategory = (categoryId, categories = [], products = []) => {
+  if (!categoryId) return "";
+  const catObj = categories.find((c) => String(c.id) === String(categoryId));
+  const prefix = getCategoryPrefix(catObj?.name, catObj?.type);
+
+  let maxNum = 0;
+  const prefixDash = `${prefix}-`;
+
+  products.forEach((p) => {
+    const pCode = String(p.product_code || p.productCode || "").toUpperCase().trim();
+    const pCatId = String(p.category_id || p.categoryId || "");
+
+    if (pCode.startsWith(prefixDash)) {
+      const numPart = parseInt(pCode.slice(prefixDash.length), 10);
+      if (!isNaN(numPart) && numPart > maxNum) {
+        maxNum = numPart;
+      }
+    } else if (pCatId === String(categoryId)) {
+      const match = pCode.match(/\d+/);
+      if (match) {
+        const numPart = parseInt(match[0], 10);
+        if (!isNaN(numPart) && numPart > maxNum) {
+          maxNum = numPart;
+        }
+      }
+    }
+  });
+
+  const nextNum = maxNum + 1;
+  return `${prefix}-${String(nextNum).padStart(3, "0")}`;
+};
+
 function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -264,9 +324,15 @@ function ProductsPage() {
       await fetchCategories();
 
       if (newCategory?.id) {
+        const nextCode = getNextProductCodeForCategory(
+          newCategory.id,
+          [...categories, newCategory],
+          products
+        );
         setForm((previous) => ({
           ...previous,
           categoryId: String(newCategory.id),
+          productCode: nextCode || previous.productCode,
         }));
       }
 
@@ -326,6 +392,11 @@ function ProductsPage() {
           }
           updated.isShotItem = false;
         }
+
+        // Auto-generate sequential product code based on selected category
+        if (value && !editingProduct) {
+          updated.productCode = getNextProductCodeForCategory(value, categories, products);
+        }
       }
 
       return updated;
@@ -366,10 +437,15 @@ function ProductsPage() {
     setImagePreview("");
     setBasePriceInput("");
 
+    const initialCatId = categories[0] ? String(categories[0].id) : "";
+    const initialCode = initialCatId
+      ? getNextProductCodeForCategory(initialCatId, categories, products)
+      : "";
+
     setForm({
-      productCode: "",
+      productCode: initialCode,
       name: "",
-      categoryId: "",
+      categoryId: initialCatId,
       description: "",
       price: "",
       costPrice: 0,
@@ -1358,15 +1434,41 @@ function ProductsPage() {
 
                 </FormField>
 
-                <FormField label="Product Code">
+                <FormField
+                  label={
+                    <span className="flex items-center justify-between w-full">
+                      <span>Product Code</span>
+                      {form.categoryId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = getNextProductCodeForCategory(form.categoryId, categories, products);
+                            setForm((prev) => ({ ...prev, productCode: next }));
+                          }}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          Auto-generate
+                        </button>
+                      )}
+                    </span>
+                  }
+                >
 
-                  <input
-                    name="productCode"
-                    value={form.productCode}
-                    onChange={handleChange}
-                    placeholder="e.g. FD-001"
-                    className={inputClass}
-                  />
+                  <div className="relative">
+                    <input
+                      name="productCode"
+                      value={form.productCode}
+                      onChange={handleChange}
+                      placeholder="e.g. FD-001"
+                      className={`${inputClass} pr-14`}
+                    />
+                    {form.productCode && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-600 uppercase tracking-wide pointer-events-none">
+                        Auto
+                      </span>
+                    )}
+                  </div>
 
                 </FormField>
 

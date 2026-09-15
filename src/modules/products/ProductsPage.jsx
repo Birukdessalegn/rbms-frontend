@@ -81,6 +81,38 @@ export const setCustomProductShots = (productIdOrCode, shots, isShotItem = true)
   }
 };
 
+export const getCustomTags = () => {
+  try {
+    return JSON.parse(localStorage.getItem("rbms_custom_tags") || "[]");
+  } catch {
+    return [];
+  }
+};
+
+export const saveCustomTag = (tag) => {
+  try {
+    const clean = String(tag || "").trim();
+    if (!clean) return;
+    const existing = getCustomTags();
+    if (!existing.some((t) => t.toLowerCase() === clean.toLowerCase())) {
+      const updated = [...existing, clean];
+      localStorage.setItem("rbms_custom_tags", JSON.stringify(updated));
+    }
+  } catch (err) {
+    console.warn("Could not save custom tag", err);
+  }
+};
+
+export const removeCustomTag = (tag) => {
+  try {
+    const existing = getCustomTags();
+    const updated = existing.filter((t) => t.toLowerCase() !== String(tag).toLowerCase());
+    localStorage.setItem("rbms_custom_tags", JSON.stringify(updated));
+  } catch (err) {
+    console.warn("Could not remove custom tag", err);
+  }
+};
+
 // ============================================================
 // ============================================================
 // AUTOMATIC CATEGORY & TAG-BASED PRODUCT CODE GENERATOR
@@ -161,6 +193,7 @@ function ProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [selectedTagFilter, setSelectedTagFilter] = useState("all");
   const [applicableFilter, setApplicableFilter] = useState("all"); // "all" | "both" | "sales" | "inventory"
+  const [customTagsList, setCustomTagsList] = useState(getCustomTags());
 
   const [activeTab, setActiveTab] = useState("catalog"); // "catalog" | "menu"
   const [menuAudienceFilter, setMenuAudienceFilter] = useState("all"); // "all" | "customer" | "employee"
@@ -833,10 +866,77 @@ function ProductsPage() {
       });
     });
 
+    customTagsList.forEach((ct) => {
+      const clean = (ct || "").trim();
+      if (clean && !tagMap.has(clean)) {
+        tagMap.set(clean, 0);
+      }
+    });
+
     return Array.from(tagMap.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
-  }, [products]);
+  }, [products, customTagsList]);
+
+  // All known tags (base suggestions + products' tags + user custom tags)
+  const allKnownTags = useMemo(() => {
+    const set = new Set();
+    const baseTags = [
+      "Fruit",
+      "Beer",
+      "Juice",
+      "Soft Drink",
+      "Wine",
+      "Whiskey",
+      "Vodka",
+      "Gin",
+      "Cocktail",
+      "Water",
+      "Coffee",
+      "Main Dish",
+      "Fast Food",
+      "Salad",
+      "Breakfast",
+      "Appetizer",
+      "Dessert",
+      "Snacks",
+    ];
+    baseTags.forEach((t) => set.add(t));
+    products.forEach((p) => {
+      const raw = (p.tags || p.tag || "").split(",");
+      raw.forEach((t) => {
+        const clean = t.trim();
+        if (clean) set.add(clean);
+      });
+    });
+    customTagsList.forEach((t) => {
+      const clean = (t || "").trim();
+      if (clean) set.add(clean);
+    });
+    return Array.from(set);
+  }, [products, customTagsList]);
+
+  // Filtered tag pills for modal, prioritized by current selected department
+  const displayedTagPills = useMemo(() => {
+    const curCat = categories.find((c) => String(c.id) === String(form.categoryId));
+    const curType = (curCat?.type || "").toLowerCase();
+    const curName = (curCat?.name || "").toLowerCase();
+
+    const isDrink = curType === "bar" || curType === "beverage" || curName.includes("bar") || curName.includes("drink");
+    const isFood = curType === "food" || curName.includes("food") || curName.includes("kitchen");
+
+    if (isDrink) {
+      const drinkDefaults = ["Beer", "Soft Drink", "Juice", "Wine", "Whiskey", "Vodka", "Gin", "Cocktail", "Water", "Coffee"];
+      const others = allKnownTags.filter((t) => !drinkDefaults.some((d) => d.toLowerCase() === t.toLowerCase()));
+      return [...drinkDefaults, ...others];
+    }
+    if (isFood) {
+      const foodDefaults = ["Fruit", "Main Dish", "Fast Food", "Salad", "Breakfast", "Appetizer", "Dessert", "Snacks"];
+      const others = allKnownTags.filter((t) => !foodDefaults.some((d) => d.toLowerCase() === t.toLowerCase()));
+      return [...foodDefaults, ...others];
+    }
+    return allKnownTags;
+  }, [allKnownTags, categories, form.categoryId]);
 
   // ============================================================
   // SUMMARY
@@ -1816,8 +1916,8 @@ function ProductsPage() {
 
               </div>
 
-              {/* Specific Category Tag Input & Suggestion Badges */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2">
+              {/* Specific Category Tag Input & Customizable Tags */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <Tag className="h-3.5 w-3.5 text-blue-600" />
@@ -1827,74 +1927,122 @@ function ProductsPage() {
                     <button
                       type="button"
                       onClick={() => setForm((prev) => ({ ...prev, tags: "" }))}
-                      className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 hover:underline"
+                      className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 hover:underline cursor-pointer"
                     >
                       Clear tag
                     </button>
                   )}
                 </div>
 
-                <input
-                  type="text"
-                  name="tags"
-                  placeholder="e.g. Fruit, Beer, Juice, Fast Food, Salad, Whiskey..."
-                  value={form.tags || ""}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setForm((prev) => ({
-                      ...prev,
-                      tags: val,
-                      productCode: !editingProduct && prev.categoryId
-                        ? getNextProductCodeForCategory(prev.categoryId, categories, products, val)
-                        : prev.productCode,
-                    }));
-                  }}
-                  className={inputClass}
-                />
+                {/* Tag Input + Add New Tag Button */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      name="tags"
+                      placeholder="Type custom tag or pick below..."
+                      value={form.tags || ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setForm((prev) => ({
+                          ...prev,
+                          tags: val,
+                          productCode: !editingProduct && prev.categoryId
+                            ? getNextProductCodeForCategory(prev.categoryId, categories, products, val)
+                            : prev.productCode,
+                        }));
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const val = form.tags?.trim();
+                          if (val) {
+                            saveCustomTag(val);
+                            setCustomTagsList(getCustomTags());
+                          }
+                        }
+                      }}
+                      className={inputClass}
+                    />
+                  </div>
 
-                {/* Suggestion Quick-Click Badges */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                  <span className="text-[11px] font-semibold text-slate-400 mr-0.5">Quick Suggestions:</span>
-                  {(() => {
-                    const curCat = categories.find((c) => String(c.id) === String(form.categoryId));
-                    const curType = (curCat?.type || "").toLowerCase();
-                    const curName = (curCat?.name || "").toLowerCase();
+                  {form.tags?.trim() && !allKnownTags.some((t) => t.toLowerCase() === form.tags.trim().toLowerCase()) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = form.tags.trim();
+                        saveCustomTag(val);
+                        setCustomTagsList(getCustomTags());
+                      }}
+                      className="flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-blue-700 active:scale-95 transition cursor-pointer shrink-0"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Save Tag
+                    </button>
+                  )}
+                </div>
 
-                    const isDrink = curType === "bar" || curType === "beverage" || curName.includes("bar") || curName.includes("drink");
-                    const isFood = curType === "food" || curName.includes("food") || curName.includes("kitchen");
+                {/* Available Customizable Tag Pills */}
+                <div className="space-y-1.5 pt-0.5">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                    <span>Tags (click to assign / remove custom):</span>
+                    <span className="text-[10px] text-slate-400">Type & click "Save Tag" to create new</span>
+                  </div>
 
-                    const suggestions = isDrink
-                      ? ["Beer", "Soft Drink", "Juice", "Wine", "Whiskey", "Vodka", "Gin", "Cocktail", "Water", "Coffee"]
-                      : isFood
-                      ? ["Fruit", "Main Dish", "Fast Food", "Salad", "Breakfast", "Appetizer", "Dessert", "Snacks"]
-                      : ["Fruit", "Beer", "Juice", "Main Dish", "Fast Food", "Wine", "Whiskey", "Salad", "Water"];
-
-                    return suggestions.map((t) => {
+                  <div className="flex flex-wrap items-center gap-1.5 max-h-36 overflow-y-auto scrollbar-thin pr-1">
+                    {displayedTagPills.map((t) => {
                       const isSelected = (form.tags || "").toLowerCase() === t.toLowerCase();
+                      const isUserCustom = customTagsList.some((ct) => ct.toLowerCase() === t.toLowerCase());
+
                       return (
-                        <button
+                        <div
                           key={t}
-                          type="button"
-                          onClick={() => {
-                            setForm((prev) => ({
-                              ...prev,
-                              tags: t,
-                              productCode: !editingProduct && prev.categoryId
-                                ? getNextProductCodeForCategory(prev.categoryId, categories, products, t)
-                                : prev.productCode,
-                            }));
-                          }}
-                          className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold transition shadow-2xs ${
+                          className={`inline-flex items-center rounded-lg border transition shadow-2xs text-[11px] font-bold overflow-hidden ${
                             isSelected
                               ? "border-blue-600 bg-blue-600 text-white shadow-xs"
                               : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
                           }`}
                         >
-                          + {t}
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForm((prev) => ({
+                                ...prev,
+                                tags: t,
+                                productCode: !editingProduct && prev.categoryId
+                                  ? getNextProductCodeForCategory(prev.categoryId, categories, products, t)
+                                  : prev.productCode,
+                              }));
+                            }}
+                            className="px-2.5 py-1 flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>{isSelected ? "✓" : "+"}</span>
+                            <span>{t}</span>
+                          </button>
+
+                          {isUserCustom && (
+                            <button
+                              type="button"
+                              title="Delete custom tag"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeCustomTag(t);
+                                setCustomTagsList(getCustomTags());
+                                if ((form.tags || "").toLowerCase() === t.toLowerCase()) {
+                                  setForm((prev) => ({ ...prev, tags: "" }));
+                                }
+                              }}
+                              className={`px-1.5 py-1 border-l hover:bg-black/10 transition cursor-pointer ${
+                                isSelected ? "border-blue-500 text-white/80 hover:text-white" : "border-slate-200 text-slate-400 hover:text-rose-600"
+                              }`}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
                       );
-                    });
-                  })()}
+                    })}
+                  </div>
                 </div>
               </div>
 

@@ -1619,45 +1619,65 @@ function ProductsPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
 
-                <FormField label="Base Price (Excl. VAT)">
+                <FormField label="Customer Price (Menu Price Incl. 15% VAT) *">
 
-                  <input
-                    type="number"
-                    value={basePriceInput}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setBasePriceInput(val);
-                      if (val !== "" && !isNaN(Number(val))) {
-                        const finalWithVat = (Number(val) * 1.15).toFixed(2);
-                        setForm((prev) => ({ ...prev, price: finalWithVat }));
-                      } else {
-                        setForm((prev) => ({ ...prev, price: "" }));
-                      }
-                    }}
-                    placeholder="1000"
-                    min="0"
-                    step="0.01"
-                    className={inputClass}
-                  />
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Net price before 15% VAT (e.g. 1,000)
+                  <div className="relative">
+                    <input
+                      type="number"
+                      name="price"
+                      value={form.price}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setForm((prev) => ({ ...prev, price: val }));
+                        if (val !== "" && !isNaN(Number(val))) {
+                          const base = (Number(val) / 1.15).toFixed(2);
+                          setBasePriceInput(base);
+                        } else {
+                          setBasePriceInput("");
+                        }
+                      }}
+                      placeholder="e.g. 500 or 25000"
+                      min="0"
+                      step="0.01"
+                      required
+                      className={inputClass}
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-blue-600 font-medium">
+                    Type selling price here. POS & receipts will show this amount.
                   </p>
 
                 </FormField>
 
-                <FormField label="Final Customer Price (Incl. 15% VAT) *">
+                <FormField label="Base Price (Net Excl. 15% VAT)">
 
-                  <input
-                    type="number"
-                    name="price"
-                    value={form.price}
-                    readOnly
-                    disabled
-                    placeholder="Auto-calculated (e.g. 1,150)"
-                    className={`${inputClass} bg-slate-100 font-semibold text-slate-700 cursor-not-allowed`}
-                  />
-                  <p className="mt-1 text-[11px] text-emerald-700 font-medium">
-                    Auto-calculated with 15% VAT for POS & Receipts
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={basePriceInput}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setBasePriceInput(val);
+                        if (val !== "" && !isNaN(Number(val))) {
+                          const finalWithVat = (Number(val) * 1.15).toFixed(2);
+                          setForm((prev) => ({ ...prev, price: finalWithVat }));
+                        } else {
+                          setForm((prev) => ({ ...prev, price: "" }));
+                        }
+                      }}
+                      placeholder="Auto-calculated (e.g. 434.78)"
+                      min="0"
+                      step="0.01"
+                      className={`${inputClass} pr-16 bg-slate-50`}
+                    />
+                    {basePriceInput && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 uppercase tracking-wide pointer-events-none">
+                        -15% VAT
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Automatically calculated net revenue after deducting 15% VAT.
                   </p>
 
                 </FormField>
@@ -1668,20 +1688,20 @@ function ProductsPage() {
               {Number(form.price) > 0 && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-xs text-emerald-950 shadow-sm">
                   <p className="font-bold text-emerald-900 text-xs mb-1.5 flex items-center gap-1.5">
-                    ✨ Live VAT & Price Breakdown (15% Ethiopian VAT)
+                    ✨ Live 15% VAT Deduction Breakdown (Ethiopian Standard)
                   </p>
                   <div className="space-y-1">
-                    <div className="flex justify-between text-slate-700">
-                      <span>Base Net Price (Excl. VAT):</span>
-                      <span className="font-mono font-medium">{(Number(form.price) / 1.15).toFixed(2)} ETB</span>
+                    <div className="flex justify-between font-semibold text-slate-800">
+                      <span>Customer Pays (Menu Price):</span>
+                      <span className="font-mono text-blue-700 font-bold">{Number(form.price).toFixed(2)} ETB</span>
                     </div>
-                    <div className="flex justify-between text-emerald-700">
-                      <span>+ 15% VAT Amount:</span>
-                      <span className="font-mono font-medium">+{(Number(form.price) - Number(form.price) / 1.15).toFixed(2)} ETB</span>
+                    <div className="flex justify-between text-rose-600">
+                      <span>- 15% VAT Deducted (Tax Amount):</span>
+                      <span className="font-mono font-medium">-{(Number(form.price) - Number(form.price) / 1.15).toFixed(2)} ETB</span>
                     </div>
                     <div className="flex justify-between border-t border-emerald-200 pt-1.5 font-bold text-emerald-950 text-sm">
-                      <span>Final Selling Price (Saved on POS):</span>
-                      <span className="font-mono text-emerald-700">{Number(form.price).toFixed(2)} ETB</span>
+                      <span>= Net Base Price (Your Income):</span>
+                      <span className="font-mono text-emerald-700">{(Number(form.price) / 1.15).toFixed(2)} ETB</span>
                     </div>
                   </div>
                 </div>

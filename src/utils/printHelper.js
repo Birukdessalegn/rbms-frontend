@@ -714,3 +714,12 @@ export const printOrderReceipt = (order, options = {}) => {
   }, 300);
 };
 
+/**
+ * Official Payslip Printer
+ */
+export const printPayslip = (item, periodMonth) => {
+  const title = `Official Payslip - ${item?.employee_code || "Staff"} (${periodMonth || ""})`;
+  printReportArea("printable-payslip", title);
+};
+
+

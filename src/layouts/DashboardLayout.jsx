@@ -47,6 +47,7 @@ import {
   VolumeX,
   Palette,
   FileText,
+  DollarSign,
 } from "lucide-react";
 
 /* =========================================================
@@ -302,6 +303,11 @@ const navigationGroups = [
             name: "Attendance Log",
             path: "/employees/attendance",
             icon: Clock,
+          },
+          {
+            name: "Payroll & Salary",
+            path: "/employees/payroll",
+            icon: DollarSign,
           },
         ],
       },

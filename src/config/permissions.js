@@ -113,6 +113,7 @@ export const ROLE_PERMISSIONS = {
     "cashier.reconcile",
     "expenses.view",
     "reports.view",
+    "payroll.view",
   ],
 
   [ROLES.HR]: [

@@ -15,7 +15,7 @@ import api from "../../../services/api";
 import audioService from "../../../services/audioService";
 import NewOrderAlertModal from "../../../components/common/NewOrderAlertModal";
 import IncomingDeliveryBanner from "../../../components/common/IncomingDeliveryBanner";
-import StockTransferModal from "../../inventory/components/StockTransferModal";
+import StockRequestModal from "../../inventory/components/StockRequestModal";
 
 const parseOrderItems = (order) => {
   if (!order) return [];
@@ -733,7 +733,7 @@ function KitchenPage({ filterStatus = "all", pageTitle = null }) {
       />
 
       {/* RESTOCK REQUISITION MODAL FOR KITCHEN */}
-      <StockTransferModal
+      <StockRequestModal
         isOpen={isRestockModalOpen}
         onClose={() => {
           setIsRestockModalOpen(false);

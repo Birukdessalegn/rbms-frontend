@@ -30,7 +30,7 @@ import api from "../../../services/api";
 import audioService from "../../../services/audioService";
 import NewOrderAlertModal from "../../../components/common/NewOrderAlertModal";
 import IncomingDeliveryBanner from "../../../components/common/IncomingDeliveryBanner";
-import StockTransferModal from "../../inventory/components/StockTransferModal";
+import StockRequestModal from "../../inventory/components/StockRequestModal";
 import { formatImageUrl, getCustomShotsMap } from "../../products/ProductsPage";
 
 function BarPage() {
@@ -1681,7 +1681,7 @@ function BarPage() {
       />
 
       {/* RESTOCK REQUISITION MODAL FOR BAR DRINKS */}
-      <StockTransferModal
+      <StockRequestModal
         isOpen={isRestockModalOpen}
         onClose={() => {
           setIsRestockModalOpen(false);

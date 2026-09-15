@@ -16,10 +16,12 @@ import {
   ChefHat,
   XCircle,
   ClipboardCheck,
+  Truck,
 } from "lucide-react";
 import api from "../../../services/api";
 import { useAuth } from "../../../context/AuthContext";
 import { formatImageUrl } from "../../products/ProductsPage";
+import StockRequestModal from "../../inventory/components/StockRequestModal";
 
 function KitchenLiveAssetsPage() {
   const { user } = useAuth();
@@ -38,6 +40,8 @@ function KitchenLiveAssetsPage() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [viewMode, setViewMode] = useState("cards"); // "cards" | "list"
   const [refreshing, setRefreshing] = useState(false);
+  const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
+  const [restockProduct, setRestockProduct] = useState(null);
 
   // ============================================================
   // FETCH KITCHEN ASSETS & REAL-TIME STOCK
@@ -598,6 +602,28 @@ function KitchenLiveAssetsPage() {
                     </span>
                   </div>
                 </div>
+
+                {(dish.isOutOfStock || dish.isLowStock) && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRestockProduct({
+                        id: dish.id,
+                        product_id: dish.id,
+                        name: dish.name,
+                        product_name: dish.name,
+                        unit: dish.unit,
+                        kitchen_quantity: dish.currentStock,
+                      });
+                      setIsRestockModalOpen(true);
+                    }}
+                    className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-1.5 text-[11px] font-black text-white shadow-xs hover:bg-amber-600 active:scale-95 transition cursor-pointer"
+                  >
+                    <Truck className="h-3 w-3" />
+                    <span>Request Restock</span>
+                  </button>
+                )}
               </div>
             );
           })}
@@ -698,6 +724,22 @@ function KitchenLiveAssetsPage() {
           </div>
         </div>
       )}
+
+      {/* RESTOCK REQUISITION MODAL FOR KITCHEN ASSETS */}
+      <StockRequestModal
+        isOpen={isRestockModalOpen}
+        onClose={() => {
+          setIsRestockModalOpen(false);
+          setRestockProduct(null);
+        }}
+        onSuccess={() => {
+          setIsRestockModalOpen(false);
+          setRestockProduct(null);
+          fetchKitchenAssets(true);
+        }}
+        initialProduct={restockProduct}
+        initialDepartment="kitchen"
+      />
     </div>
   );
 }

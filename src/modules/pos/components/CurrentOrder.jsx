@@ -109,7 +109,7 @@ function CurrentOrder({
             disabled={orderItems.length === 0}
             className="mt-3 w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Send to Kitchen
+            Send Order
           </button>
 
         </div>

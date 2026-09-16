@@ -22,47 +22,14 @@ import api from '../../../services/api';
 // Helper to determine if product is a spirit/liquor that can be served in shots/portions
 export const isSpiritOrLiquorProduct = (product) => {
   if (!product) return false;
-  const cat = String(product.category_name || product.category || product.category_type || '').toLowerCase();
-  const pName = String(product.name || '').toLowerCase();
-
   const localMap = getCustomShotsMap ? getCustomShotsMap() : {};
   const localData = localMap[String(product.id)] || localMap[String(product.product_code || product.productCode)];
-  const hasCustomShots = Number(product.shots_capacity || product.shotsCapacity || localData?.shots || 0) > 0 || localData?.isShotItem === true;
 
-  const isShotItem = product.is_shot_item === true || product.isShotItem === true || product.shots_capacity > 0 || product.shotsCapacity > 0 || hasCustomShots;
+  // Strictly check if portion/shot options are enabled for this product
+  const isShotItem = product.is_shot_item === true || product.isShotItem === true || localData?.isShotItem === true;
+  const capacity = Number(product.shots_capacity || product.shotsCapacity || localData?.shots || 0);
 
-  const isSpiritCat =
-    cat.includes('whiskey') ||
-    cat.includes('spirit') ||
-    cat.includes('liquor') ||
-    cat.includes('vodka') ||
-    cat.includes('gin') ||
-    cat.includes('rum') ||
-    cat.includes('tequila') ||
-    cat.includes('brandy') ||
-    cat.includes('cognac');
-
-  const isSpiritName =
-    pName.includes('whiskey') ||
-    pName.includes('red label') ||
-    pName.includes('black label') ||
-    pName.includes('jack daniel') ||
-    pName.includes('jameson') ||
-    pName.includes('vodka') ||
-    pName.includes('gin') ||
-    pName.includes('rum') ||
-    pName.includes('tequila');
-
-  const isBeerOrSoft =
-    cat.includes('beer') ||
-    cat.includes('soft') ||
-    cat.includes('water') ||
-    pName.includes('beer') ||
-    pName.includes('coca') ||
-    pName.includes('water');
-
-  if (isBeerOrSoft) return false;
-  return isShotItem || isSpiritCat || isSpiritName;
+  return Boolean(isShotItem && capacity > 0);
 };
 
 function EditOrderModal({ 

@@ -265,27 +265,7 @@ function ProductsPage() {
           pName.includes("burger");
 
         const local = localMap[String(p.id)] || localMap[String(p.product_code || p.productCode)];
-        const isExplicitShot = p.is_shot_item === true || p.isShotItem === true || local?.isShotItem === true;
-        const isSpiritBottle =
-          !isFoodOrSoft &&
-          (cat.includes("whiskey") ||
-            cat.includes("spirit") ||
-            cat.includes("liquor") ||
-            cat.includes("vodka") ||
-            cat.includes("gin") ||
-            cat.includes("rum") ||
-            cat.includes("tequila") ||
-            pName.includes("whiskey") ||
-            pName.includes("red label") ||
-            pName.includes("black label") ||
-            pName.includes("jack daniel") ||
-            pName.includes("jameson") ||
-            pName.includes("vodka") ||
-            pName.includes("gin") ||
-            pName.includes("rum") ||
-            pName.includes("tequila"));
-
-        const isShot = !isFoodOrSoft && (isExplicitShot || isSpiritBottle);
+        const isShot = Boolean(p.is_shot_item === true || p.isShotItem === true || local?.isShotItem === true);
         const cap = isShot
           ? Number(p.shots_capacity || p.shotsCapacity || p.bottle_shots || local?.shots || 30)
           : 0;
@@ -514,18 +494,14 @@ function ProductsPage() {
 
     const localMap = getCustomShotsMap();
     const localData = localMap[String(prod.id)] || localMap[String(prod.product_code || prod.productCode)];
+    const resolvedIsShotItem = Boolean(prod.is_shot_item === true || prod.isShotItem === true || localData?.isShotItem === true);
     const resolvedShots = String(
       prod.shots_capacity ??
       prod.shotsCapacity ??
       prod.bottle_shots ??
       localData?.shots ??
-      30
+      (resolvedIsShotItem ? 30 : "")
     );
-    const resolvedIsShotItem =
-      prod.is_shot_item ??
-      prod.isShotItem ??
-      localData?.isShotItem ??
-      (Number(resolvedShots) > 0);
 
     const appMap = getProductApplicableMap();
     const localApp = appMap[String(prod.id)] || appMap[String(prod.product_code || prod.productCode)];
@@ -598,7 +574,8 @@ function ProductsPage() {
       const safePrice = parseNumStr(form.price, "0");
       const safeCostPrice = parseNumStr(form.costPrice, "0");
       const safeStaffPrice = parseNumStr(form.staffPrice, "0");
-      const safeShotsCapacity = parseNumStr(form.shotsCapacity, "30");
+      const isShotItemBool = Boolean(form.isShotItem);
+      const safeShotsCapacity = isShotItemBool ? parseNumStr(form.shotsCapacity, "30") : "0";
 
       // Build FormData payload for multipart image upload (supports both camelCase & snake_case backend keys)
       const formData = new FormData();
@@ -632,8 +609,8 @@ function ProductsPage() {
       formData.append("shotsCapacity", safeShotsCapacity);
       formData.append("shots_capacity", safeShotsCapacity);
 
-      formData.append("isShotItem", String(form.isShotItem));
-      formData.append("is_shot_item", String(form.isShotItem));
+      formData.append("isShotItem", String(isShotItemBool));
+      formData.append("is_shot_item", String(isShotItemBool));
 
       const appFor = form.applicableFor || "both";
       formData.append("applicableFor", appFor);
@@ -2305,55 +2282,61 @@ function ProductsPage() {
                   </label>
                 </div>
 
-                <div className="space-y-3 pt-2 border-t border-purple-200/60">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <FormField label="Custom Shots Per Bottle Capacity *">
-                      <input
-                        type="number"
-                        name="shotsCapacity"
-                        value={form.shotsCapacity ?? ""}
-                        onChange={handleChange}
-                        placeholder="e.g. 25, 30, 40"
-                        min="1"
-                        step="1"
-                        className="w-full rounded-xl border border-purple-300 bg-white px-3.5 py-2.5 text-sm font-extrabold text-purple-900 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 shadow-xs"
-                      />
-                    </FormField>
+                {form.isShotItem ? (
+                  <div className="space-y-3 pt-2 border-t border-purple-200/60">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <FormField label="Custom Shots Per Bottle Capacity *">
+                        <input
+                          type="number"
+                          name="shotsCapacity"
+                          value={form.shotsCapacity ?? ""}
+                          onChange={handleChange}
+                          placeholder="e.g. 25, 30, 40"
+                          min="1"
+                          step="1"
+                          className="w-full rounded-xl border border-purple-300 bg-white px-3.5 py-2.5 text-sm font-extrabold text-purple-900 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 shadow-xs"
+                        />
+                      </FormField>
 
-                    <div className="flex items-center">
-                      <p className="text-xs text-slate-600 font-semibold italic">
-                        Type total shots inside 1 full bottle (e.g. 25 for 750ml, 40 for 1L).
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* LIVE PORTION PRICE CALCULATOR PREVIEW */}
-                  {Number(form.price) > 0 && Number(form.shotsCapacity || 30) > 0 && (
-                    <div className="rounded-xl bg-white p-3 border border-purple-200 text-xs space-y-2 shadow-xs">
-                      <p className="font-extrabold text-purple-900 uppercase text-[10px] tracking-wider">
-                        Live Calculated Portion Prices (Custom {form.shotsCapacity || 30} Shots Bottle):
-                      </p>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-bold text-slate-800">
-                        <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
-                          <span className="text-[10px] text-slate-400 block">Single Shot</span>
-                          <span className="text-purple-700">{Number(form.price).toFixed(2)} ETB</span>
-                        </div>
-                        <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
-                          <span className="text-[10px] text-slate-400 block">Double Shot (2x)</span>
-                          <span className="text-purple-700">{(Number(form.price) * 2).toFixed(2)} ETB</span>
-                        </div>
-                        <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
-                          <span className="text-[10px] text-slate-400 block">Half Bottle ({Math.round(Number(form.shotsCapacity || 30) / 2)} Shots)</span>
-                          <span className="text-purple-700">{(Number(form.price) * Math.round(Number(form.shotsCapacity || 30) / 2)).toFixed(2)} ETB</span>
-                        </div>
-                        <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
-                          <span className="text-[10px] text-slate-400 block">Full Bottle ({form.shotsCapacity || 30} Shots)</span>
-                          <span className="text-purple-700">{(Number(form.price) * Number(form.shotsCapacity || 30)).toFixed(2)} ETB</span>
-                        </div>
+                      <div className="flex items-center">
+                        <p className="text-xs text-slate-600 font-semibold italic">
+                          Type total shots inside 1 full bottle (e.g. 25 for 750ml, 40 for 1L).
+                        </p>
                       </div>
                     </div>
-                  )}
-                </div>
+
+                    {/* LIVE PORTION PRICE CALCULATOR PREVIEW */}
+                    {Number(form.price) > 0 && Number(form.shotsCapacity || 30) > 0 && (
+                      <div className="rounded-xl bg-white p-3 border border-purple-200 text-xs space-y-2 shadow-xs">
+                        <p className="font-extrabold text-purple-900 uppercase text-[10px] tracking-wider">
+                          Live Calculated Portion Prices (Custom {form.shotsCapacity || 30} Shots Bottle):
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-bold text-slate-800">
+                          <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                            <span className="text-[10px] text-slate-400 block">Single Shot</span>
+                            <span className="text-purple-700">{Number(form.price).toFixed(2)} ETB</span>
+                          </div>
+                          <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                            <span className="text-[10px] text-slate-400 block">Double Shot (2x)</span>
+                            <span className="text-purple-700">{(Number(form.price) * 2).toFixed(2)} ETB</span>
+                          </div>
+                          <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                            <span className="text-[10px] text-slate-400 block">Half Bottle ({Math.round(Number(form.shotsCapacity || 30) / 2)} Shots)</span>
+                            <span className="text-purple-700">{(Number(form.price) * Math.round(Number(form.shotsCapacity || 30) / 2)).toFixed(2)} ETB</span>
+                          </div>
+                          <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                            <span className="text-[10px] text-slate-400 block">Full Bottle ({form.shotsCapacity || 30} Shots)</span>
+                            <span className="text-purple-700">{(Number(form.price) * Number(form.shotsCapacity || 30)).toFixed(2)} ETB</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="pt-2 border-t border-purple-200/40 text-xs text-purple-700 font-medium">
+                    Portion &amp; shot options are disabled for this product. It will sell strictly as a direct regular item on the Order / POS page.
+                  </div>
+                )}
               </div>
             );
           })()}

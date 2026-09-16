@@ -335,7 +335,7 @@ function InventoryReportsPage() {
           bgClass="bg-amber-50"
         />
         <ReportStatCard
-          title="Depleted / Zero Stock"
+          title="Available / Zero Stock"
           value={loading ? "..." : outOfStockCount}
           description="Requires immediate restocking"
           icon={TrendingDown}

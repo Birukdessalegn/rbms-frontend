@@ -1000,7 +1000,7 @@ export default function KitchenStockAuditPage() {
                           title={`Confirm zero stock in ${isBar ? "bar counter" : "kitchen"}`}
                         >
                           <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                          <span className="truncate">Approve Available</span>
+                          <span className="truncate">Approve Available Stock</span>
                         </button>
 
                         <button

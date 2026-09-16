@@ -16,7 +16,7 @@ export const isSpiritOrLiquor = (item) => {
   const unit = String(item.unit || "").toLowerCase();
   const notes = String(item.notes || "").toLowerCase();
 
-  if (unit.includes("shot") || item.is_shot_item === true || Number(item.shots_capacity) > 0) {
+  if (unit.includes("shot") || (item.is_shot_item === true && Number(item.shots_capacity) > 0)) {
     return true;
   }
 

@@ -25,7 +25,18 @@ function isFruitOrShishaItem(item) {
   if (!item) return false;
   const name = String(item.product_name || item.name || item.description || "").toLowerCase();
   const cat = String(item.category_name || item.category || "").toLowerCase();
+  const catType = String(item.category_type || "").toLowerCase();
   const tags = String(item.tags || item.tag || "").toLowerCase();
+
+  if (
+    cat === "fruit" ||
+    catType === "fruit" ||
+    cat.includes("fruit") ||
+    cat.includes("shisha") ||
+    cat.includes("hookah")
+  ) {
+    return true;
+  }
 
   const keywords = [
     "fruit",
@@ -243,7 +254,7 @@ export default function FruitOrdersPage() {
         <NewOrderAlertModal
           order={alertOrder}
           onClose={() => setAlertOrder(null)}
-          title="🍉 New Fruit & Shisha Order!"
+          title="🍉 New Fruit Order!"
         />
       )}
 

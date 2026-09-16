@@ -852,7 +852,7 @@ function ProductsPage() {
     applicableFilter,
   ]);
 
-  // Standard 3-Department Category Architecture: Food, Drink, Inventory
+  // Standard Category Architecture: Food, Drink, Fruit, Inventory
   const standardCategories = useMemo(() => {
     const foodCat = categories.find(
       (c) => (c.name || "").toLowerCase() === "food" || (c.type || "").toLowerCase() === "food"
@@ -862,6 +862,12 @@ function ProductsPage() {
         (c.name || "").toLowerCase() === "drink" ||
         (c.type || "").toLowerCase() === "bar" ||
         (c.type || "").toLowerCase() === "beverage"
+    );
+    const fruitCat = categories.find(
+      (c) =>
+        (c.name || "").toLowerCase() === "fruit" ||
+        (c.type || "").toLowerCase() === "fruit" ||
+        (c.name || "").toLowerCase().includes("fruit")
     );
     const invCat = categories.find(
       (c) =>
@@ -874,12 +880,13 @@ function ProductsPage() {
     const list = [];
     if (foodCat) list.push({ ...foodCat, name: "Food", type: "food" });
     if (drinkCat) list.push({ ...drinkCat, name: "Drink", type: "bar" });
+    if (fruitCat) list.push({ ...fruitCat, name: "Fruit", type: "fruit" });
     if (invCat) list.push({ ...invCat, name: "Inventory", type: "inventory" });
 
     if (list.length === 0) {
       return categories.filter((c) => {
         const n = (c.name || "").toLowerCase();
-        return n === "food" || n === "drink" || n === "inventory";
+        return n === "food" || n === "drink" || n === "fruit" || n === "inventory";
       });
     }
 
@@ -2790,13 +2797,13 @@ function ProductsPage() {
                   className={inputClass}
                 >
                   <option value="food">
-                    Kitchen & Food (Fruit, Kitchen meals, dishes)
+                    Food & Kitchen (Kitchen meals, dishes)
                   </option>
                   <option value="bar">
-                    Bar & Liquor (Beers, spirits, wines)
+                    Drink & Bar (Liquor, beers, wines, beverages)
                   </option>
-                  <option value="beverage">
-                    Non-Alcoholic Beverages (Sodas, juices, water, coffee)
+                  <option value="fruit">
+                    Fruit (Fruit platters, Shisha & Lounge)
                   </option>
                   <option value="supply">
                     Supply / Operational Materials

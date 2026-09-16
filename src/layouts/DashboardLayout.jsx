@@ -180,13 +180,13 @@ const navigationGroups = [
       },
 
       {
-        name: "Fruit & Shisha",
+        name: "Fruit",
         icon: Sparkles,
         permission: "fruit.view",
 
         children: [
           {
-            name: "Fruit & Shisha Display",
+            name: "Fruit Display",
             path: "/fruit",
             icon: Sparkles,
           },

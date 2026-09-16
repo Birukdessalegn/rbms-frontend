@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { DollarSign, Lock } from "lucide-react";
 import { useRestaurant } from "../../../context/RestaurantContext";
 import { useAuth } from "../../../context/AuthContext";
 import TableSelector from "../components/TableSelector";
@@ -42,7 +43,8 @@ function POSPage() {
     try {
       setLoadingShift(true);
       const res = await getCurrentShift();
-      setCurrentShift(res.data || null);
+      const active = res?.shift || res?.data || null;
+      setCurrentShift(active);
     } catch (err) {
       console.warn("Current cashier shift fetch:", err);
       setCurrentShift(null);
@@ -263,7 +265,7 @@ function POSPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Point of Sale
@@ -272,6 +274,44 @@ function POSPage() {
           <p className="mt-1 text-sm text-gray-500">
             Create and manage restaurant and bar orders.
           </p>
+        </div>
+
+        {/* Top Header Quick Shift Controls */}
+        <div className="flex items-center gap-2.5">
+          {(!currentShift || currentShift.status !== "open") ? (
+            <button
+              type="button"
+              onClick={() => setIsStartShiftModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:bg-blue-700 active:scale-95"
+            >
+              <DollarSign className="h-4 w-4" />
+              <span>Start Shift</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              {/* Little Card: Total Money Collected */}
+              <div className="flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-white px-3.5 py-1.5 shadow-2xs">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold shrink-0">
+                  <DollarSign className="h-4 w-4" />
+                </div>
+                <div className="leading-tight">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">Total Collected</span>
+                  <span className="text-xs font-black text-emerald-900">
+                    {parseFloat(currentShift.total_sales ?? currentShift.totalSales ?? 0).toLocaleString()} ETB
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsCloseShiftModalOpen(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:bg-rose-700 active:scale-95"
+              >
+                <Lock className="h-4 w-4" />
+                <span>Close Shift</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

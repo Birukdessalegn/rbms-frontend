@@ -163,13 +163,8 @@ function TodaySalesAuditPage() {
         api("/pos/shifts/current").catch(() => ({ shift: null })),
       ]);
 
-      if (shiftRes && shiftRes.shift) {
-        setCurrentShift(shiftRes.shift);
-      } else if (shiftRes && shiftRes.data) {
-        setCurrentShift(shiftRes.data);
-      } else {
-        setCurrentShift(null);
-      }
+      const shift = shiftRes?.shift || shiftRes?.data || null;
+      setCurrentShift(shift);
 
       const posList = posRes.orders || posRes.data || (Array.isArray(posRes) ? posRes : []);
       const kitchenList = Array.isArray(kitchenRes) ? kitchenRes : (kitchenRes.orders || []);
@@ -273,8 +268,9 @@ function TodaySalesAuditPage() {
           terminal_id: 1,
         }),
       });
-      if (res?.shift) {
-        setCurrentShift(res.shift);
+      const shift = res?.shift || res?.data || null;
+      if (shift) {
+        setCurrentShift(shift);
       }
       setShowStartModal(false);
       await fetchDailyAuditData();
@@ -604,7 +600,7 @@ function TodaySalesAuditPage() {
 
       {/* SHIFT STATUS & RECONCILIATION LIFECYCLE BANNER */}
       <div className="print-hide">
-        {!currentShift && (
+        {(!currentShift || currentShift.status !== "open") && currentShift?.status !== "closed_pending_approval" && (
           <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white font-bold shrink-0">

@@ -5,28 +5,52 @@ import api from '../../../services/api';
 // =========================================================
 
 export const getCurrentShift = async () => {
-  return await api('/pos/shifts/current');
+  const res = await api('/pos/shifts/current');
+  const shift = res?.shift ?? res?.data ?? null;
+  return {
+    ...res,
+    shift,
+    data: shift,
+  };
 };
 
 export const startShift = async (openingCash = 0) => {
-  return await api('/pos/shifts/start', {
+  const res = await api('/pos/shifts/start', {
     method: 'POST',
     body: JSON.stringify({
       opening_cash: Number(openingCash) || 0,
       openingCash: Number(openingCash) || 0,
+      terminal_id: 1,
     }),
   });
+  const shift = res?.shift ?? res?.data ?? null;
+  return {
+    ...res,
+    shift,
+    data: shift,
+  };
 };
 
 export const closeShift = async (actualCashCounted = 0, notes = '') => {
-  return await api('/pos/shifts/close', {
+  const numCash = Number(actualCashCounted) || 0;
+  const res = await api('/pos/shifts/close', {
     method: 'POST',
     body: JSON.stringify({
-      actual_cash_counted: Number(actualCashCounted) || 0,
-      actualCashCounted: Number(actualCashCounted) || 0,
-      notes,
+      actual_cash: numCash,
+      actualCash: numCash,
+      actual_cash_counted: numCash,
+      actualCashCounted: numCash,
+      notes: notes || '',
+      closing_notes: notes || '',
+      closingNotes: notes || '',
     }),
   });
+  const shift = res?.shift ?? res?.data ?? null;
+  return {
+    ...res,
+    shift,
+    data: shift,
+  };
 };
 
 // =========================================================

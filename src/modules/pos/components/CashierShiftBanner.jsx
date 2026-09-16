@@ -10,7 +10,9 @@ function CashierShiftBanner({ currentShift, loadingShift, onStartShiftClick, onC
     );
   }
 
-  if (!currentShift) {
+  const isOpen = Boolean(currentShift && (currentShift.status === 'open' || currentShift.is_live));
+
+  if (!isOpen) {
     return (
       <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-linear-to-r from-amber-50 to-orange-50 px-5 py-3.5 shadow-xs sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
@@ -37,9 +39,13 @@ function CashierShiftBanner({ currentShift, loadingShift, onStartShiftClick, onC
     );
   }
 
-  const expectedCash = parseFloat(currentShift.expected_cash || currentShift.opening_cash || 0);
-  const openingCash = parseFloat(currentShift.opening_cash || 0);
-  const totalCollected = parseFloat(currentShift.total_sales || (expectedCash - openingCash > 0 ? expectedCash - openingCash : 0));
+  const expectedCash = parseFloat(currentShift.expected_cash ?? currentShift.opening_cash ?? 0);
+  const openingCash = parseFloat(currentShift.opening_cash ?? 0);
+  const totalCollected = parseFloat(
+    currentShift.total_sales ??
+    currentShift.totalSales ??
+    (expectedCash - openingCash > 0 ? expectedCash - openingCash : 0)
+  );
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-linear-to-r from-emerald-50 via-teal-50/40 to-white px-5 py-3.5 shadow-xs sm:flex-row sm:items-center sm:justify-between">

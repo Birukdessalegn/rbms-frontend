@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import api from "../../../services/api";
 import { printThermalReceipt } from "../../../utils/printHelper";
+import { useAuth } from "../../../context/AuthContext";
 import {
   formatVipReceiptText,
   getWhatsAppReceiptUrl,
@@ -37,6 +38,10 @@ function PaymentModal({
   onClose,
   onPaymentSuccess,
 }) {
+  const { user } = useAuth();
+  const userRole = (user?.role || "").toUpperCase();
+  const canShareVipReceipt = ["ADMIN", "MANAGER"].includes(userRole);
+
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentMode, setPaymentMode] = useState("full"); // "full" | "split_items" | "split_equal"
   const [splitWays, setSplitWays] = useState(2);
@@ -790,7 +795,7 @@ function PaymentModal({
       );
 
       const isVipFull = (paymentMethod === "credit" || paymentMethod === "vip");
-      if (isVipFull) {
+      if (isVipFull && canShareVipReceipt) {
         const freshVip = response?.vip_customer || selectedVip;
         const calcDebt = response?.vip_customer?.current_debt !== undefined
           ? Number(response.vip_customer.current_debt)
@@ -940,7 +945,7 @@ function PaymentModal({
               Print Share Receipt (Slip)
             </button>
 
-            {partialSuccessData.isVip && (
+            {partialSuccessData.isVip && canShareVipReceipt && (
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
                   type="button"

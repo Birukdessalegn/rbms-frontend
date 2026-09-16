@@ -15,9 +15,27 @@ import {
   ShieldAlert,
   X,
   Filter,
+  Receipt,
+  Crown,
+  Calendar,
+  MessageCircle,
+  Send,
+  Copy,
+  Check,
+  ArrowLeft,
+  Clock,
+  ChevronRight,
+  RefreshCw,
+  ShoppingBag,
 } from "lucide-react";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import {
+  formatVipReceiptText,
+  getWhatsAppReceiptUrl,
+  getTelegramReceiptUrl,
+  copyReceiptToClipboard,
+} from "../pos/utils/vipReceiptFormatter";
 
 export default function VipCustomersPage() {
   const { user } = useAuth();
@@ -33,6 +51,17 @@ export default function VipCustomersPage() {
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [showRepayModal, setShowRepayModal] = useState(false);
   const [selectedRepayCustomer, setSelectedRepayCustomer] = useState(null);
+
+  // VIP Customer Credit Orders & History State
+  const [showOrdersModal, setShowOrdersModal] = useState(false);
+  const [selectedOrderCustomer, setSelectedOrderCustomer] = useState(null);
+  const [customerOrders, setCustomerOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [ordersError, setOrdersError] = useState("");
+
+  // Share Receipt Modal State (For specific order clicked)
+  const [selectedReceiptOrder, setSelectedReceiptOrder] = useState(null);
+  const [copiedReceipt, setCopiedReceipt] = useState(false);
 
   // Form State
   const [form, setForm] = useState({
@@ -55,6 +84,120 @@ export default function VipCustomersPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const openOrderHistory = async (cust) => {
+    setSelectedOrderCustomer(cust);
+    setShowOrdersModal(true);
+    setSelectedReceiptOrder(null);
+    setLoadingOrders(true);
+    setOrdersError("");
+    try {
+      const res = await api(`/vip-customers/${cust.id}/payments`);
+      const list = Array.isArray(res) ? res : res?.data || [];
+      setCustomerOrders(list);
+    } catch (err) {
+      console.error("Failed to load customer orders:", err);
+      setOrdersError(err?.message || "Failed to load customer credit orders");
+      setCustomerOrders([]);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const reloadCustomerOrders = async () => {
+    if (!selectedOrderCustomer) return;
+    setLoadingOrders(true);
+    setOrdersError("");
+    try {
+      const res = await api(`/vip-customers/${selectedOrderCustomer.id}/payments`);
+      const list = Array.isArray(res) ? res : res?.data || [];
+      setCustomerOrders(list);
+    } catch (err) {
+      setOrdersError(err?.message || "Failed to load customer credit orders");
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const handleSelectOrderForReceipt = (order) => {
+    setSelectedReceiptOrder(order);
+    setCopiedReceipt(false);
+  };
+
+  const getReceiptFormattedData = () => {
+    if (!selectedOrderCustomer || !selectedReceiptOrder) return null;
+
+    const tierLower = (selectedOrderCustomer?.tier || "").toLowerCase();
+    const limit = Number(selectedOrderCustomer?.credit_limit || 0);
+    const debt = Number(selectedOrderCustomer?.current_debt || 0);
+    const isUnlimited =
+      tierLower.includes("gold") ||
+      tierLower.includes("unlimited") ||
+      limit >= 999999;
+    const remainingLimit = isUnlimited ? 999999999 : Math.max(0, limit - debt);
+
+    const chargedAmount = Number(
+      selectedReceiptOrder.payment_amount || selectedReceiptOrder.order_total || 0
+    );
+
+    const items = (selectedReceiptOrder.items || []).map((i) => ({
+      name: i.product_name,
+      product_name: i.product_name,
+      quantity: i.quantity,
+      price: i.unit_price,
+      total: i.total,
+    }));
+
+    const date = selectedReceiptOrder.paid_at
+      ? new Date(selectedReceiptOrder.paid_at)
+      : new Date(selectedReceiptOrder.order_created_at || Date.now());
+
+    const receiptText = formatVipReceiptText({
+      restaurantName: "RESTAURANT & BAR",
+      customerName: selectedOrderCustomer.name,
+      customerPhone: selectedOrderCustomer.phone,
+      tier: selectedOrderCustomer.tier,
+      orderNumber: selectedReceiptOrder.order_number || selectedReceiptOrder.order_id || "N/A",
+      tableNumber: selectedReceiptOrder.table_number,
+      items,
+      chargedAmount,
+      creditLimit: limit,
+      currentDebt: debt,
+      remainingLimit,
+      isUnlimited,
+      date,
+    });
+
+    return {
+      receiptText,
+      chargedAmount,
+      limit,
+      debt,
+      remainingLimit,
+      isUnlimited,
+      date,
+      items,
+    };
+  };
+
+  const handleShareWhatsApp = (receiptData) => {
+    if (!receiptData) return;
+    const url = getWhatsAppReceiptUrl(selectedOrderCustomer?.phone, receiptData.receiptText);
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleShareTelegram = (receiptData) => {
+    if (!receiptData) return;
+    const url = getTelegramReceiptUrl(receiptData.receiptText);
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleCopyReceipt = async (receiptData) => {
+    if (!receiptData) return;
+    await copyReceiptToClipboard(receiptData.receiptText);
+    setCopiedReceipt(true);
+    setTimeout(() => setCopiedReceipt(false), 3000);
+  };
 
   // Load Customers
   useEffect(() => {
@@ -464,17 +607,25 @@ export default function VipCustomersPage() {
                   const isMaxedOut = !isUnlimited && debt >= limit && limit > 0;
 
                   return (
-                    <tr key={cust.id} className="transition hover:bg-amber-50/30">
+                    <tr
+                      key={cust.id}
+                      onClick={() => openOrderHistory(cust)}
+                      className="transition hover:bg-amber-50/40 cursor-pointer group"
+                      title="Click to view all credit orders & share statements"
+                    >
                       {/* Name & Phone */}
                       <td className="px-3.5 py-2.5">
                         <div className="flex items-center gap-2.5">
-                          <div className={`flex h-7 w-7 items-center justify-center rounded-lg font-extrabold text-[11px] shadow-2xs ${
+                          <div className={`flex h-7 w-7 items-center justify-center rounded-lg font-extrabold text-[11px] shadow-2xs transition group-hover:scale-105 ${
                             isPromoter ? "bg-purple-100 text-purple-900 border border-purple-200" : "bg-amber-100 text-amber-800"
                           }`}>
                             {cust.name.substring(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900 text-xs">{cust.name}</p>
+                            <p className="font-bold text-slate-900 text-xs flex items-center gap-1 group-hover:text-amber-700 transition">
+                              {cust.name}
+                              <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 text-amber-600 transition" />
+                            </p>
                             <p className="flex items-center gap-1 text-[11px] text-slate-500">
                               <Phone className="h-2.5 w-2.5" />
                               {cust.phone}
@@ -538,10 +689,27 @@ export default function VipCustomersPage() {
                       {/* Actions */}
                       <td className="px-3.5 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* View Credit Orders & Statements */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openOrderHistory(cust);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md bg-amber-50 hover:bg-amber-100 border border-amber-300/80 px-2 py-1 text-[11px] font-bold text-amber-900 transition cursor-pointer shadow-2xs"
+                            title="View All Credit Orders & Share Receipts"
+                          >
+                            <Receipt className="h-3 w-3 text-amber-700" />
+                            Orders
+                          </button>
+
                           {debt > 0 && (
                             <button
                               type="button"
-                              onClick={() => openRepayModal(cust)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openRepayModal(cust);
+                              }}
                               className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white transition hover:bg-emerald-700 cursor-pointer shadow-2xs"
                               title="Record Repayment"
                             >
@@ -554,7 +722,10 @@ export default function VipCustomersPage() {
                             <>
                               <button
                                 type="button"
-                                onClick={() => openEditModal(cust)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditModal(cust);
+                                }}
                                 className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
                                 title="Edit VIP Profile"
                               >
@@ -563,7 +734,10 @@ export default function VipCustomersPage() {
 
                               <button
                                 type="button"
-                                onClick={() => handleDeleteCustomer(cust.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteCustomer(cust.id);
+                                }}
                                 className="rounded-md p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 cursor-pointer"
                                 title="Delete Profile"
                               >
@@ -827,6 +1001,423 @@ export default function VipCustomersPage() {
           </div>
         </div>
       )}
+
+      {/* VIP CUSTOMER CREDIT ORDERS & STATEMENT MODAL */}
+      {showOrdersModal && selectedOrderCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-3 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative flex flex-col w-full max-w-3xl max-h-[92vh] rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl font-extrabold text-sm shadow-xs ${
+                  (selectedOrderCustomer.tier || "").toLowerCase().includes("promoter")
+                    ? "bg-purple-100 text-purple-900 border border-purple-200"
+                    : "bg-amber-100 text-amber-800 border border-amber-200"
+                }`}>
+                  {selectedOrderCustomer.name.substring(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      {selectedOrderCustomer.name}
+                    </h3>
+                    <span className="rounded-full bg-amber-100 border border-amber-300/80 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">
+                      {selectedOrderCustomer.tier || "VIP"}
+                    </span>
+                  </div>
+                  <p className="flex items-center gap-2 text-xs text-slate-500 font-medium mt-0.5">
+                    <span>📞 {selectedOrderCustomer.phone || "No phone"}</span>
+                    {selectedOrderCustomer.company && (
+                      <span>&bull; 🏢 {selectedOrderCustomer.company}</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={reloadCustomerOrders}
+                  disabled={loadingOrders}
+                  className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
+                  title="Refresh Orders"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loadingOrders ? "animate-spin text-amber-600" : ""}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowOrdersModal(false);
+                    setSelectedReceiptOrder(null);
+                  }}
+                  className="rounded-xl border border-slate-200 bg-white p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Customer Credit Overview Bar */}
+            <div className="grid grid-cols-3 gap-2 border-b border-slate-100 bg-white px-5 py-3 text-center">
+              <div className="rounded-xl bg-red-50/70 border border-red-100 p-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-red-600">Current Debt</p>
+                <p className="text-sm font-black text-red-700 mt-0.5">
+                  {Number(selectedOrderCustomer.current_debt || 0).toLocaleString()} <span className="text-[10px]">ETB</span>
+                </p>
+              </div>
+              <div className="rounded-xl bg-blue-50/70 border border-blue-100 p-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Credit Limit</p>
+                <p className="text-sm font-black text-blue-700 mt-0.5">
+                  {(selectedOrderCustomer.tier || "").toLowerCase().includes("gold") ||
+                  Number(selectedOrderCustomer.credit_limit || 0) >= 999999
+                    ? "♾️ Unlimited"
+                    : `${Number(selectedOrderCustomer.credit_limit || 0).toLocaleString()} ETB`}
+                </p>
+              </div>
+              <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Available Credit</p>
+                <p className="text-sm font-black text-emerald-700 mt-0.5">
+                  {(selectedOrderCustomer.tier || "").toLowerCase().includes("gold") ||
+                  Number(selectedOrderCustomer.credit_limit || 0) >= 999999
+                    ? "♾️ Unlimited"
+                    : `${Math.max(
+                        Number(selectedOrderCustomer.credit_limit || 0) -
+                          Number(selectedOrderCustomer.current_debt || 0),
+                        0
+                      ).toLocaleString()} ETB`}
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Body: Credit Orders List */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <Receipt className="h-3.5 w-3.5 text-amber-600" />
+                  All Orders Settled On Credit ({customerOrders.length})
+                </h4>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  Click any order to share receipt
+                </span>
+              </div>
+
+              {loadingOrders ? (
+                <div className="py-16 text-center">
+                  <div className="mx-auto h-8 w-8 animate-spin rounded-full border-3 border-amber-500 border-t-transparent mb-2" />
+                  <p className="text-xs font-bold text-slate-600">Loading customer credit orders...</p>
+                </div>
+              ) : ordersError ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-center">
+                  <p className="text-xs font-bold text-red-700">{ordersError}</p>
+                  <button
+                    type="button"
+                    onClick={reloadCustomerOrders}
+                    className="mt-2 inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 cursor-pointer"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : customerOrders.length === 0 ? (
+                <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                  <ShoppingBag className="mx-auto mb-2 h-10 w-10 text-slate-300" />
+                  <p className="text-xs font-bold text-slate-700">No Credit Orders Found</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    This customer has not charged any POS orders to credit yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {customerOrders.map((ord) => {
+                    const orderDate = ord.paid_at
+                      ? new Date(ord.paid_at)
+                      : new Date(ord.order_created_at || Date.now());
+                    const billedAmount = Number(ord.payment_amount || ord.order_total || 0);
+                    const itemsCount = (ord.items || []).reduce(
+                      (sum, itm) => sum + Number(itm.quantity || 1),
+                      0
+                    );
+
+                    return (
+                      <div
+                        key={ord.payment_id || ord.order_id}
+                        onClick={() => handleSelectOrderForReceipt(ord)}
+                        className="group relative rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs hover:border-amber-400 hover:shadow-md transition cursor-pointer"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2.5 border-b border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-700 font-bold border border-amber-200 text-xs">
+                              #{ord.order_number || ord.order_id}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-extrabold text-slate-900 group-hover:text-amber-700 transition">
+                                  Order #{ord.order_number || ord.order_id}
+                                </span>
+                                {ord.table_number && (
+                                  <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                                    Table {ord.table_number}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
+                                <Calendar className="h-3 w-3" />
+                                {orderDate.toLocaleString([], {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                                {ord.waiter_name && ` • Served by ${ord.waiter_name}`}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between sm:justify-end gap-3">
+                            <div className="text-left sm:text-right">
+                              <span className="block text-sm font-black text-slate-900">
+                                {billedAmount.toLocaleString()} ETB
+                              </span>
+                              <span className="text-[10px] text-emerald-600 font-bold uppercase">
+                                Charged to Credit
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectOrderForReceipt(ord);
+                              }}
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition active:scale-95 cursor-pointer"
+                              title="Share Receipt Statement"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" />
+                              Share Receipt
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Order Items Preview */}
+                        {ord.items && ord.items.length > 0 && (
+                          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+                              Items ({itemsCount}):
+                            </span>
+                            {ord.items.map((itm, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center gap-1 rounded-md bg-slate-50 border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700"
+                              >
+                                <span className="font-bold text-amber-700">{itm.quantity}x</span>
+                                {itm.product_name}
+                                <span className="text-[10px] text-slate-400">
+                                  ({Number(itm.total || 0).toLocaleString()} ETB)
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-5 py-3">
+              <span className="text-xs text-slate-500 font-medium">
+                Admin & Manager credit audit portal
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOrdersModal(false);
+                  setSelectedReceiptOrder(null);
+                }}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                Close History
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SHARE RECEIPT STATEMENT POPUP (Triggered when clicking a specific order) */}
+      {selectedReceiptOrder && selectedOrderCustomer && (() => {
+        const receiptData = getReceiptFormattedData();
+        if (!receiptData) return null;
+
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="relative w-full max-w-md rounded-3xl bg-white p-6 sm:p-7 text-center shadow-2xl border border-slate-100 space-y-4">
+              
+              {/* Close Button Top-Right */}
+              <button
+                type="button"
+                onClick={() => setSelectedReceiptOrder(null)}
+                className="absolute right-4 top-4 rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              {/* Header Icon */}
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 border border-amber-200 text-amber-600 shadow-xs">
+                <Crown className="h-8 w-8" />
+              </div>
+
+              <div>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-0.5 text-xs font-bold text-amber-800 uppercase tracking-wider mb-1">
+                  VIP Credit Receipt
+                </div>
+                <h2 className="text-xl font-black text-slate-900">
+                  {selectedOrderCustomer.name}
+                </h2>
+                <p className="text-xs text-slate-500 font-medium">
+                  {selectedOrderCustomer.tier} &bull; {selectedOrderCustomer.phone || "No Phone Recorded"}
+                </p>
+              </div>
+
+              {/* Statement Card */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-2.5 text-xs text-left">
+                <div className="flex justify-between items-center text-slate-900 pb-2 border-b border-slate-200/80">
+                  <span className="font-bold text-slate-600">Billed This Visit:</span>
+                  <span className="text-base font-black text-blue-700">
+                    {receiptData.chargedAmount.toFixed(2)} ETB
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-slate-600 font-medium pt-1">
+                  <span>Order Reference:</span>
+                  <span className="font-bold text-slate-800">
+                    #{selectedReceiptOrder.order_number || selectedReceiptOrder.order_id}
+                  </span>
+                </div>
+
+                {selectedReceiptOrder.table_number && (
+                  <div className="flex justify-between text-slate-600 font-medium">
+                    <span>Table:</span>
+                    <span className="font-bold text-slate-800">
+                      Table {selectedReceiptOrder.table_number}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-between text-slate-600 font-medium">
+                  <span>Date & Time:</span>
+                  <span className="font-bold text-slate-800">
+                    {receiptData.date.toLocaleString([], {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-slate-600 font-medium">
+                  <span>Credit Ceiling / Limit:</span>
+                  <span className="font-bold text-slate-800">
+                    {receiptData.isUnlimited ? "Unlimited" : `${receiptData.limit.toLocaleString()} ETB`}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-slate-600 font-medium">
+                  <span>Accumulated Debt:</span>
+                  <span className="font-bold text-amber-700">
+                    {receiptData.debt.toLocaleString()} ETB
+                  </span>
+                </div>
+
+                {/* Items preview */}
+                {receiptData.items && receiptData.items.length > 0 && (
+                  <div className="pt-2 border-t border-slate-200/60">
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Ordered Items:
+                    </span>
+                    <div className="max-h-24 overflow-y-auto space-y-1 pr-1">
+                      {receiptData.items.map((itm, i) => (
+                        <div key={i} className="flex justify-between text-[11px] text-slate-700">
+                          <span>{itm.quantity}x {itm.product_name}</span>
+                          <span className="font-semibold">{Number(itm.total || 0).toFixed(2)} ETB</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center text-emerald-950 font-extrabold text-sm border-t border-slate-200/80 pt-2.5 mt-1 bg-emerald-50/60 -mx-4 -mb-4 p-3 rounded-b-2xl border-emerald-100">
+                  <span className="text-emerald-900 font-bold">Remaining Available Limit:</span>
+                  <span className="text-emerald-700 font-black text-base">
+                    {receiptData.isUnlimited
+                      ? "Unlimited"
+                      : `${receiptData.remainingLimit.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })} ETB`}
+                  </span>
+                </div>
+              </div>
+
+              {/* 1-Click Action Buttons */}
+              <div className="space-y-2 pt-1">
+                {/* WhatsApp 1-Click Button */}
+                <button
+                  type="button"
+                  onClick={() => handleShareWhatsApp(receiptData)}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 px-4 text-sm font-black text-white shadow-md shadow-emerald-600/20 active:scale-[0.98] transition cursor-pointer"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                  Send WhatsApp Receipt
+                </button>
+
+                {/* Telegram 1-Click Button */}
+                <button
+                  type="button"
+                  onClick={() => handleShareTelegram(receiptData)}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-sky-500 hover:bg-sky-600 py-3 px-4 text-sm font-black text-white shadow-md shadow-sky-500/20 active:scale-[0.98] transition cursor-pointer"
+                >
+                  <Send className="h-5 w-5" />
+                  Send Telegram Receipt
+                </button>
+
+                {/* Copy Receipt Text Button */}
+                <button
+                  type="button"
+                  onClick={() => handleCopyReceipt(receiptData)}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 py-2.5 px-4 text-xs font-bold text-slate-700 active:scale-[0.98] transition cursor-pointer"
+                >
+                  {copiedReceipt ? (
+                    <>
+                      <Check className="h-4 w-4 text-emerald-600" />
+                      <span className="text-emerald-700">Receipt Copied to Clipboard!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 text-slate-500" />
+                      <span>Copy Receipt Statement</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Return back to orders list */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedReceiptOrder(null)}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-2xl py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Back to All Orders
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

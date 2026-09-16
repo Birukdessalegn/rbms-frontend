@@ -542,49 +542,54 @@ function TodaySalesAuditPage() {
             <span>Refresh</span>
           </button>
 
-          {/* Start Shift Button if no active shift */}
-          {(!currentShift || currentShift.status !== "open") && currentShift?.status !== "closed_pending_approval" && (
-            <button
-              type="button"
-              onClick={() => {
-                setOpeningFloat("0");
-                setShowStartModal(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:bg-blue-700"
-            >
-              <PlayCircle size={15} />
-              <span>Start Shift</span>
-            </button>
-          )}
+          {/* Shift Controls (Start / Close Shift) - Strictly for Cashiers & Admins/Managers, NOT Waiters */}
+          {canManageShift && (
+            <>
+              {/* Start Shift Button if no active shift */}
+              {(!currentShift || currentShift.status !== "open") && currentShift?.status !== "closed_pending_approval" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpeningFloat("0");
+                    setShowStartModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:bg-blue-700"
+                >
+                  <PlayCircle size={15} />
+                  <span>Start Shift</span>
+                </button>
+              )}
 
-          {/* Close Shift Button + Total Money Collected Card if shift is open */}
-          {currentShift?.status === "open" && (
-            <div className="flex items-center gap-2.5">
-              {/* Little Card: Total Money Collected */}
-              <div className="flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50/90 px-3.5 py-1.5 shadow-2xs">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold shrink-0">
-                  <DollarSign size={15} />
-                </div>
-                <div className="leading-tight">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block">Total Collected</span>
-                  <span className="text-xs font-black text-emerald-950">{totalRevenue.toLocaleString()} ETB</span>
-                </div>
-              </div>
+              {/* Close Shift Button + Total Money Collected Card if shift is open */}
+              {currentShift?.status === "open" && (
+                <div className="flex items-center gap-2.5">
+                  {/* Little Card: Total Money Collected */}
+                  <div className="flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50/90 px-3.5 py-1.5 shadow-2xs">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold shrink-0">
+                      <DollarSign size={15} />
+                    </div>
+                    <div className="leading-tight">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block">Total Collected</span>
+                      <span className="text-xs font-black text-emerald-950">{totalRevenue.toLocaleString()} ETB</span>
+                    </div>
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setCountedCash("");
-                  setCashierNotes("");
-                  setCloseError("");
-                  setShowCloseModal(true);
-                }}
-                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:bg-rose-700 active:scale-95"
-              >
-                <Lock size={14} />
-                <span>Close Shift</span>
-              </button>
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCountedCash("");
+                      setCashierNotes("");
+                      setCloseError("");
+                      setShowCloseModal(true);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:bg-rose-700 active:scale-95"
+                  >
+                    <Lock size={14} />
+                    <span>Close Shift</span>
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
           <button
@@ -598,8 +603,9 @@ function TodaySalesAuditPage() {
         </div>
       </div>
 
-      {/* SHIFT STATUS & RECONCILIATION LIFECYCLE BANNER */}
-      <div className="print-hide">
+      {/* SHIFT STATUS & RECONCILIATION LIFECYCLE BANNER - Strictly for Cashiers & Admins/Managers, NOT Waiters */}
+      {canManageShift && (
+        <div className="print-hide">
         {(!currentShift || currentShift.status !== "open") && currentShift?.status !== "closed_pending_approval" && (
           <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-3">
@@ -753,6 +759,7 @@ function TodaySalesAuditPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* PRINTABLE AREA CONTAINER */}
       <div id="sales-audit-report-printable" className="space-y-6">

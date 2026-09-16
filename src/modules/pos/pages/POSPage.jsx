@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { DollarSign, Lock } from "lucide-react";
+import { useState } from "react";
 import { useRestaurant } from "../../../context/RestaurantContext";
 import { useAuth } from "../../../context/AuthContext";
 import TableSelector from "../components/TableSelector";
@@ -10,10 +9,6 @@ import api from "../../../services/api";
 import ActiveOrders from "../components/ActiveOrders";
 import DrinkPortionModal from "../components/DrinkPortionModal";
 import { getCustomShotsMap } from "../../products/ProductsPage";
-import CashierShiftBanner from "../components/CashierShiftBanner";
-import ShiftStartModal from "../components/ShiftStartModal";
-import ShiftCloseModal from "../components/ShiftCloseModal";
-import { getCurrentShift } from "../services/posApi";
 
 
 function POSPage() {
@@ -33,29 +28,6 @@ function POSPage() {
   const [activeCategory, setActiveCategory] = useState(isBartender ? "drinks" : "all");
   const [searchTerm, setSearchTerm] = useState("");
   const [portionModalProduct, setPortionModalProduct] = useState(null);
-
-  const [currentShift, setCurrentShift] = useState(null);
-  const [loadingShift, setLoadingShift] = useState(true);
-  const [isStartShiftModalOpen, setIsStartShiftModalOpen] = useState(false);
-  const [isCloseShiftModalOpen, setIsCloseShiftModalOpen] = useState(false);
-
-  const fetchCurrentShift = async () => {
-    try {
-      setLoadingShift(true);
-      const res = await getCurrentShift();
-      const active = res?.shift || res?.data || null;
-      setCurrentShift(active);
-    } catch (err) {
-      console.warn("Current cashier shift fetch:", err);
-      setCurrentShift(null);
-    } finally {
-      setLoadingShift(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCurrentShift();
-  }, []);
 
 
   // Helper to identify spirit/liquor bottle products that should open the portion serving modal
@@ -265,7 +237,8 @@ function POSPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Point of Sale
@@ -275,53 +248,7 @@ function POSPage() {
             Create and manage restaurant and bar orders.
           </p>
         </div>
-
-        {/* Top Header Quick Shift Controls */}
-        <div className="flex items-center gap-2.5">
-          {(!currentShift || currentShift.status !== "open") ? (
-            <button
-              type="button"
-              onClick={() => setIsStartShiftModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:bg-blue-700 active:scale-95"
-            >
-              <DollarSign className="h-4 w-4" />
-              <span>Start Shift</span>
-            </button>
-          ) : (
-            <div className="flex items-center gap-2.5">
-              {/* Little Card: Total Money Collected */}
-              <div className="flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-white px-3.5 py-1.5 shadow-2xs">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold shrink-0">
-                  <DollarSign className="h-4 w-4" />
-                </div>
-                <div className="leading-tight">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">Total Collected</span>
-                  <span className="text-xs font-black text-emerald-900">
-                    {parseFloat(currentShift.total_sales ?? currentShift.totalSales ?? 0).toLocaleString()} ETB
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsCloseShiftModalOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:bg-rose-700 active:scale-95"
-              >
-                <Lock className="h-4 w-4" />
-                <span>Close Shift</span>
-              </button>
-            </div>
-          )}
-        </div>
       </div>
-
-      {/* Cashier Shift Status Banner */}
-      <CashierShiftBanner
-        currentShift={currentShift}
-        loadingShift={loadingShift}
-        onStartShiftClick={() => setIsStartShiftModalOpen(true)}
-        onCloseShiftClick={() => setIsCloseShiftModalOpen(true)}
-      />
 
       <ActiveOrders />
 
@@ -424,29 +351,6 @@ function POSPage() {
         </div>
 
       </div>
-
-            {/* CASHIER SHIFT MANAGEMENT MODALS */}
-      <ShiftStartModal
-        isOpen={isStartShiftModalOpen}
-        onClose={() => setIsStartShiftModalOpen(false)}
-        cashierName={user?.name || user?.username}
-        onShiftStarted={(newShift) => {
-          setCurrentShift(newShift);
-          setIsStartShiftModalOpen(false);
-          fetchCurrentShift();
-        }}
-      />
-
-      <ShiftCloseModal
-        isOpen={isCloseShiftModalOpen}
-        onClose={() => setIsCloseShiftModalOpen(false)}
-        currentShift={currentShift}
-        onShiftClosed={() => {
-          setCurrentShift(null);
-          setIsCloseShiftModalOpen(false);
-          fetchCurrentShift();
-        }}
-      />
 
       {/* DRINK PORTION SELECTOR MODAL */}
       {portionModalProduct && (

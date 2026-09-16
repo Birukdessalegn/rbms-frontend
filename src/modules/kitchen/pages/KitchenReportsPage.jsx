@@ -155,14 +155,13 @@ function KitchenReportsPage() {
             cat.includes("salad") ||
             cat.includes("pizza") ||
             cat.includes("burger") ||
-            cat.includes("shisha") ||
-            cat.includes("hookah") ||
+            cat.includes("fruit") ||
             name.includes("steak") ||
             name.includes("chicken") ||
             name.includes("salad") ||
             name.includes("pizza") ||
             name.includes("burger") ||
-            name.includes("shisha") ||
+            name.includes("fruit") ||
             name.includes("fries") ||
             name.includes("pasta") ||
             name.includes("rice")

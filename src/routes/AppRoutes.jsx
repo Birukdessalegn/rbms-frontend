@@ -277,7 +277,7 @@ function AppRoutes() {
 
 
             {/* -------------------------
-                FRUIT & SHISHA
+                FRUIT
             -------------------------- */}
 
             <Route

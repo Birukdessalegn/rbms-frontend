@@ -123,7 +123,7 @@ function KitchenLiveAssetsPage() {
     return map;
   }, [kitchenOrders]);
 
-  // Filter products to only Food, Kitchen Dishes, Salads, Pizza, Hookah/Shisha
+  // Filter products to only Food, Kitchen Dishes, Salads, Pizza, Fruit
   const kitchenDishes = useMemo(() => {
     return products
       .filter((p) => {
@@ -155,8 +155,7 @@ function KitchenLiveAssetsPage() {
           cat.includes("salad") ||
           cat.includes("dessert") ||
           cat.includes("pizza") ||
-          cat.includes("shisha") ||
-          cat.includes("hookah");
+          cat.includes("fruit");
 
         const isFoodName =
           pName.includes("steak") ||
@@ -166,8 +165,7 @@ function KitchenLiveAssetsPage() {
           pName.includes("pizza") ||
           pName.includes("burger") ||
           pName.includes("cake") ||
-          pName.includes("shisha") ||
-          pName.includes("hookah") ||
+          pName.includes("fruit") ||
           pName.includes("soup") ||
           pName.includes("fries") ||
           pName.includes("rice");
@@ -213,8 +211,8 @@ function KitchenLiveAssetsPage() {
           subCategory = "Salads & Starters";
         } else if (pName.includes("pizza") || pName.includes("burger") || pName.includes("fries")) {
           subCategory = "Pizza & Fast Food";
-        } else if (pName.includes("shisha") || pName.includes("hookah")) {
-          subCategory = "Hookah / Shisha";
+        } else if (pName.includes("fruit") || cat.includes("fruit")) {
+          subCategory = "Fruit";
         } else if (pName.includes("cake") || pName.includes("dessert") || pName.includes("ice cream")) {
           subCategory = "Desserts";
         }
@@ -242,7 +240,7 @@ function KitchenLiveAssetsPage() {
       if (activeCategory === "mains" && !d.subCategory.includes("Mains")) return false;
       if (activeCategory === "salads" && !d.subCategory.includes("Salads")) return false;
       if (activeCategory === "fast_food" && !d.subCategory.includes("Pizza")) return false;
-      if (activeCategory === "shisha" && !d.subCategory.includes("Shisha")) return false;
+      if (activeCategory === "fruit" && !d.subCategory.includes("Fruit")) return false;
       if (activeCategory === "low_stock" && !d.isLowStock && !d.isOutOfStock) return false;
 
       // Search filter
@@ -415,7 +413,7 @@ function KitchenLiveAssetsPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search dishes, plates, salads, shisha, or code..."
+              placeholder="Search dishes, plates, salads, fruit, or code..."
               className="w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-10 pr-4 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/10"
             />
           </div>
@@ -456,7 +454,7 @@ function KitchenLiveAssetsPage() {
             { id: "mains", label: "🍽️ Plates & Mains" },
             { id: "salads", label: "🥗 Salads & Starters" },
             { id: "fast_food", label: "🍕 Pizza & Fast Food" },
-            { id: "shisha", label: "💨 Hookah / Shisha" },
+            { id: "fruit", label: "🍏 Fruit" },
             { id: "low_stock", label: "⚠️ Low & Out of Stock" },
           ].map((cat) => (
             <button

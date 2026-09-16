@@ -802,7 +802,7 @@ function ProductsPage() {
           (product.category_name || "").toLowerCase().includes("food") ||
           (product.category_name || "").toLowerCase().includes("kitchen")
         )) ||
-        (categoryFilter === "group_fruit" && (
+        ((categoryFilter === "fruit" || categoryFilter === "group_fruit") && (
           (product.category_name || "").toLowerCase().includes("fruit") ||
           (product.category_type || "").toLowerCase().includes("fruit") ||
           (product.name || "").toLowerCase().includes("fruit")
@@ -1014,6 +1014,13 @@ function ProductsPage() {
       (product.category_name || "").toLowerCase().includes("drink")
   ).length;
 
+  const fruitProducts = products.filter(
+    (product) =>
+      product.category_type === "fruit" ||
+      (product.category_name || "").toLowerCase().includes("fruit") ||
+      (product.name || "").toLowerCase().includes("fruit")
+  ).length;
+
   const inventoryProducts = products.filter(
     (product) =>
       product.category_type === "inventory" ||
@@ -1163,7 +1170,7 @@ function ProductsPage() {
           SUMMARY
       ====================================================== */}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
 
         <SummaryCard
           title="Total Products"
@@ -1181,6 +1188,12 @@ function ProductsPage() {
           title="Food"
           value={foodProducts}
           icon={Utensils}
+        />
+
+        <SummaryCard
+          title="Fruit"
+          value={fruitProducts}
+          icon={Apple}
         />
 
         <SummaryCard
@@ -2133,7 +2146,7 @@ function ProductsPage() {
                       <option value="plate">Plate (Main dishes / Food meals)</option>
                       <option value="portion">Portion (Salads / Appetizers / Sides)</option>
                       <option value="bowl">Bowl (Soups / Stews)</option>
-                      <option value="pcs">Pieces / pcs (Burgers / Sambusa / Shisha)</option>
+                      <option value="pcs">Pieces / pcs (Burgers / Sambusa / Fruit)</option>
                     </optgroup>
 
                     <optgroup label="🍸 Bar & Beverage Servings">
@@ -2736,7 +2749,7 @@ function ProductsPage() {
                 </label>
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    { label: "Fruit", type: "food" },
+                    { label: "Fruit", type: "fruit" },
                     { label: "Dessert", type: "food" },
                     { label: "Salad", type: "food" },
                     { label: "Wine", type: "bar" },
@@ -2803,7 +2816,7 @@ function ProductsPage() {
                     Drink & Bar (Liquor, beers, wines, beverages)
                   </option>
                   <option value="fruit">
-                    Fruit (Fruit platters, Shisha & Lounge)
+                    Fruit (Fruit platters & juices)
                   </option>
                   <option value="supply">
                     Supply / Operational Materials

@@ -40,7 +40,7 @@ const roles = [
   { id: 8, name: "bartender", label: "Bartender", isOffline: false },
   { id: 9, name: "fb_controller", label: "F&B Controller / Kitchen Auditor", isOffline: false },
   { id: 10, name: "fruit_manager", label: "Fruit Manager", isOffline: false },
-  { id: 11, name: "fruit", label: "Fruit Man (Prep / Shisha)", isOffline: true },
+  { id: 11, name: "fruit", label: "Fruit Man (Fruit Prep)", isOffline: true },
 ];
 
 const departments = [

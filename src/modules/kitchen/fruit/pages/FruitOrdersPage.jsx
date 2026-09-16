@@ -20,8 +20,8 @@ import api from "../../../../services/api";
 import audioService from "../../../../services/audioService";
 import NewOrderAlertModal from "../../../../components/common/NewOrderAlertModal";
 
-// Helper: Check if an item belongs to Fruit or Shisha station
-function isFruitOrShishaItem(item) {
+// Helper: Check if an item belongs to Fruit station
+function isFruitItem(item) {
   if (!item) return false;
   const name = String(item.product_name || item.name || item.description || "").toLowerCase();
   const cat = String(item.category_name || item.category || "").toLowerCase();
@@ -31,22 +31,16 @@ function isFruitOrShishaItem(item) {
   if (
     cat === "fruit" ||
     catType === "fruit" ||
-    cat.includes("fruit") ||
-    cat.includes("shisha") ||
-    cat.includes("hookah")
+    cat.includes("fruit")
   ) {
     return true;
   }
 
   const keywords = [
     "fruit",
-    "shisha",
-    "shesha",
-    "hookah",
     "apple",
     "mint",
     "grape",
-    "coal",
     "watermelon",
     "juice",
     "smoothie",
@@ -103,7 +97,7 @@ export default function FruitOrdersPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("active"); // "active" | "pending" | "preparing" | "ready" | "completed" | "all"
-  const [onlyFruitShisha, setOnlyFruitShisha] = useState(true);
+  const [onlyFruit, setOnlyFruit] = useState(true);
   const [search, setSearch] = useState("");
   const [alertOrder, setAlertOrder] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -133,10 +127,10 @@ export default function FruitOrdersPage() {
         );
 
         if (newOrder) {
-          // Check if this new order has fruit/shisha items
+          // Check if this new order has fruit items
           const items = parseOrderItems(newOrder);
-          const hasFruitItem = items.some(isFruitOrShishaItem);
-          if (hasFruitItem || !onlyFruitShisha) {
+          const hasFruitItem = items.some(isFruitItem);
+          if (hasFruitItem || !onlyFruit) {
             audioService.playNewOrderSound();
             setAlertOrder(newOrder);
           }
@@ -158,7 +152,7 @@ export default function FruitOrdersPage() {
     fetchOrders();
     const timer = setInterval(() => fetchOrders(false), 4000);
     return () => clearInterval(timer);
-  }, [soundEnabled, onlyFruitShisha]);
+  }, [soundEnabled, onlyFruit]);
 
   // Handle status transitions
   const handleUpdateStatus = async (order, nextStatus) => {
@@ -187,9 +181,9 @@ export default function FruitOrdersPage() {
       const items = parseOrderItems(o);
 
       // 1. Station relevance filter
-      if (onlyFruitShisha) {
-        const hasFruitOrShisha = items.some(isFruitOrShishaItem);
-        if (!hasFruitOrShisha) return false;
+      if (onlyFruit) {
+        const hasFruit = items.some(isFruitItem);
+        if (!hasFruit) return false;
       }
 
       // 2. Status filter
@@ -223,7 +217,7 @@ export default function FruitOrdersPage() {
 
       return true;
     });
-  }, [orders, onlyFruitShisha, statusFilter, search]);
+  }, [orders, onlyFruit, statusFilter, search]);
 
   // Statistics counters
   const stats = useMemo(() => {
@@ -234,8 +228,8 @@ export default function FruitOrdersPage() {
 
     orders.forEach((o) => {
       const items = parseOrderItems(o);
-      const hasFruit = items.some(isFruitOrShishaItem);
-      if (!hasFruit && onlyFruitShisha) return;
+      const hasFruit = items.some(isFruitItem);
+      if (!hasFruit && onlyFruit) return;
 
       totalFruitOrders++;
       const st = String(o.status || "").toLowerCase();
@@ -245,7 +239,7 @@ export default function FruitOrdersPage() {
     });
 
     return { pendingCount, preparingCount, readyCount, totalFruitOrders };
-  }, [orders, onlyFruitShisha]);
+  }, [orders, onlyFruit]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-16 font-sans">
@@ -268,14 +262,14 @@ export default function FruitOrdersPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                  Fruit & Shisha Station
+                  Fruit Station
                 </h1>
                 <span className="rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-bold">
                   LIVE KDS
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Fruit Manager Live Queue • Shisha, Fresh Fruit Platters & Juices
+                Fruit Manager Live Queue • Fresh Fruit Platters & Juices
               </p>
             </div>
           </div>
@@ -296,17 +290,17 @@ export default function FruitOrdersPage() {
               <span>{soundEnabled ? "Sound On" : "Muted"}</span>
             </button>
 
-            {/* FRUIT & SHISHA ONLY FILTER TOGGLE */}
+            {/* FRUIT ONLY FILTER TOGGLE */}
             <button
-              onClick={() => setOnlyFruitShisha((prev) => !prev)}
+              onClick={() => setOnlyFruit((prev) => !prev)}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition border ${
-                onlyFruitShisha
+                onlyFruit
                   ? "bg-orange-500/20 text-orange-300 border-orange-500/40"
                   : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
               }`}
             >
               <Filter size={15} />
-              <span>{onlyFruitShisha ? "Fruit & Shisha Only" : "All Orders"}</span>
+              <span>{onlyFruit ? "Fruit Only" : "All Orders"}</span>
             </button>
 
             {/* REFRESH */}
@@ -457,7 +451,7 @@ export default function FruitOrdersPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 text-slate-400">
             <RefreshCw size={32} className="animate-spin text-orange-500 mb-3" />
-            <p className="text-sm font-medium">Loading Fruit & Shisha orders...</p>
+            <p className="text-sm font-medium">Loading Fruit orders...</p>
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-900/30 py-20 px-4 text-center">
@@ -471,7 +465,7 @@ export default function FruitOrdersPage() {
               {search
                 ? `No orders matching "${search}". Try clearing your search.`
                 : statusFilter === "pending"
-                ? "All caught up! No pending Fruit or Shisha orders waiting to prepare."
+                ? "All caught up! No pending Fruit orders waiting to prepare."
                 : "There are currently no orders under this status."}
             </p>
             {(search || statusFilter !== "active") && (
@@ -569,7 +563,7 @@ export default function FruitOrdersPage() {
                   {/* ITEMS LIST */}
                   <div className="p-4 space-y-2.5 flex-1 overflow-y-auto max-h-64">
                     {items.map((item, idx) => {
-                      const isSpecialFruit = isFruitOrShishaItem(item);
+                      const isSpecialFruit = isFruitItem(item);
                       const itemName = item.product_name || item.name || "Item";
 
                       return (
@@ -599,9 +593,7 @@ export default function FruitOrdersPage() {
 
                           {isSpecialFruit && (
                             <span className="shrink-0 rounded-md bg-orange-500/20 px-1.5 py-0.5 text-[10px] font-bold text-orange-400 border border-orange-500/30">
-                              {itemName.toLowerCase().includes("shisha") || itemName.toLowerCase().includes("hookah")
-                                ? "💨 Shisha"
-                                : "🍉 Fruit"}
+                              🍉 Fruit
                             </span>
                           )}
                         </div>

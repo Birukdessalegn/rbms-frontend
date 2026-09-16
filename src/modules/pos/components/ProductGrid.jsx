@@ -58,7 +58,7 @@ const filteredProducts = products.filter((product) => {
     pTags.includes(selCat) ||
     (selCat === "food" && (pCatType === "food" || pCatName.includes("food") || pCatName.includes("kitchen"))) ||
     (selCat === "drinks" && (pCatType === "beverage" || pCatType === "bar" || pCatName.includes("drink") || pCatName.includes("beer") || pCatName.includes("wine"))) ||
-    (selCat === "fruit" && (pTags.includes("fruit") || pCatName.includes("fruit") || pName.includes("fruit"))) ||
+    (selCat === "fruit" && (pTags.includes("fruit") || pCatName.includes("fruit") || pCatType.includes("fruit") || pName.includes("fruit"))) ||
     (selCat === "bar" && (pCatType === "bar" || pCatName.includes("bar") || pCatName.includes("beer") || pCatName.includes("wine") || pTags.includes("beer") || pTags.includes("whiskey")));
 
   const matchesSearch =

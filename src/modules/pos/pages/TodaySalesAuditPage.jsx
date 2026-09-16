@@ -561,21 +561,34 @@ function TodaySalesAuditPage() {
             </button>
           )}
 
-          {/* Close Daily Audit Button if shift is open */}
+          {/* Close Shift Button + Total Money Collected Card if shift is open */}
           {currentShift?.status === "open" && (
-            <button
-              type="button"
-              onClick={() => {
-                setCountedCash("");
-                setCashierNotes("");
-                setCloseError("");
-                setShowCloseModal(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:bg-emerald-700"
-            >
-              <Lock size={14} />
-              <span>Close Daily Audit</span>
-            </button>
+            <div className="flex items-center gap-2.5">
+              {/* Little Card: Total Money Collected */}
+              <div className="flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50/90 px-3.5 py-1.5 shadow-2xs">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold shrink-0">
+                  <DollarSign size={15} />
+                </div>
+                <div className="leading-tight">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block">Total Collected</span>
+                  <span className="text-xs font-black text-emerald-950">{totalRevenue.toLocaleString()} ETB</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCountedCash("");
+                  setCashierNotes("");
+                  setCloseError("");
+                  setShowCloseModal(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:bg-rose-700 active:scale-95"
+              >
+                <Lock size={14} />
+                <span>Close Shift</span>
+              </button>
+            </div>
           )}
 
           <button
@@ -644,10 +657,10 @@ function TodaySalesAuditPage() {
                 setCloseError("");
                 setShowCloseModal(true);
               }}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm hover:bg-emerald-800 transition shrink-0"
+              className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm hover:bg-rose-700 transition shrink-0"
             >
               <Lock size={14} />
-              <span>Close Daily Audit & Handover</span>
+              <span>Close Shift &amp; Handover</span>
             </button>
           </div>
         )}

@@ -26,7 +26,20 @@ function DrinkPortionModal({ product, onClose, onSelectPortion }) {
     product.product_image;
   const imageUrl = formatImageUrl(rawImage);
 
-  const options = [
+  const allowSingle = product.allow_single_shot ?? product.allowSingleShot ?? localData?.allowSingleShot ?? true;
+  const allowDouble = product.allow_double_shot ?? product.allowDoubleShot ?? localData?.allowDoubleShot ?? true;
+  const allowHalf = product.allow_half_bottle ?? product.allowHalfBottle ?? localData?.allowHalfBottle ?? true;
+  const allowFull = product.allow_full_bottle ?? product.allowFullBottle ?? localData?.allowFullBottle ?? true;
+
+  const customDoublePrice = Number(product.double_shot_price || product.doubleShotPrice || localData?.doubleShotPrice);
+  const customHalfPrice = Number(product.half_bottle_price || product.halfBottlePrice || localData?.halfBottlePrice);
+  const customBottlePrice = Number(product.bottle_price || product.bottlePrice || localData?.bottlePrice);
+
+  const doublePrice = customDoublePrice > 0 ? customDoublePrice : basePrice * 2;
+  const halfPrice = customHalfPrice > 0 ? customHalfPrice : basePrice * halfShots;
+  const fullPrice = customBottlePrice > 0 ? customBottlePrice : basePrice * totalShots;
+
+  const rawOptions = [
     {
       id: "single",
       title: "Single Shot",
@@ -35,35 +48,42 @@ function DrinkPortionModal({ product, onClose, onSelectPortion }) {
       price: basePrice,
       badge: "1 Shot",
       description: "Standard 1x Shot Portion",
+      enabled: Boolean(allowSingle),
     },
     {
       id: "double",
       title: "Double Shot",
       icon: "🥃🥃",
       shots: 2,
-      price: basePrice * 2,
-      badge: "2 Shots",
+      price: doublePrice,
+      badge: customDoublePrice > 0 ? "2 Shots (Special)" : "2 Shots",
       description: "Double 2x Shot Portion",
+      enabled: Boolean(allowDouble),
     },
     {
       id: "half_bottle",
       title: "Half Bottle",
       icon: "🍾",
       shots: halfShots,
-      price: basePrice * halfShots,
+      price: halfPrice,
       badge: `${halfShots} Shots`,
       description: `Half Bottle (${halfShots} Shots)`,
+      enabled: Boolean(allowHalf),
     },
     {
       id: "full_bottle",
       title: "Full Bottle",
       icon: "🍾🍾",
       shots: totalShots,
-      price: basePrice * totalShots,
+      price: fullPrice,
       badge: `${totalShots} Shots (1 Full Bottle)`,
       description: `Complete Full Bottle (${totalShots} Shots)`,
+      enabled: Boolean(allowFull),
     },
   ];
+
+  const filteredOptions = rawOptions.filter((opt) => opt.enabled);
+  const options = filteredOptions.length > 0 ? filteredOptions : rawOptions;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">

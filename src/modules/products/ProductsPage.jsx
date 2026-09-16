@@ -67,13 +67,20 @@ export const getCustomShotsMap = () => {
   }
 };
 
-export const setCustomProductShots = (productIdOrCode, shots, isShotItem = true) => {
+export const setCustomProductShots = (productIdOrCode, shots, isShotItem = true, extra = {}) => {
   try {
     if (!productIdOrCode) return;
     const map = getCustomShotsMap();
     map[String(productIdOrCode)] = {
       shots: Number(shots) > 0 ? Number(shots) : 30,
       isShotItem: Boolean(isShotItem),
+      doubleShotPrice: extra.doubleShotPrice !== undefined ? extra.doubleShotPrice : (map[String(productIdOrCode)]?.doubleShotPrice ?? null),
+      halfBottlePrice: extra.halfBottlePrice !== undefined ? extra.halfBottlePrice : (map[String(productIdOrCode)]?.halfBottlePrice ?? null),
+      bottlePrice: extra.bottlePrice !== undefined ? extra.bottlePrice : (map[String(productIdOrCode)]?.bottlePrice ?? null),
+      allowSingleShot: extra.allowSingleShot !== undefined ? extra.allowSingleShot : (map[String(productIdOrCode)]?.allowSingleShot ?? true),
+      allowDoubleShot: extra.allowDoubleShot !== undefined ? extra.allowDoubleShot : (map[String(productIdOrCode)]?.allowDoubleShot ?? true),
+      allowHalfBottle: extra.allowHalfBottle !== undefined ? extra.allowHalfBottle : (map[String(productIdOrCode)]?.allowHalfBottle ?? true),
+      allowFullBottle: extra.allowFullBottle !== undefined ? extra.allowFullBottle : (map[String(productIdOrCode)]?.allowFullBottle ?? true),
     };
     localStorage.setItem("rbms_custom_shots_map", JSON.stringify(map));
   } catch (err) {
@@ -219,6 +226,13 @@ function ProductsPage() {
     isTodaysSpecial: false,
     shotsCapacity: "30",
     isShotItem: false,
+    doubleShotPrice: "",
+    halfBottlePrice: "",
+    bottlePrice: "",
+    allowSingleShot: true,
+    allowDoubleShot: true,
+    allowHalfBottle: true,
+    allowFullBottle: true,
     applicableFor: "both", // "both" | "sales" | "inventory"
   });
 
@@ -477,6 +491,13 @@ function ProductsPage() {
       isTodaysSpecial: false,
       shotsCapacity: "30",
       isShotItem: false,
+      doubleShotPrice: "",
+      halfBottlePrice: "",
+      bottlePrice: "",
+      allowSingleShot: true,
+      allowDoubleShot: true,
+      allowHalfBottle: true,
+      allowFullBottle: true,
       applicableFor: "both",
     });
 
@@ -507,6 +528,15 @@ function ProductsPage() {
     const localApp = appMap[String(prod.id)] || appMap[String(prod.product_code || prod.productCode)];
     const resolvedApplicableFor = prod.applicable_for || prod.applicableFor || localApp || "both";
 
+    const resolvedDoubleShotPrice = prod.double_shot_price !== null && prod.double_shot_price !== undefined ? String(prod.double_shot_price) : (localData?.doubleShotPrice !== null && localData?.doubleShotPrice !== undefined ? String(localData.doubleShotPrice) : "");
+    const resolvedHalfBottlePrice = prod.half_bottle_price !== null && prod.half_bottle_price !== undefined ? String(prod.half_bottle_price) : (localData?.halfBottlePrice !== null && localData?.halfBottlePrice !== undefined ? String(localData.halfBottlePrice) : "");
+    const resolvedBottlePrice = prod.bottle_price !== null && prod.bottle_price !== undefined ? String(prod.bottle_price) : (localData?.bottlePrice !== null && localData?.bottlePrice !== undefined ? String(localData.bottlePrice) : "");
+
+    const resolvedAllowSingle = prod.allow_single_shot !== undefined && prod.allow_single_shot !== null ? Boolean(prod.allow_single_shot) : (localData?.allowSingleShot !== undefined ? Boolean(localData.allowSingleShot) : true);
+    const resolvedAllowDouble = prod.allow_double_shot !== undefined && prod.allow_double_shot !== null ? Boolean(prod.allow_double_shot) : (localData?.allowDoubleShot !== undefined ? Boolean(localData.allowDoubleShot) : true);
+    const resolvedAllowHalf = prod.allow_half_bottle !== undefined && prod.allow_half_bottle !== null ? Boolean(prod.allow_half_bottle) : (localData?.allowHalfBottle !== undefined ? Boolean(localData.allowHalfBottle) : true);
+    const resolvedAllowFull = prod.allow_full_bottle !== undefined && prod.allow_full_bottle !== null ? Boolean(prod.allow_full_bottle) : (localData?.allowFullBottle !== undefined ? Boolean(localData.allowFullBottle) : true);
+
     setForm({
       productCode: prod.product_code || prod.productCode || "",
       name: prod.name || "",
@@ -524,6 +554,13 @@ function ProductsPage() {
       isTodaysSpecial: prod.is_todays_special ?? prod.isTodaysSpecial ?? false,
       shotsCapacity: resolvedShots,
       isShotItem: Boolean(resolvedIsShotItem),
+      doubleShotPrice: resolvedDoubleShotPrice,
+      halfBottlePrice: resolvedHalfBottlePrice,
+      bottlePrice: resolvedBottlePrice,
+      allowSingleShot: resolvedAllowSingle,
+      allowDoubleShot: resolvedAllowDouble,
+      allowHalfBottle: resolvedAllowHalf,
+      allowFullBottle: resolvedAllowFull,
       applicableFor: resolvedApplicableFor,
     });
 
@@ -612,6 +649,27 @@ function ProductsPage() {
       formData.append("isShotItem", String(isShotItemBool));
       formData.append("is_shot_item", String(isShotItemBool));
 
+      const doubleShotVal = form.doubleShotPrice !== undefined && form.doubleShotPrice !== "" ? String(form.doubleShotPrice) : "";
+      formData.append("doubleShotPrice", doubleShotVal);
+      formData.append("double_shot_price", doubleShotVal);
+
+      const halfBottleVal = form.halfBottlePrice !== undefined && form.halfBottlePrice !== "" ? String(form.halfBottlePrice) : "";
+      formData.append("halfBottlePrice", halfBottleVal);
+      formData.append("half_bottle_price", halfBottleVal);
+
+      const bottleVal = form.bottlePrice !== undefined && form.bottlePrice !== "" ? String(form.bottlePrice) : "";
+      formData.append("bottlePrice", bottleVal);
+      formData.append("bottle_price", bottleVal);
+
+      formData.append("allowSingleShot", String(form.allowSingleShot !== false));
+      formData.append("allow_single_shot", String(form.allowSingleShot !== false));
+      formData.append("allowDoubleShot", String(form.allowDoubleShot !== false));
+      formData.append("allow_double_shot", String(form.allowDoubleShot !== false));
+      formData.append("allowHalfBottle", String(form.allowHalfBottle !== false));
+      formData.append("allow_half_bottle", String(form.allowHalfBottle !== false));
+      formData.append("allowFullBottle", String(form.allowFullBottle !== false));
+      formData.append("allow_full_bottle", String(form.allowFullBottle !== false));
+
       const appFor = form.applicableFor || "both";
       formData.append("applicableFor", appFor);
       formData.append("applicable_for", appFor);
@@ -654,12 +712,21 @@ function ProductsPage() {
       // Persist custom shots and applicable_for immediately to local registry so it's instantly available
       const savedShotsNum = Number(safeShotsCapacity);
       const savedProdId = editingProduct?.id || res?.product?.id || res?.id || res?.data?.id;
+      const extraPortionData = {
+        doubleShotPrice: form.doubleShotPrice !== "" ? Number(form.doubleShotPrice) : null,
+        halfBottlePrice: form.halfBottlePrice !== "" ? Number(form.halfBottlePrice) : null,
+        bottlePrice: form.bottlePrice !== "" ? Number(form.bottlePrice) : null,
+        allowSingleShot: form.allowSingleShot !== false,
+        allowDoubleShot: form.allowDoubleShot !== false,
+        allowHalfBottle: form.allowHalfBottle !== false,
+        allowFullBottle: form.allowFullBottle !== false,
+      };
       if (savedProdId) {
-        setCustomProductShots(savedProdId, savedShotsNum, form.isShotItem);
+        setCustomProductShots(savedProdId, savedShotsNum, form.isShotItem, extraPortionData);
         setProductApplicableFor(savedProdId, appFor);
       }
       if (code) {
-        setCustomProductShots(code, savedShotsNum, form.isShotItem);
+        setCustomProductShots(code, savedShotsNum, form.isShotItem, extraPortionData);
         setProductApplicableFor(code, appFor);
       }
 
@@ -2283,9 +2350,38 @@ function ProductsPage() {
                 </div>
 
                 {form.isShotItem ? (
-                  <div className="space-y-3 pt-2 border-t border-purple-200/60">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <FormField label="Custom Shots Per Bottle Capacity *">
+                  <div className="space-y-4 pt-2 border-t border-purple-200/60">
+                    {/* AVAILABLE PORTION SIZES CHECKBOXES */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-purple-950 block">
+                        Available Serving Sizes on POS / Order Page:
+                      </label>
+                      <p className="text-[11px] text-purple-700">
+                        Select which portions can be ordered (e.g. uncheck Single/Double for Wine or Champagne served only as Half &amp; Full Bottle).
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                        <label className={`flex items-center gap-2 rounded-xl p-2.5 border cursor-pointer transition select-none ${form.allowSingleShot ? "bg-white border-purple-500 shadow-xs ring-1 ring-purple-500/20" : "bg-slate-100/70 border-slate-200 opacity-60"}`}>
+                          <input type="checkbox" name="allowSingleShot" checked={form.allowSingleShot} onChange={handleChange} className="h-4 w-4 rounded-sm accent-purple-600 cursor-pointer" />
+                          <span className="text-xs font-bold text-slate-800">🥃 Single Shot</span>
+                        </label>
+                        <label className={`flex items-center gap-2 rounded-xl p-2.5 border cursor-pointer transition select-none ${form.allowDoubleShot ? "bg-white border-purple-500 shadow-xs ring-1 ring-purple-500/20" : "bg-slate-100/70 border-slate-200 opacity-60"}`}>
+                          <input type="checkbox" name="allowDoubleShot" checked={form.allowDoubleShot} onChange={handleChange} className="h-4 w-4 rounded-sm accent-purple-600 cursor-pointer" />
+                          <span className="text-xs font-bold text-slate-800">🥃🥃 Double Shot</span>
+                        </label>
+                        <label className={`flex items-center gap-2 rounded-xl p-2.5 border cursor-pointer transition select-none ${form.allowHalfBottle ? "bg-white border-purple-500 shadow-xs ring-1 ring-purple-500/20" : "bg-slate-100/70 border-slate-200 opacity-60"}`}>
+                          <input type="checkbox" name="allowHalfBottle" checked={form.allowHalfBottle} onChange={handleChange} className="h-4 w-4 rounded-sm accent-purple-600 cursor-pointer" />
+                          <span className="text-xs font-bold text-slate-800">🍾 Half Bottle</span>
+                        </label>
+                        <label className={`flex items-center gap-2 rounded-xl p-2.5 border cursor-pointer transition select-none ${form.allowFullBottle ? "bg-white border-purple-500 shadow-xs ring-1 ring-purple-500/20" : "bg-slate-100/70 border-slate-200 opacity-60"}`}>
+                          <input type="checkbox" name="allowFullBottle" checked={form.allowFullBottle} onChange={handleChange} className="h-4 w-4 rounded-sm accent-purple-600 cursor-pointer" />
+                          <span className="text-xs font-bold text-slate-800">🍾🍾 Full Bottle</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* BOTTLE CAPACITY & CUSTOM PORTION PRICING INPUTS */}
+                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+                      <FormField label="Bottle Capacity (Shots) *">
                         <input
                           type="number"
                           name="shotsCapacity"
@@ -2294,40 +2390,99 @@ function ProductsPage() {
                           placeholder="e.g. 25, 30, 40"
                           min="1"
                           step="1"
-                          className="w-full rounded-xl border border-purple-300 bg-white px-3.5 py-2.5 text-sm font-extrabold text-purple-900 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 shadow-xs"
+                          className="w-full rounded-xl border border-purple-300 bg-white px-3 py-2 text-sm font-extrabold text-purple-900 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 shadow-xs"
                         />
                       </FormField>
 
-                      <div className="flex items-center">
-                        <p className="text-xs text-slate-600 font-semibold italic">
-                          Type total shots inside 1 full bottle (e.g. 25 for 750ml, 40 for 1L).
-                        </p>
-                      </div>
+                      {form.allowDoubleShot && (
+                        <FormField label="Custom Double Shot Price (ETB)">
+                          <input
+                            type="number"
+                            name="doubleShotPrice"
+                            value={form.doubleShotPrice ?? ""}
+                            onChange={handleChange}
+                            placeholder={Number(form.price) > 0 ? `Auto: ${(Number(form.price) * 2).toFixed(0)} ETB` : "Optional"}
+                            min="0"
+                            step="0.01"
+                            className="w-full rounded-xl border border-purple-300 bg-white px-3 py-2 text-sm font-bold text-purple-900 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 shadow-xs"
+                          />
+                        </FormField>
+                      )}
+
+                      {form.allowHalfBottle && (
+                        <FormField label="Custom Half Bottle Price (ETB)">
+                          <input
+                            type="number"
+                            name="halfBottlePrice"
+                            value={form.halfBottlePrice ?? ""}
+                            onChange={handleChange}
+                            placeholder={Number(form.price) > 0 ? `Auto: ${(Number(form.price) * Math.max(1, Math.round(Number(form.shotsCapacity || 30) / 2))).toFixed(0)} ETB` : "Optional"}
+                            min="0"
+                            step="0.01"
+                            className="w-full rounded-xl border border-purple-300 bg-white px-3 py-2 text-sm font-bold text-purple-900 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 shadow-xs"
+                          />
+                        </FormField>
+                      )}
+
+                      {form.allowFullBottle && (
+                        <FormField label="Custom Full Bottle Price (ETB)">
+                          <input
+                            type="number"
+                            name="bottlePrice"
+                            value={form.bottlePrice ?? ""}
+                            onChange={handleChange}
+                            placeholder={Number(form.price) > 0 ? `Auto: ${(Number(form.price) * Number(form.shotsCapacity || 30)).toFixed(0)} ETB` : "Optional"}
+                            min="0"
+                            step="0.01"
+                            className="w-full rounded-xl border border-purple-300 bg-white px-3 py-2 text-sm font-bold text-purple-900 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 shadow-xs"
+                          />
+                        </FormField>
+                      )}
                     </div>
 
                     {/* LIVE PORTION PRICE CALCULATOR PREVIEW */}
-                    {Number(form.price) > 0 && Number(form.shotsCapacity || 30) > 0 && (
+                    {Number(form.price) > 0 && (
                       <div className="rounded-xl bg-white p-3 border border-purple-200 text-xs space-y-2 shadow-xs">
                         <p className="font-extrabold text-purple-900 uppercase text-[10px] tracking-wider">
-                          Live Calculated Portion Prices (Custom {form.shotsCapacity || 30} Shots Bottle):
+                          Active Selling Prices on POS:
                         </p>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-bold text-slate-800">
-                          <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
-                            <span className="text-[10px] text-slate-400 block">Single Shot</span>
-                            <span className="text-purple-700">{Number(form.price).toFixed(2)} ETB</span>
-                          </div>
-                          <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
-                            <span className="text-[10px] text-slate-400 block">Double Shot (2x)</span>
-                            <span className="text-purple-700">{(Number(form.price) * 2).toFixed(2)} ETB</span>
-                          </div>
-                          <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
-                            <span className="text-[10px] text-slate-400 block">Half Bottle ({Math.round(Number(form.shotsCapacity || 30) / 2)} Shots)</span>
-                            <span className="text-purple-700">{(Number(form.price) * Math.round(Number(form.shotsCapacity || 30) / 2)).toFixed(2)} ETB</span>
-                          </div>
-                          <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
-                            <span className="text-[10px] text-slate-400 block">Full Bottle ({form.shotsCapacity || 30} Shots)</span>
-                            <span className="text-purple-700">{(Number(form.price) * Number(form.shotsCapacity || 30)).toFixed(2)} ETB</span>
-                          </div>
+                          {form.allowSingleShot && (
+                            <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                              <span className="text-[10px] text-slate-400 block">Single Shot (1x)</span>
+                              <span className="text-purple-700 font-extrabold">{Number(form.price).toFixed(2)} ETB</span>
+                            </div>
+                          )}
+                          {form.allowDoubleShot && (
+                            <div className={`p-2 rounded-lg text-center border ${Number(form.doubleShotPrice) > 0 ? "bg-purple-50 border-purple-200" : "bg-slate-50 border-slate-100"}`}>
+                              <span className="text-[10px] text-slate-400 block">
+                                Double Shot {Number(form.doubleShotPrice) > 0 ? "⭐ Custom" : "(2x Auto)"}
+                              </span>
+                              <span className="text-purple-700 font-extrabold">
+                                {Number(form.doubleShotPrice) > 0 ? Number(form.doubleShotPrice).toFixed(2) : (Number(form.price) * 2).toFixed(2)} ETB
+                              </span>
+                            </div>
+                          )}
+                          {form.allowHalfBottle && (
+                            <div className={`p-2 rounded-lg text-center border ${Number(form.halfBottlePrice) > 0 ? "bg-purple-50 border-purple-200" : "bg-slate-50 border-slate-100"}`}>
+                              <span className="text-[10px] text-slate-400 block">
+                                Half Bottle ({Math.max(1, Math.round(Number(form.shotsCapacity || 30) / 2))} Shots) {Number(form.halfBottlePrice) > 0 ? "⭐ Custom" : ""}
+                              </span>
+                              <span className="text-purple-700 font-extrabold">
+                                {Number(form.halfBottlePrice) > 0 ? Number(form.halfBottlePrice).toFixed(2) : (Number(form.price) * Math.max(1, Math.round(Number(form.shotsCapacity || 30) / 2))).toFixed(2)} ETB
+                              </span>
+                            </div>
+                          )}
+                          {form.allowFullBottle && (
+                            <div className={`p-2 rounded-lg text-center border ${Number(form.bottlePrice) > 0 ? "bg-purple-50 border-purple-200" : "bg-slate-50 border-slate-100"}`}>
+                              <span className="text-[10px] text-slate-400 block">
+                                Full Bottle ({form.shotsCapacity || 30} Shots) {Number(form.bottlePrice) > 0 ? "⭐ Custom" : ""}
+                              </span>
+                              <span className="text-purple-700 font-extrabold">
+                                {Number(form.bottlePrice) > 0 ? Number(form.bottlePrice).toFixed(2) : (Number(form.price) * Number(form.shotsCapacity || 30)).toFixed(2)} ETB
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

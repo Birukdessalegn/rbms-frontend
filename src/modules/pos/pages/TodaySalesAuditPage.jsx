@@ -29,6 +29,23 @@ import { parseItemPortion } from "../../../utils/drinkServingHelper";
 
 function TodaySalesAuditPage() {
   const { user } = useAuth();
+
+  const userRole = (
+    typeof user?.role === "string"
+      ? user.role
+      : user?.role?.name || user?.role_name || user?.roleName || ""
+  ).toLowerCase();
+  const userRoleId = Number(
+    user?.roleId || user?.role_id || user?.role?.id || 0
+  );
+
+  const isWaiter = userRole === "waiter" || userRoleId === 6;
+  const isCashier = userRole === "cashier" || userRoleId === 5;
+  const isAdminOrManager = ["admin", "superadmin", "manager"].includes(userRole) || userRoleId === 1 || userRoleId === 2;
+
+  // Drawer shifts are strictly for Cashiers (and Manager/Admin oversight). Waiters do not open or close shifts.
+  const canManageShift = (isCashier || isAdminOrManager) && !isWaiter;
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

@@ -18,6 +18,7 @@ const rolePermissions = {
     "expenses",
     "reports",
     "finance",
+    "fruit",
   ],
 
   WAITER: ["pos", "orders"],
@@ -30,6 +31,7 @@ const rolePermissions = {
   FINANCE: ["finance", "expenses", "reports", "payments"],
   HR: ["employees"],
   FB_CONTROLLER: ["kitchen", "kitchen_audit", "inventory", "reports"],
+  FRUIT_MANAGER: ["fruit", "kitchen", "orders"],
 };
 
 function PermissionRoute({ permission }) {

@@ -48,6 +48,7 @@ import {
   Palette,
   FileText,
   DollarSign,
+  Sparkles,
 } from "lucide-react";
 
 /* =========================================================
@@ -174,6 +175,20 @@ const navigationGroups = [
             name: "Bar Reports",
             path: "/bar/reports",
             icon: BarChart3,
+          },
+        ],
+      },
+
+      {
+        name: "Fruit & Shisha",
+        icon: Sparkles,
+        permission: "fruit.view",
+
+        children: [
+          {
+            name: "Fruit & Shisha Display",
+            path: "/fruit",
+            icon: Sparkles,
           },
         ],
       },

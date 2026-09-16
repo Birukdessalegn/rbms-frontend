@@ -30,26 +30,33 @@ import api from "../../../services/api";
 // =====================================================
 
 const roles = [
-  { id: 1, name: "admin", label: "Admin" },
-  { id: 2, name: "manager", label: "Manager" },
-  { id: 3, name: "hr", label: "HR" },
-  { id: 4, name: "finance", label: "Finance" },
-  { id: 5, name: "cashier", label: "Cashier" },
-  { id: 6, name: "waiter", label: "Waiter" },
-  { id: 7, name: "chef", label: "Chef" },
-  { id: 8, name: "bartender", label: "Bartender" },
-  { id: 9, name: "fb_controller", label: "F&B Controller / Kitchen Auditor" },
+  { id: 1, name: "admin", label: "Admin", isOffline: false },
+  { id: 2, name: "manager", label: "Manager", isOffline: false },
+  { id: 3, name: "hr", label: "HR", isOffline: false },
+  { id: 4, name: "finance", label: "Finance Officer", isOffline: false },
+  { id: 5, name: "cashier", label: "Cashier", isOffline: false },
+  { id: 6, name: "waiter", label: "Waiter / Service Staff", isOffline: false },
+  { id: 7, name: "chef", label: "Chef", isOffline: false },
+  { id: 8, name: "bartender", label: "Bartender", isOffline: false },
+  { id: 9, name: "fb_controller", label: "F&B Controller / Kitchen Auditor", isOffline: false },
+  { id: 10, name: "fruit_manager", label: "Fruit Manager", isOffline: false },
+  { id: 11, name: "fruit", label: "Fruit Man (Prep / Shisha)", isOffline: true },
 ];
 
 const departments = [
-  { id: 1, name: "Management" },
-  { id: 2, name: "Human Resources" },
-  { id: 3, name: "Service" },
-  { id: 4, name: "Kitchen" },
-  { id: 5, name: "Bar" },
-  { id: 6, name: "Finance" },
-  { id: 7, name: "Administration" },
-  { id: 8, name: "Food & Beverage" },
+  { id: 1, name: "Management", defaultRoleId: 2, allowedRoleNames: ["manager", "admin"] },
+  { id: 2, name: "Human Resources", defaultRoleId: 3, allowedRoleNames: ["hr"] },
+  { id: 3, name: "Service", defaultRoleId: 6, allowedRoleNames: ["waiter"] },
+  { id: 4, name: "Kitchen", defaultRoleId: 7, allowedRoleNames: ["chef"] },
+  { id: 5, name: "Bar", defaultRoleId: 8, allowedRoleNames: ["bartender"] },
+  { id: 6, name: "Finance", defaultRoleId: 5, allowedRoleNames: ["cashier", "finance"] },
+  { id: 7, name: "Administration", defaultRoleId: 1, allowedRoleNames: ["admin"] },
+  { id: 3249, name: "Food & Beverage", defaultRoleId: 9, allowedRoleNames: ["fb_controller"] },
+  { id: 3773, name: "Fruit", defaultRoleId: 10, allowedRoleNames: ["fruit_manager", "fruit"] },
+  { id: 3774, name: "House Keeping", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
+  { id: 3775, name: "Security", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
+  { id: 3776, name: "Parking", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
+  { id: 3777, name: "Lift Man", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
 ];
 
 const statusStyles = {
@@ -345,8 +352,35 @@ function EmployeesPage() {
     setShowForm(true);
   };
 
+  const selectedRole = useMemo(() => {
+    return roles.find((r) => String(r.id) === String(form.roleId));
+  }, [form.roleId]);
+
+  const selectedDept = useMemo(() => {
+    return departments.find((d) => String(d.id) === String(form.departmentId));
+  }, [form.departmentId]);
+
+  const isOfflineStaff = Boolean(selectedRole?.isOffline || selectedDept?.isOffline);
+
+  const relevantRoles = useMemo(() => {
+    if (!form.departmentId) return roles;
+    const currentDept = departments.find((d) => String(d.id) === String(form.departmentId));
+    if (!currentDept || !currentDept.allowedRoleNames) return roles;
+    return roles.filter((r) => currentDept.allowedRoleNames.includes(r.name));
+  }, [form.departmentId]);
+
   const handleFormChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "departmentId") {
+      const currentDept = departments.find((d) => String(d.id) === String(value));
+      setForm((previous) => ({
+        ...previous,
+        departmentId: value,
+        roleId: currentDept?.defaultRoleId ? String(currentDept.defaultRoleId) : previous.roleId,
+      }));
+      return;
+    }
 
     setForm((previous) => ({
       ...previous,
@@ -386,12 +420,12 @@ function EmployeesPage() {
         return;
       }
 
-      if (!editingEmployee && !form.username.trim()) {
+      if (!isOfflineStaff && !editingEmployee && !form.username.trim()) {
         setError("Username is required.");
         return;
       }
 
-      if (!editingEmployee && !form.password.trim()) {
+      if (!isOfflineStaff && !editingEmployee && !form.password.trim()) {
         setError("Password is required.");
         return;
       }
@@ -913,7 +947,13 @@ function EmployeesPage() {
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2 text-sm text-gray-700">
                         <User size={15} className="text-gray-400" />
-                        {getEmployeeUsername(employee)}
+                        {getEmployeeUsername(employee) !== "-" ? (
+                          getEmployeeUsername(employee)
+                        ) : (
+                          <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200/60">
+                            Offline Staff
+                          </span>
+                        )}
                       </div>
                     </td>
 
@@ -930,7 +970,12 @@ function EmployeesPage() {
                               (item) => item.id === Number(employee.role_id || employee.roleId)
                             )?.name ||
                             "-";
-                          return r.toLowerCase() === "fb_controller" ? "F&B Controller" : r;
+                          const lower = r.toLowerCase();
+                          if (lower === "fb_controller") return "F&B Controller";
+                          if (lower === "fruit_manager") return "Fruit Manager";
+                          if (lower === "fruit") return "Fruit Man";
+                          const matchedRole = roles.find((item) => item.name.toLowerCase() === lower);
+                          return matchedRole?.label || r;
                         })()}
                       </span>
                     </td>
@@ -1211,73 +1256,6 @@ function EmployeesPage() {
                 </div>
               </div>
 
-              {/* LOGIN CREDENTIALS */}
-              <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-5">
-                <div className="mb-4 flex items-center gap-2">
-                  <KeyRound
-                    size={18}
-                    className="text-blue-600"
-                  />
-                  <div>
-                    <h3 className="font-semibold text-gray-900">
-                      Login Credentials
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      These credentials will be stored in the users table.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <FormInput
-                    label="Username"
-                    name="username"
-                    value={form.username}
-                    onChange={handleFormChange}
-                    placeholder="e.g. brook"
-                    required={!editingEmployee}
-                  />
-
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Password{" "}
-                      {!editingEmployee && (
-                        <span className="text-red-500">*</span>
-                      )}
-                    </label>
-
-                    <div className="relative">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        name="password"
-                        value={form.password}
-                        onChange={handleFormChange}
-                        placeholder={
-                          editingEmployee
-                            ? "Leave blank to keep current password"
-                            : "Enter password"
-                        }
-                        className="w-full rounded-lg border border-gray-200 pl-3 pr-10 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((prev) => !prev)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
-                        title={showPassword ? "Hide password" : "Show password"}
-                      >
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-
-                    {editingEmployee && (
-                      <p className="mt-1 text-xs text-gray-400">
-                        Only enter a password if you want to change it.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               {/* JOB INFORMATION */}
               <div>
                 <div className="mb-4 flex items-center gap-2">
@@ -1291,25 +1269,7 @@ function EmployeesPage() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Role <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="roleId"
-                      value={form.roleId}
-                      onChange={handleFormChange}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                    >
-                      <option value="">Select role</option>
-                      {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.label || (role.name.charAt(0).toUpperCase() + role.name.slice(1))}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
+                  {/* DEPARTMENT FIRST */}
                   <div>
                     <label className="mb-2 block text-sm font-medium text-gray-700">
                       Department <span className="text-red-500">*</span>
@@ -1323,7 +1283,27 @@ function EmployeesPage() {
                       <option value="">Select department</option>
                       {departments.map((department) => (
                         <option key={department.id} value={department.id}>
-                          {department.name}
+                          {department.name} {department.isOffline ? "(Offline / Ground)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* ROLE SECOND */}
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Role <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="roleId"
+                      value={form.roleId}
+                      onChange={handleFormChange}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                    >
+                      <option value="">Select role</option>
+                      {relevantRoles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.label || (role.name.charAt(0).toUpperCase() + role.name.slice(1))}
                         </option>
                       ))}
                     </select>
@@ -1416,6 +1396,90 @@ function EmployeesPage() {
                     onChange={handleFormChange}
                     placeholder="10000"
                   />
+                </div>
+              </div>
+
+              {/* LOGIN CREDENTIALS */}
+              <div className={`rounded-xl border p-5 transition ${isOfflineStaff ? "border-amber-200 bg-amber-50/40" : "border-blue-100 bg-blue-50/50"}`}>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <KeyRound
+                      size={18}
+                      className={isOfflineStaff ? "text-amber-600" : "text-blue-600"}
+                    />
+                    <div>
+                      <h3 className="font-semibold text-gray-900">
+                        Login Credentials {isOfflineStaff && <span className="text-xs font-normal text-amber-700 font-medium">(Optional for Offline Staff)</span>}
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        {isOfflineStaff
+                          ? "This offline position is tracked for daily attendance and payroll without system login."
+                          : "These credentials will be stored in the users table."}
+                      </p>
+                    </div>
+                  </div>
+                  {isOfflineStaff && (
+                    <span className="rounded-md bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 border border-amber-200">
+                      Offline Ground Staff
+                    </span>
+                  )}
+                </div>
+
+                {isOfflineStaff && (
+                  <div className="mb-4 rounded-lg bg-amber-100/70 p-3 text-xs text-amber-900 border border-amber-200/80">
+                    💡 <strong>Offline Staff:</strong> Employees in this position (Fruit Man, House Keeping, Security, Parking, Lift Man) operate on-ground and only participate in <strong>Daily Attendance</strong> and <strong>Payroll</strong>. A system login account is not required.
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <FormInput
+                    label="Username"
+                    name="username"
+                    value={form.username}
+                    onChange={handleFormChange}
+                    placeholder={isOfflineStaff ? "Leave blank for offline staff" : "e.g. brook"}
+                    required={!editingEmployee && !isOfflineStaff}
+                  />
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Password{" "}
+                      {!editingEmployee && !isOfflineStaff && (
+                        <span className="text-red-500">*</span>
+                      )}
+                    </label>
+
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        value={form.password}
+                        onChange={handleFormChange}
+                        placeholder={
+                          editingEmployee
+                            ? "Leave blank to keep current password"
+                            : isOfflineStaff
+                            ? "Leave blank (no password needed)"
+                            : "Enter password"
+                        }
+                        className="w-full rounded-lg border border-gray-200 pl-3 pr-10 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                        title={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+
+                    {editingEmployee && (
+                      <p className="mt-1 text-xs text-gray-400">
+                        Only enter a password if you want to change it.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 

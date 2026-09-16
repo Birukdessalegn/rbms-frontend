@@ -41,6 +41,9 @@ function RoleRedirect() {
     case "FB_CONTROLLER":
       return <Navigate to="/kitchen/audit" replace />;
 
+    case "FRUIT_MANAGER":
+      return <Navigate to="/fruit" replace />;
+
     default:
       return <Navigate to="/dashboard" replace />;
   }

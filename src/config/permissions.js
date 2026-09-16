@@ -11,6 +11,7 @@ export const ROLES = {
   HR: "HR",
   FINANCE: "FINANCE",
   FB_CONTROLLER: "FB_CONTROLLER",
+  FRUIT_MANAGER: "FRUIT_MANAGER",
 };
 
 export const ROLE_PERMISSIONS = {
@@ -25,6 +26,7 @@ export const ROLE_PERMISSIONS = {
     "kitchen.view",
     "kitchen_audit.manage",
     "bar.view",
+    "fruit.view",
     "products.view",
     "inventory.view",
     "transfers.approve",
@@ -35,6 +37,13 @@ export const ROLE_PERMISSIONS = {
     "reports.view",
     "finance.view",
     "cashier.reconcile",
+  ],
+
+  [ROLES.FRUIT_MANAGER]: [
+    "dashboard.view",
+    "fruit.view",
+    "kitchen.view",
+    "orders.view",
   ],
 
   [ROLES.FB_CONTROLLER]: [

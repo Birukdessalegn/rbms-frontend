@@ -49,6 +49,7 @@ import KitchenLiveAssetsPage from "../modules/kitchen/pages/KitchenLiveAssetsPag
 import KitchenStockAuditPage from "../modules/kitchen/pages/KitchenStockAuditPage";
 import FBAuditReportsPage from "../modules/kitchen/pages/FBAuditReportsPage";
 import KitchenReportsPage from "../modules/kitchen/pages/KitchenReportsPage";
+import FruitOrdersPage from "../modules/kitchen/pages/FruitOrdersPage";
 
 import POSPage from "../modules/pos/pages/POSPage";
 import POSReportsPage from "../modules/pos/pages/POSReportsPage";
@@ -272,6 +273,22 @@ function AppRoutes() {
                     path="/bar/reports"
                     element={<BarReportsPage />}
                 />
+            </Route>
+
+
+            {/* -------------------------
+                FRUIT & SHISHA
+            -------------------------- */}
+
+            <Route
+              element={
+                <PermissionRoute permission="fruit" />
+              }
+            >
+              <Route
+                path="/fruit"
+                element={<FruitOrdersPage />}
+              />
             </Route>
 
 

@@ -18,7 +18,10 @@ import {
   Loader2,
   DollarSign,
   Coffee,
-  Wine
+  Wine,
+  ChefHat,
+  Flame,
+  Bell
 } from "lucide-react";
 import api from "../../../services/api";
 import { useAuth } from "../../../context/AuthContext";
@@ -116,6 +119,8 @@ function StaffMenuPage() {
   useEffect(() => {
     if (activeTab === "history") {
       loadHistory();
+      const interval = setInterval(loadHistory, 8000);
+      return () => clearInterval(interval);
     }
   }, [activeTab]);
 
@@ -803,17 +808,63 @@ function StaffMenuPage() {
                 const totalAmt = Number(ord.total || 0);
                 const isFree = totalAmt === 0 || ord.payment_status === "free";
                 const itemsList = Array.isArray(ord.items) ? ord.items : [];
+                const overallStatus = String(ord.status || "pending").toLowerCase();
+
+                // Status badge styling helper
+                const getStatusBadge = (st) => {
+                  const s = String(st || "pending").toLowerCase();
+                  if (s === "ready") {
+                    return (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-black text-white shadow-xs animate-pulse">
+                        <Bell className="h-3 w-3" />
+                        READY FOR PICKUP
+                      </span>
+                    );
+                  }
+                  if (s === "preparing") {
+                    return (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-black text-white shadow-xs">
+                        <Flame className="h-3 w-3 animate-bounce" />
+                        PREPARING
+                      </span>
+                    );
+                  }
+                  if (s === "completed" || s === "served") {
+                    return (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2.5 py-0.5 text-[10px] font-bold text-slate-700">
+                        <Check className="h-3 w-3" />
+                        SERVED
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-700">
+                      <Clock className="h-3 w-3" />
+                      IN QUEUE
+                    </span>
+                  );
+                };
 
                 return (
-                  <div key={ord.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
+                  <div key={ord.id} className={`py-3.5 px-3 rounded-2xl mb-2 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                    overallStatus === "ready" 
+                      ? "bg-emerald-50/80 border-2 border-emerald-400 shadow-sm" 
+                      : overallStatus === "preparing"
+                      ? "bg-amber-50/50 border border-amber-200"
+                      : "bg-white border border-slate-100"
+                  }`}>
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-xs font-black text-purple-700">
                           #{ord.order_number}
                         </span>
                         <span className="text-xs font-bold text-slate-800">
                           {ord.notes || "Staff Meal"}
                         </span>
+                        
+                        {/* Live Kitchen/Bar Status */}
+                        {getStatusBadge(overallStatus)}
+
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
                             isFree
@@ -825,16 +876,35 @@ function StaffMenuPage() {
                         </span>
                       </div>
 
-                      {/* Items Summary */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-1">
-                        {itemsList.map((it, idx) => (
-                          <span key={it.id || idx} className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                            {it.quantity}x {it.product_name}
-                          </span>
-                        ))}
+                      {/* Prominent notification if food is ready */}
+                      {overallStatus === "ready" && (
+                        <div className="flex items-center gap-1.5 text-xs font-black text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-xl w-fit">
+                          <Bell className="h-3.5 w-3.5 text-emerald-700" />
+                          <span>Order is Ready! Please notify {ord.staff_member_name || "the staff member"} to pick up.</span>
+                        </div>
+                      )}
+
+                      {/* Items Summary with item-level status */}
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        {itemsList.map((it, idx) => {
+                          const itStatus = String(it.status || overallStatus || "pending").toLowerCase();
+                          return (
+                            <span key={it.id || idx} className={`rounded-md px-2 py-0.5 text-[11px] font-semibold flex items-center gap-1.5 ${
+                              itStatus === "ready"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300 font-black"
+                                : itStatus === "preparing"
+                                ? "bg-amber-100 text-amber-800 border border-amber-300"
+                                : "bg-slate-100 text-slate-700"
+                            }`}>
+                              <span>{it.quantity}x {it.product_name}</span>
+                              {itStatus === "ready" && <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-700">✓ Ready</span>}
+                              {itStatus === "preparing" && <span className="text-[9px] font-bold uppercase tracking-wider text-amber-700">⚡ Prep</span>}
+                            </span>
+                          );
+                        })}
                       </div>
 
-                      <p className="text-[10px] text-slate-400 mt-1">
+                      <p className="text-[10px] text-slate-400">
                         Recorded at {new Date(ord.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         {ord.staff_member_name && ` • Recipient: ${ord.staff_member_name}${ord.staff_department ? ` (${ord.staff_department})` : ""}`}
                       </p>
@@ -844,8 +914,10 @@ function StaffMenuPage() {
                       <span className="text-sm font-black text-slate-900 block">
                         {totalAmt.toLocaleString("en-US", { minimumFractionDigits: 2 })} ETB
                       </span>
-                      <span className="text-[10px] font-bold text-emerald-600">
-                        ✓ Dispatched to Kitchen/Bar
+                      <span className={`text-[10px] font-bold block mt-0.5 ${
+                        overallStatus === "ready" ? "text-emerald-700 font-black" : "text-slate-500"
+                      }`}>
+                        {overallStatus === "ready" ? "🔔 Ready for Handover" : overallStatus === "preparing" ? "🔥 Cooking in Kitchen / Bar" : "✓ Sent to Kitchen/Bar"}
                       </span>
                     </div>
                   </div>

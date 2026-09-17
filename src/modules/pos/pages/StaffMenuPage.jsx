@@ -18,7 +18,8 @@ import {
   Loader2,
   DollarSign,
   Coffee,
-  Wine
+  Wine,
+  ArrowDown
 } from "lucide-react";
 import api from "../../../services/api";
 import { useAuth } from "../../../context/AuthContext";
@@ -196,6 +197,12 @@ function StaffMenuPage() {
     return cartItems.reduce((sum, item) => sum + item.staffPrice * item.quantity, 0);
   }, [cartItems]);
 
+  const clearCart = () => setCartItems([]);
+
+  const totalCartCount = useMemo(() => {
+    return cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  }, [cartItems]);
+
   const isFreeMeal = cartSubtotal === 0;
 
   // Submit Staff Order (with Pay Now vs Pay Later options)
@@ -283,17 +290,17 @@ function StaffMenuPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-5rem)] flex-col bg-slate-100/70 p-4 md:p-6 overflow-hidden">
+    <div className="space-y-5 p-3 sm:p-4 md:p-6 pb-28 lg:pb-6 max-w-7xl mx-auto">
       
       {/* TOP HEADER */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-3xl border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-600 text-white shadow-md font-black">
-            <Utensils className="h-6 w-6" />
+          <div className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-2xl bg-purple-600 text-white shadow-md shadow-purple-600/20 font-black shrink-0">
+            <Utensils className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-black text-slate-900 tracking-tight">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
                 Staff Menu & Employee Meals
               </h1>
               <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-bold text-purple-700">
@@ -306,15 +313,15 @@ function StaffMenuPage() {
           </div>
         </div>
 
-        {/* TABS */}
-        <div className="flex items-center gap-2">
+        {/* TABS (Responsive full-width on mobile phones) */}
+        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setActiveTab("order")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition shadow-2xs ${
+            className={`flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs ${
               activeTab === "order"
                 ? "bg-purple-600 text-white shadow-purple-600/20"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
           >
             <Utensils className="h-4 w-4" />
@@ -323,39 +330,42 @@ function StaffMenuPage() {
 
           <button
             type="button"
-            onClick={() => setActiveTab("history")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition shadow-2xs ${
+            onClick={() => {
+              setActiveTab("history");
+              loadHistory();
+            }}
+            className={`flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs ${
               activeTab === "history"
                 ? "bg-purple-600 text-white shadow-purple-600/20"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
           >
             <Clock className="h-4 w-4" />
-            <span>Today's Staff Orders</span>
+            <span>Today's Orders ({historyOrders.length})</span>
           </button>
         </div>
       </div>
 
       {/* FEEDBACK BANNERS */}
       {successMessage && (
-        <div className="mb-3 flex items-center justify-between rounded-2xl bg-emerald-500/10 border border-emerald-500/30 px-4 py-2.5 text-xs font-bold text-emerald-800 animate-in fade-in">
+        <div className="flex items-center justify-between rounded-2xl bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-xs font-bold text-emerald-800 animate-in fade-in">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
             <span>{successMessage}</span>
           </div>
-          <button onClick={() => setSuccessMessage("")} className="text-emerald-700 hover:text-emerald-900">
+          <button onClick={() => setSuccessMessage("")} className="text-emerald-700 hover:text-emerald-900 p-1">
             <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {errorMessage && (
-        <div className="mb-3 flex items-center justify-between rounded-2xl bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 text-xs font-bold text-rose-800 animate-in fade-in">
+        <div className="flex items-center justify-between rounded-2xl bg-rose-500/10 border border-rose-500/30 px-4 py-3 text-xs font-bold text-rose-800 animate-in fade-in">
           <div className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
             <span>{errorMessage}</span>
           </div>
-          <button onClick={() => setErrorMessage("")} className="text-rose-700 hover:text-rose-900">
+          <button onClick={() => setErrorMessage("")} className="text-rose-700 hover:text-rose-900 p-1">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -363,14 +373,14 @@ function StaffMenuPage() {
 
       {/* TAB 1: ORDERING INTERFACE */}
       {activeTab === "order" && (
-        <div className="grid flex-1 grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           
-          {/* LEFT COLUMN: STAFF SELECTOR + MENU CATALOG (8 cols) */}
-          <div className="lg:col-span-8 flex flex-col gap-3 overflow-hidden">
+          {/* LEFT COLUMN: STAFF SELECTOR + MENU CATALOG (8 cols on lg) */}
+          <div className="lg:col-span-7 xl:col-span-8 space-y-4">
             
-            {/* EMPLOYEE PICKER CARD */}
-            <div className="rounded-2xl bg-white p-3.5 border border-slate-200 shadow-2xs">
-              <div className="flex items-center justify-between mb-2">
+            {/* STEP 1: EMPLOYEE PICKER CARD */}
+            <div className="rounded-2xl bg-white p-4 sm:p-5 border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-purple-600" />
                   <span className="text-xs font-black uppercase tracking-wider text-slate-800">
@@ -381,7 +391,7 @@ function StaffMenuPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedEmployee(null)}
-                    className="text-[11px] font-bold text-rose-600 hover:underline"
+                    className="text-xs font-bold text-rose-600 hover:underline"
                   >
                     Change Employee
                   </button>
@@ -389,16 +399,16 @@ function StaffMenuPage() {
               </div>
 
               {selectedEmployee ? (
-                <div className="flex items-center justify-between rounded-xl bg-purple-50/80 border border-purple-200/80 p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-600 text-white font-bold text-sm shadow-xs">
+                <div className="flex items-center justify-between rounded-xl bg-purple-50/80 border border-purple-200/80 p-3.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-600 text-white font-bold text-sm shadow-xs shrink-0">
                       {(selectedEmployee.first_name || "S")[0]}
                     </div>
-                    <div>
-                      <p className="text-sm font-extrabold text-slate-900">
+                    <div className="min-w-0">
+                      <p className="text-sm font-extrabold text-slate-900 truncate">
                         {selectedEmployee.first_name} {selectedEmployee.last_name || ""}
                       </p>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
                         <span className="font-semibold text-purple-700">
                           {selectedEmployee.department || "Staff"}
                         </span>
@@ -413,29 +423,29 @@ function StaffMenuPage() {
                       </div>
                     </div>
                   </div>
-                  <span className="flex items-center gap-1 rounded-lg bg-emerald-100 text-emerald-800 px-2.5 py-1 text-xs font-bold">
+                  <span className="flex items-center gap-1 rounded-lg bg-emerald-100 text-emerald-800 px-2.5 py-1 text-xs font-bold shrink-0 ml-2">
                     <Check className="h-3.5 w-3.5" /> Selected
                   </span>
                 </div>
               ) : (
                 <div>
-                  <div className="relative mb-2">
+                  <div className="relative mb-3">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Search employee by name, department, or ID..."
                       value={employeeSearch}
                       onChange={(e) => setEmployeeSearch(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2 pl-9 pr-4 text-xs font-medium outline-none focus:border-purple-500 focus:bg-white focus:ring-2 focus:ring-purple-100 transition"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-9 pr-4 text-xs font-medium outline-none focus:border-purple-500 focus:bg-white focus:ring-2 focus:ring-purple-100 transition"
                     />
                   </div>
 
-                  {/* Employees Quick Select Grid */}
-                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                  {/* Employees Quick Select List */}
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
                     {filteredEmployees.length === 0 ? (
                       <p className="text-xs text-slate-400 py-2">No active staff members found.</p>
                     ) : (
-                      filteredEmployees.slice(0, 8).map((emp) => (
+                      filteredEmployees.slice(0, 12).map((emp) => (
                         <button
                           key={emp.id}
                           type="button"
@@ -445,14 +455,14 @@ function StaffMenuPage() {
                           }}
                           className="shrink-0 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left hover:border-purple-500 hover:bg-purple-50/40 active:scale-95 transition shadow-2xs"
                         >
-                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-700 text-xs font-bold">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-700 text-xs font-bold shrink-0">
                             {(emp.first_name || "E")[0]}
                           </div>
                           <div>
                             <p className="text-xs font-bold text-slate-800 whitespace-nowrap">
                               {emp.first_name} {emp.last_name || ""}
                             </p>
-                            <p className="text-[10px] text-slate-400 leading-none mt-0.5">
+                            <p className="text-[10px] text-slate-400 leading-none mt-0.5 whitespace-nowrap">
                               {emp.department || "Staff"}
                             </p>
                           </div>
@@ -464,10 +474,10 @@ function StaffMenuPage() {
               )}
             </div>
 
-            {/* STAFF MENU ITEMS SECTION */}
-            <div className="flex-1 rounded-2xl bg-white p-4 border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
+            {/* STEP 2: STAFF MENU ITEMS SECTION */}
+            <div className="rounded-2xl bg-white p-4 sm:p-5 border border-slate-200 shadow-xs space-y-4">
               
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-purple-600" />
                   <span className="text-xs font-black uppercase tracking-wider text-slate-800">
@@ -479,26 +489,26 @@ function StaffMenuPage() {
                 </div>
 
                 {/* Search */}
-                <div className="relative w-48 sm:w-64">
+                <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search staff item..."
                     value={searchProduct}
                     onChange={(e) => setSearchProduct(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs outline-none focus:border-purple-500 focus:bg-white"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs outline-none focus:border-purple-500 focus:bg-white"
                   />
                 </div>
               </div>
 
               {/* Category Pills */}
-              <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3 scrollbar-none">
+              <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-none">
                 <button
                   type="button"
                   onClick={() => setActiveCategory("all")}
-                  className={`rounded-lg px-3 py-1 text-xs font-bold transition shrink-0 ${
+                  className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition shrink-0 ${
                     activeCategory === "all"
-                      ? "bg-purple-600 text-white"
+                      ? "bg-purple-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
@@ -507,9 +517,9 @@ function StaffMenuPage() {
                 <button
                   type="button"
                   onClick={() => setActiveCategory("food")}
-                  className={`rounded-lg px-3 py-1 text-xs font-bold transition shrink-0 ${
+                  className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition shrink-0 ${
                     activeCategory === "food"
-                      ? "bg-purple-600 text-white"
+                      ? "bg-purple-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
@@ -518,9 +528,9 @@ function StaffMenuPage() {
                 <button
                   type="button"
                   onClick={() => setActiveCategory("drinks")}
-                  className={`rounded-lg px-3 py-1 text-xs font-bold transition shrink-0 ${
+                  className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition shrink-0 ${
                     activeCategory === "drinks"
-                      ? "bg-purple-600 text-white"
+                      ? "bg-purple-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
@@ -531,9 +541,9 @@ function StaffMenuPage() {
                     key={c.id}
                     type="button"
                     onClick={() => setActiveCategory(String(c.id))}
-                    className={`rounded-lg px-3 py-1 text-xs font-bold transition shrink-0 ${
+                    className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition shrink-0 ${
                       activeCategory === String(c.id)
-                        ? "bg-purple-600 text-white"
+                        ? "bg-purple-600 text-white shadow-xs"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
@@ -543,7 +553,7 @@ function StaffMenuPage() {
               </div>
 
               {/* Product Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto flex-1 pr-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                 {loadingMenu ? (
                   <div className="col-span-full py-20 text-center text-xs text-slate-400">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-purple-600 mb-2" />
@@ -559,14 +569,25 @@ function StaffMenuPage() {
                     const staffPrice = Number(prod.staff_price !== null && prod.staff_price !== undefined ? prod.staff_price : 0);
                     const custPrice = Number(prod.price || 0);
                     const isFree = staffPrice === 0;
+                    const inCart = cartItems.find((ci) => ci.product.id === prod.id);
 
                     return (
                       <button
                         key={prod.id}
                         type="button"
                         onClick={() => addToCart(prod)}
-                        className="group flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-3 text-left shadow-2xs hover:border-purple-500 hover:shadow-md hover:bg-purple-50/20 active:scale-98 transition"
+                        className={`group relative flex flex-col justify-between rounded-2xl border p-3.5 text-left shadow-2xs active:scale-98 transition ${
+                          inCart
+                            ? "border-purple-400 bg-purple-50/40"
+                            : "border-slate-200 bg-white hover:border-purple-400 hover:shadow-md hover:bg-purple-50/20"
+                        }`}
                       >
+                        {inCart && (
+                          <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 text-white text-[10px] font-black shadow-xs">
+                            {inCart.quantity}
+                          </span>
+                        )}
+
                         <div>
                           <p className="line-clamp-2 text-xs font-extrabold text-slate-900 group-hover:text-purple-700">
                             {prod.name}
@@ -579,7 +600,7 @@ function StaffMenuPage() {
                         <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2">
                           <div>
                             {isFree ? (
-                              <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[11px] font-black text-emerald-800">
+                              <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-black text-emerald-800">
                                 FREE
                               </span>
                             ) : (
@@ -596,8 +617,8 @@ function StaffMenuPage() {
                             )}
                           </div>
 
-                          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition">
-                            <Plus className="h-3.5 w-3.5" />
+                          <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition shadow-2xs">
+                            <Plus className="h-4 w-4" />
                           </span>
                         </div>
                       </button>
@@ -610,39 +631,52 @@ function StaffMenuPage() {
 
           </div>
 
-          {/* RIGHT COLUMN: STAFF MEAL TICKET / CHECKOUT (4 cols) */}
-          <div className="lg:col-span-4 flex flex-col rounded-3xl bg-white border border-slate-200 shadow-sm p-4 overflow-hidden">
-            
+          {/* RIGHT COLUMN: STAFF MEAL TICKET (Sticky on desktop, smoothly scrolled to on mobile) */}
+          <div
+            id="staff-meal-ticket"
+            className="lg:col-span-5 xl:col-span-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs lg:sticky lg:top-4 space-y-4"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Receipt className="h-4 w-4 text-purple-600" />
                 <h2 className="text-sm font-black text-slate-800">Staff Meal Ticket</h2>
               </div>
-              <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-bold text-purple-700">
-                {cartItems.length} item{cartItems.length === 1 ? "" : "s"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-bold text-purple-700">
+                  {cartItems.length} item{cartItems.length === 1 ? "" : "s"}
+                </span>
+                {cartItems.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearCart}
+                    className="text-[11px] font-bold text-rose-500 hover:text-rose-700 hover:underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Recipient Badge */}
-            <div className="my-2.5 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
+            <div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Recipient Staff Member</p>
               {selectedEmployee ? (
                 <p className="text-xs font-black text-purple-800 mt-0.5">
                   {selectedEmployee.first_name} {selectedEmployee.last_name || ""} ({selectedEmployee.department || "Staff"})
                 </p>
               ) : (
-                <p className="text-xs font-semibold text-rose-500 mt-0.5 italic">
-                  ⚠️ No staff member selected yet
+                <p className="text-xs font-semibold text-rose-500 mt-0.5 flex items-center gap-1">
+                  <span>⚠️ Please select a staff member in Step 1 above</span>
                 </p>
               )}
             </div>
 
             {/* Cart Items List */}
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-100 pr-1">
+            <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 pr-1">
               {cartItems.length === 0 ? (
-                <div className="py-20 text-center text-xs text-slate-400">
+                <div className="py-12 text-center text-xs text-slate-400">
                   <Utensils className="h-8 w-8 mx-auto text-slate-300 mb-2 opacity-60" />
-                  Your staff ticket is empty.<br />Click items from the catalog on the left to add.
+                  Your staff ticket is empty.<br />Click items from the catalog above to add.
                 </div>
               ) : (
                 cartItems.map((ci) => {
@@ -668,7 +702,7 @@ function StaffMenuPage() {
                         <button
                           type="button"
                           onClick={() => updateQuantity(ci.product.id, -1)}
-                          className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
+                          className="flex h-6 w-6 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-95"
                         >
                           <Minus className="h-3 w-3" />
                         </button>
@@ -678,14 +712,14 @@ function StaffMenuPage() {
                         <button
                           type="button"
                           onClick={() => updateQuantity(ci.product.id, 1)}
-                          className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
+                          className="flex h-6 w-6 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-95"
                         >
                           <Plus className="h-3 w-3" />
                         </button>
                         <button
                           type="button"
                           onClick={() => removeFromCart(ci.product.id)}
-                          className="ml-1 text-slate-300 hover:text-rose-600"
+                          className="ml-1 p-1 text-slate-300 hover:text-rose-600 transition"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -697,18 +731,18 @@ function StaffMenuPage() {
             </div>
 
             {/* Notes Input */}
-            <div className="mt-2 pt-2 border-t border-slate-100">
+            <div>
               <input
                 type="text"
-                placeholder="Optional ticket notes (e.g. Less spicy)..."
+                placeholder="Optional ticket notes (e.g. Less spicy, Takeaway)..."
                 value={orderNotes}
                 onChange={(e) => setOrderNotes(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 px-3 text-xs outline-none focus:border-purple-500 focus:bg-white"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 px-3 text-xs outline-none focus:border-purple-500 focus:bg-white"
               />
             </div>
 
             {/* Order Total & Payment Summary */}
-            <div className="mt-3 rounded-2xl bg-slate-50 p-3 border border-slate-200/80">
+            <div className="rounded-2xl bg-slate-50 p-3.5 border border-slate-200/80">
               <div className="flex items-center justify-between text-xs font-bold text-slate-500">
                 <span>Staff Bill Total:</span>
                 <span className="text-base font-black text-slate-900">
@@ -717,13 +751,13 @@ function StaffMenuPage() {
               </div>
 
               {isFreeMeal ? (
-                <div className="mt-2 rounded-xl bg-emerald-100/70 border border-emerald-300 px-3 py-1.5 text-center text-xs font-black text-emerald-800">
+                <div className="mt-2.5 rounded-xl bg-emerald-100/70 border border-emerald-300 px-3 py-1.5 text-center text-xs font-black text-emerald-800">
                   🎁 Free Staff Meal Allowance (0.00 ETB)
                 </div>
               ) : (
-                <div className="mt-2.5 pt-2 border-t border-slate-200/60 space-y-2">
+                <div className="mt-2.5 pt-2.5 border-t border-slate-200/60 space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-600">Payment Collection:</span>
+                    <span className="font-semibold text-slate-600">Payment Method:</span>
                     <span className="font-bold text-purple-700 uppercase">Cash Birr</span>
                   </div>
 
@@ -738,7 +772,7 @@ function StaffMenuPage() {
                       />
                     </div>
                     {Number(cashTendered) > cartSubtotal && (
-                      <span className="text-xs font-bold text-emerald-700">
+                      <span className="text-xs font-bold text-emerald-700 shrink-0">
                         Change: {(Number(cashTendered) - cartSubtotal).toFixed(2)} ETB
                       </span>
                     )}
@@ -753,7 +787,7 @@ function StaffMenuPage() {
                 type="button"
                 disabled={submitting || cartItems.length === 0 || !selectedEmployee}
                 onClick={() => handlePlaceStaffOrder(true)}
-                className="mt-3 w-full rounded-2xl py-3 text-xs font-black shadow-md active:scale-95 transition flex items-center justify-center gap-2 bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20 disabled:opacity-50"
+                className="w-full rounded-2xl py-3 text-xs font-black shadow-md active:scale-95 transition flex items-center justify-center gap-2 bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20 disabled:opacity-50"
               >
                 {submitting ? (
                   <>
@@ -768,13 +802,13 @@ function StaffMenuPage() {
                 )}
               </button>
             ) : (
-              <div className="mt-3 space-y-2">
+              <div className="space-y-2 pt-1">
                 {/* 1. Pay Now & Dispatch */}
                 <button
                   type="button"
                   disabled={submitting || cartItems.length === 0 || !selectedEmployee}
                   onClick={() => handlePlaceStaffOrder(true)}
-                  className="w-full rounded-2xl py-2.5 text-xs font-black shadow-md active:scale-95 transition flex items-center justify-center gap-2 bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20 disabled:opacity-50"
+                  className="w-full rounded-2xl py-3 text-xs font-black shadow-md active:scale-95 transition flex items-center justify-center gap-2 bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20 disabled:opacity-50"
                 >
                   {submitting ? (
                     <>
@@ -810,139 +844,175 @@ function StaffMenuPage() {
 
       {/* TAB 2: TODAY'S STAFF ORDERS AUDIT & HISTORY */}
       {activeTab === "history" && (
-        <div className="flex-1 rounded-3xl bg-white border border-slate-200 shadow-xs p-5 flex flex-col overflow-hidden">
+        <div className="space-y-4">
           
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-            <div>
-              <h2 className="text-sm font-black text-slate-900">Today's Staff Meal Orders</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Complete log of employee meals served today with cashier auditing.
-              </p>
+          {/* Metrics & Header */}
+          <div className="rounded-2xl bg-white border border-slate-200 shadow-xs p-4 sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-100">
+              <div>
+                <h2 className="text-sm sm:text-base font-black text-slate-900">Today's Staff Meal Orders</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Complete log of employee meals served today with cashier auditing.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={loadHistory}
+                disabled={loadingHistory}
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition self-start sm:self-auto"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loadingHistory ? "animate-spin" : ""}`} />
+                <span>Refresh Log</span>
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={loadHistory}
-              disabled={loadingHistory}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loadingHistory ? "animate-spin" : ""}`} />
-              <span>Refresh Log</span>
-            </button>
-          </div>
-
-          {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-4">
-            <div className="rounded-2xl bg-purple-50/80 border border-purple-200/60 p-3.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-purple-600">Total Staff Meals Today</p>
-              <p className="text-xl font-black text-purple-900 mt-0.5">{historyOrders.length}</p>
-            </div>
-            <div className="rounded-2xl bg-emerald-50/80 border border-emerald-200/60 p-3.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Free Staff Allowances</p>
-              <p className="text-xl font-black text-emerald-900 mt-0.5">
-                {historyOrders.filter((o) => Number(o.total || 0) === 0 || o.payment_status === "free").length}
-              </p>
-            </div>
-            <div className="rounded-2xl bg-blue-50/80 border border-blue-200/60 p-3.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Subsidized Birr Collected</p>
-              <p className="text-xl font-black text-blue-900 mt-0.5">
-                {historyOrders
-                  .filter((o) => o.payment_status === "paid")
-                  .reduce((sum, o) => sum + Number(o.total || 0), 0)
-                  .toLocaleString("en-US", { minimumFractionDigits: 2 })}{" "}
-                <span className="text-xs font-semibold text-blue-700">ETB</span>
-              </p>
+            {/* Quick Metrics Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+              <div className="rounded-2xl bg-purple-50/80 border border-purple-200/60 p-3.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-purple-600">Total Staff Meals Today</p>
+                <p className="text-xl font-black text-purple-900 mt-0.5">{historyOrders.length}</p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50/80 border border-emerald-200/60 p-3.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Free Staff Allowances</p>
+                <p className="text-xl font-black text-emerald-900 mt-0.5">
+                  {historyOrders.filter((o) => Number(o.total || 0) === 0 || o.payment_status === "free").length}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-blue-50/80 border border-blue-200/60 p-3.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Subsidized Birr Collected</p>
+                <p className="text-xl font-black text-blue-900 mt-0.5">
+                  {historyOrders
+                    .filter((o) => o.payment_status === "paid")
+                    .reduce((sum, o) => sum + Number(o.total || 0), 0)
+                    .toLocaleString("en-US", { minimumFractionDigits: 2 })}{" "}
+                  <span className="text-xs font-semibold text-blue-700">ETB</span>
+                </p>
+              </div>
             </div>
           </div>
 
           {/* History Orders List */}
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100 pr-1">
+          <div className="rounded-2xl bg-white border border-slate-200 shadow-xs p-4 sm:p-5">
             {loadingHistory ? (
-              <div className="py-24 text-center text-xs text-slate-400">
+              <div className="py-20 text-center text-xs text-slate-400">
                 <Loader2 className="h-6 w-6 animate-spin mx-auto text-purple-600 mb-2" />
                 Loading staff meal orders...
               </div>
             ) : historyOrders.length === 0 ? (
-              <div className="py-24 text-center text-xs text-slate-400">
+              <div className="py-16 text-center text-xs text-slate-400">
                 No staff meals recorded today yet.
               </div>
             ) : (
-              historyOrders.map((ord) => {
-                const totalAmt = Number(ord.total || 0);
-                const isFree = totalAmt === 0 || ord.payment_status === "free";
-                const isPaid = isFree || ord.payment_status === "paid";
-                const itemsList = Array.isArray(ord.items) ? ord.items : [];
+              <div className="divide-y divide-slate-100">
+                {historyOrders.map((ord) => {
+                  const totalAmt = Number(ord.total || 0);
+                  const isFree = totalAmt === 0 || ord.payment_status === "free";
+                  const isPaid = isFree || ord.payment_status === "paid";
+                  const itemsList = Array.isArray(ord.items) ? ord.items : [];
 
-                return (
-                  <div key={ord.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-xs font-black text-purple-700">
-                          #{ord.order_number}
-                        </span>
-                        <span className="text-xs font-bold text-slate-800">
-                          {ord.employee_name ? `${ord.employee_name}` : (ord.notes || "Staff Meal")}
-                        </span>
-                        {isFree ? (
-                          <span className="rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-800">
-                            Free Allowance
+                  return (
+                    <div key={ord.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-xs font-black text-purple-700">
+                            #{ord.order_number}
                           </span>
-                        ) : isPaid ? (
-                          <span className="rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            PAID
+                          <span className="text-xs font-bold text-slate-800">
+                            {ord.employee_name ? `${ord.employee_name}` : (ord.notes || "Staff Meal")}
                           </span>
-                        ) : (
-                          <span className="rounded-full px-2 py-0.5 text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 animate-pulse">
-                            <Clock className="h-3 w-3" />
-                            UNPAID / PENDING
+                          {isFree ? (
+                            <span className="rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-800">
+                              Free Allowance
+                            </span>
+                          ) : isPaid ? (
+                            <span className="rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              PAID
+                            </span>
+                          ) : (
+                            <span className="rounded-full px-2 py-0.5 text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 animate-pulse">
+                              <Clock className="h-3 w-3" />
+                              UNPAID / PENDING
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Items Summary */}
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 mt-1.5">
+                          {itemsList.map((it, idx) => (
+                            <span key={it.id || idx} className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                              {it.quantity}x {it.product_name}
+                            </span>
+                          ))}
+                        </div>
+
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Recorded at {new Date(ord.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          {ord.cashier_name && ` by Cashier: ${ord.cashier_name}`}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-50">
+                        <div className="text-left sm:text-right">
+                          <span className="text-sm font-black text-slate-900 block">
+                            {totalAmt.toLocaleString("en-US", { minimumFractionDigits: 2 })} ETB
                           </span>
+                          <span className="text-[10px] font-bold text-emerald-600">
+                            ✓ Dispatched
+                          </span>
+                        </div>
+
+                        {/* Mark as Paid button for unpaid staff orders */}
+                        {!isPaid && (
+                          <button
+                            type="button"
+                            onClick={() => setPayingOrder(ord)}
+                            className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-3.5 py-2 shadow-sm active:scale-95 transition flex items-center gap-1.5"
+                          >
+                            <DollarSign className="h-3.5 w-3.5" />
+                            <span>Mark as Paid</span>
+                          </button>
                         )}
                       </div>
-
-                      {/* Items Summary */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-1">
-                        {itemsList.map((it, idx) => (
-                          <span key={it.id || idx} className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                            {it.quantity}x {it.product_name}
-                          </span>
-                        ))}
-                      </div>
-
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        Recorded at {new Date(ord.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        {ord.cashier_name && ` by Cashier: ${ord.cashier_name}`}
-                      </p>
                     </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right">
-                        <span className="text-sm font-black text-slate-900 block">
-                          {totalAmt.toLocaleString("en-US", { minimumFractionDigits: 2 })} ETB
-                        </span>
-                        <span className="text-[10px] font-bold text-emerald-600">
-                          ✓ Dispatched
-                        </span>
-                      </div>
-
-                      {/* Mark as Paid button for unpaid staff orders */}
-                      {!isPaid && (
-                        <button
-                          type="button"
-                          onClick={() => setPayingOrder(ord)}
-                          className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-3 py-1.5 shadow-sm active:scale-95 transition flex items-center gap-1.5"
-                        >
-                          <DollarSign className="h-3.5 w-3.5" />
-                          <span>Mark as Paid</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
 
+        </div>
+      )}
+
+      {/* FLOATING MOBILE CART SUMMARY PILL (Mobile only) */}
+      {activeTab === "order" && cartItems.length > 0 && (
+        <div className="fixed bottom-4 inset-x-3 z-40 lg:hidden animate-in slide-in-from-bottom-5 duration-200">
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-900/95 backdrop-blur-sm text-white p-3.5 shadow-2xl border border-slate-800">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
+                <Receipt className="h-3.5 w-3.5 text-purple-400 shrink-0" />
+                <span>{totalCartCount} item{totalCartCount === 1 ? "" : "s"} in Ticket</span>
+              </div>
+              <div className="text-sm font-black text-white">
+                {isFreeMeal ? "FREE Staff Meal" : `${cartSubtotal.toFixed(2)} ETB`}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById("staff-meal-ticket");
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth" });
+                }
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 px-3.5 py-2 text-xs font-black text-white shadow-md transition shrink-0"
+            >
+              <span>View Ticket</span>
+              <ArrowDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       )}
 

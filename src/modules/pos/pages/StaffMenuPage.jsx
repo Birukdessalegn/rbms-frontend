@@ -274,54 +274,54 @@ function StaffMenuPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-5rem)] flex-col bg-slate-100/70 p-4 md:p-6 overflow-hidden">
+    <div className="flex min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4.5rem)] flex-col bg-slate-100/70 p-2 sm:p-4 lg:p-6 overflow-y-auto lg:overflow-hidden">
       
       {/* TOP HEADER */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-3xl border border-slate-200/80 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-600 text-white shadow-md font-black">
-            <Utensils className="h-6 w-6" />
+      <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl bg-purple-600 text-white shadow-md font-black shrink-0">
+            <Utensils className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-black text-slate-900 tracking-tight">
-                Staff Menu & Employee Meals
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                Staff Menu & Meals
               </h1>
-              <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-bold text-purple-700">
+              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] sm:text-xs font-bold text-purple-700">
                 Cashier Portal
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Order staff meals, grant employee allowances, or accept subsidized Birr payments.
+            <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+              Order staff meals, grant employee allowances, or collect subsidized Birr.
             </p>
           </div>
         </div>
 
         {/* TABS */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setActiveTab("order")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition shadow-2xs ${
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-3 sm:px-4 py-2 text-xs font-bold transition shadow-2xs ${
               activeTab === "order"
                 ? "bg-purple-600 text-white shadow-purple-600/20"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
-            <Utensils className="h-4 w-4" />
+            <Utensils className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span>Order Staff Meal</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("history")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition shadow-2xs ${
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-3 sm:px-4 py-2 text-xs font-bold transition shadow-2xs ${
               activeTab === "history"
                 ? "bg-purple-600 text-white shadow-purple-600/20"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
-            <Clock className="h-4 w-4" />
+            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span>Today's Staff Orders</span>
           </button>
         </div>
@@ -329,24 +329,24 @@ function StaffMenuPage() {
 
       {/* FEEDBACK BANNERS */}
       {successMessage && (
-        <div className="mb-3 flex items-center justify-between rounded-2xl bg-emerald-500/10 border border-emerald-500/30 px-4 py-2.5 text-xs font-bold text-emerald-800 animate-in fade-in">
+        <div className="mb-3 flex items-center justify-between rounded-xl sm:rounded-2xl bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-2 text-xs font-bold text-emerald-800 animate-in fade-in">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
             <span>{successMessage}</span>
           </div>
-          <button onClick={() => setSuccessMessage("")} className="text-emerald-700 hover:text-emerald-900">
+          <button onClick={() => setSuccessMessage("")} className="text-emerald-700 hover:text-emerald-900 p-1">
             <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {errorMessage && (
-        <div className="mb-3 flex items-center justify-between rounded-2xl bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 text-xs font-bold text-rose-800 animate-in fade-in">
+        <div className="mb-3 flex items-center justify-between rounded-xl sm:rounded-2xl bg-rose-500/10 border border-rose-500/30 px-3.5 py-2 text-xs font-bold text-rose-800 animate-in fade-in">
           <div className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
             <span>{errorMessage}</span>
           </div>
-          <button onClick={() => setErrorMessage("")} className="text-rose-700 hover:text-rose-900">
+          <button onClick={() => setErrorMessage("")} className="text-rose-700 hover:text-rose-900 p-1">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -354,10 +354,10 @@ function StaffMenuPage() {
 
       {/* TAB 1: ORDERING INTERFACE */}
       {activeTab === "order" && (
-        <div className="grid flex-1 grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+        <div className="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-3 sm:gap-4 overflow-y-auto lg:overflow-hidden pb-8 lg:pb-0">
           
-          {/* LEFT COLUMN: STAFF SELECTOR + MENU CATALOG (8 cols) */}
-          <div className="lg:col-span-8 flex flex-col gap-3 overflow-hidden">
+          {/* LEFT COLUMN: STAFF SELECTOR + MENU CATALOG (8 cols on desktop, full width on mobile) */}
+          <div className="lg:col-span-8 flex flex-col gap-3 lg:overflow-hidden">
             
             {/* EMPLOYEE PICKER CARD */}
             <div className="rounded-2xl bg-white p-3.5 border border-slate-200 shadow-2xs">
@@ -601,8 +601,8 @@ function StaffMenuPage() {
 
           </div>
 
-          {/* RIGHT COLUMN: STAFF MEAL TICKET / CHECKOUT (4 cols) */}
-          <div className="lg:col-span-4 flex flex-col rounded-3xl bg-white border border-slate-200 shadow-sm p-4 overflow-hidden">
+          {/* RIGHT COLUMN: STAFF MEAL TICKET / CHECKOUT (4 cols on desktop, stacked on mobile) */}
+          <div className="lg:col-span-4 flex flex-col rounded-2xl sm:rounded-3xl bg-white border border-slate-200 shadow-sm p-3.5 sm:p-4 shrink-0 lg:overflow-hidden">
             
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
@@ -629,11 +629,11 @@ function StaffMenuPage() {
             </div>
 
             {/* Cart Items List */}
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-100 pr-1">
+            <div className="flex-1 max-h-60 lg:max-h-none overflow-y-auto divide-y divide-slate-100 pr-1">
               {cartItems.length === 0 ? (
-                <div className="py-20 text-center text-xs text-slate-400">
-                  <Utensils className="h-8 w-8 mx-auto text-slate-300 mb-2 opacity-60" />
-                  Your staff ticket is empty.<br />Click items from the catalog on the left to add.
+                <div className="py-8 lg:py-20 text-center text-xs text-slate-400">
+                  <Utensils className="h-7 w-7 mx-auto text-slate-300 mb-1.5 opacity-60" />
+                  Your staff ticket is empty.<br />Click items from the catalog above to add.
                 </div>
               ) : (
                 cartItems.map((ci) => {
@@ -765,12 +765,12 @@ function StaffMenuPage() {
 
       {/* TAB 2: TODAY'S STAFF ORDERS AUDIT & HISTORY */}
       {activeTab === "history" && (
-        <div className="flex-1 rounded-3xl bg-white border border-slate-200 shadow-xs p-5 flex flex-col overflow-hidden">
+        <div className="flex-1 rounded-2xl sm:rounded-3xl bg-white border border-slate-200 shadow-xs p-3.5 sm:p-5 flex flex-col overflow-y-auto lg:overflow-hidden">
           
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 sm:pb-4 border-b border-slate-100">
             <div>
-              <h2 className="text-sm font-black text-slate-900">Today's Staff Meal Orders</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h2 className="text-sm sm:text-base font-black text-slate-900">Today's Staff Meal Orders</h2>
+              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
                 Complete log of employee meals served today with cashier auditing.
               </p>
             </div>

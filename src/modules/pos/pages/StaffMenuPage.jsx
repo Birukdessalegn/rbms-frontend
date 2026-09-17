@@ -37,7 +37,6 @@ function StaffMenuPage() {
 
   // Cart for staff order
   const [cartItems, setCartItems] = useState([]);
-  const [orderNotes, setOrderNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [cashTendered, setCashTendered] = useState("");
 
@@ -226,7 +225,6 @@ function StaffMenuPage() {
         })),
         paymentMethod: isFreeMeal ? "free" : paymentMethod,
         amountPaid: isFreeMeal ? 0 : cartSubtotal,
-        notes: orderNotes.trim() || undefined,
       };
 
       const res = await api("/pos/staff-orders", {
@@ -241,7 +239,6 @@ function StaffMenuPage() {
 
       // Reset cart
       setCartItems([]);
-      setOrderNotes("");
       setCashTendered("");
       setSelectedEmployee(null);
 
@@ -668,16 +665,7 @@ function StaffMenuPage() {
               )}
             </div>
 
-            {/* Notes Input */}
-            <div className="mt-2 pt-2 border-t border-slate-100">
-              <input
-                type="text"
-                placeholder="Optional ticket notes (e.g. Less spicy)..."
-                value={orderNotes}
-                onChange={(e) => setOrderNotes(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 px-3 text-xs outline-none focus:border-purple-500 focus:bg-white"
-              />
-            </div>
+
 
             {/* Order Total & Payment Summary */}
             <div className="mt-3 rounded-2xl bg-slate-50 p-3 border border-slate-200/80">

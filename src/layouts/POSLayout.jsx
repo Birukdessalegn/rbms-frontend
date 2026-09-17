@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Bell,
   ClipboardList,
+  UtensilsCrossed,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRestaurant } from "../context/RestaurantContext";
@@ -22,6 +23,11 @@ const menuItems = [
     name: "Menu Page",
     path: "/pos",
     icon: ShoppingCart,
+  },
+  {
+    name: "Staff Menu",
+    path: "/pos/staff-menu",
+    icon: UtensilsCrossed,
   },
   {
     name: "My Served Orders",

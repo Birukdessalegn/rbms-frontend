@@ -85,6 +85,11 @@ const navigationGroups = [
             icon: ShoppingCart,
           },
           {
+            name: "Staff Menu",
+            path: "/pos/staff-menu",
+            icon: UtensilsCrossed,
+          },
+          {
             name: "My Served Orders",
             path: "/pos/served-orders",
             icon: CheckCircle2,

@@ -50,6 +50,11 @@ const filteredProducts = products.filter((product) => {
     return false;
   }
 
+  // Exclude staff-only items from customer POS dining menu
+  if (product.menu_type === "employee") {
+    return false;
+  }
+
   const selCat = String(activeCategory || "all").toLowerCase().trim();
   const pCatName = (product.category_name || "").toLowerCase();
   const pCatType = (product.category_type || "").toLowerCase();

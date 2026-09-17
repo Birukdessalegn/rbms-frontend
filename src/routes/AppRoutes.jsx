@@ -52,6 +52,7 @@ import KitchenReportsPage from "../modules/kitchen/pages/KitchenReportsPage";
 import FruitOrdersPage from "../modules/kitchen/pages/FruitOrdersPage";
 
 import POSPage from "../modules/pos/pages/POSPage";
+import StaffMenuPage from "../modules/pos/pages/StaffMenuPage";
 import POSReportsPage from "../modules/pos/pages/POSReportsPage";
 import MasterReportsPage from "../modules/reports/pages/MasterReportsPage";
 import PurchasingReportsPage from "../modules/purchasing/pages/PurchasingReportsPage";
@@ -145,6 +146,10 @@ function AppRoutes() {
               <Route
                 path="/pos"
                 element={<POSPage />}
+              />
+              <Route
+                path="/pos/staff-menu"
+                element={<StaffMenuPage />}
               />
               <Route
                 path="/pos/sales-audit"
@@ -543,6 +548,16 @@ function AppRoutes() {
               <Route
                 path="/cashier/pos"
                 element={<POSPage />}
+              />
+
+              <Route
+                path="/cashier/pos/staff-menu"
+                element={<StaffMenuPage />}
+              />
+
+              <Route
+                path="/pos/staff-menu"
+                element={<StaffMenuPage />}
               />
 
               <Route

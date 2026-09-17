@@ -1637,7 +1637,9 @@ function ProductsPage() {
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Staff Price</p>
                         <p className="text-xs font-black text-slate-700 mt-0.5">
-                          {Number(product.staff_price || 0) === 0 ? (
+                          {product.menu_type === "customer" ? (
+                            <span className="text-slate-400 font-semibold italic text-[11px]">Not for Staff</span>
+                          ) : Number(product.staff_price || 0) === 0 ? (
                             <span className="text-emerald-700 font-extrabold">Free (0 ETB)</span>
                           ) : (
                             `${Number(product.staff_price).toLocaleString()} ETB`
@@ -1877,7 +1879,11 @@ function ProductsPage() {
 
                       {/* Staff Price */}
                       <td className="px-5 py-4 font-medium text-slate-700">
-                        {Number(product.staff_price || 0) === 0 ? (
+                        {product.menu_type === "customer" ? (
+                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-400 italic">
+                            Not for Staff
+                          </span>
+                        ) : Number(product.staff_price || 0) === 0 ? (
                           <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
                             Free (0 ETB)
                           </span>

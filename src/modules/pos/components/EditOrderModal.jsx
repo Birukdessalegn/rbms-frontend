@@ -58,7 +58,7 @@ function EditOrderModal({
     setCurrentOrder(order);
   }, [order]);
 
-  const orderId = currentOrder?.id || currentOrder?.order_id;
+  const orderId = currentOrder?.order_id || currentOrder?.id || currentOrder?.order_number;
 
   // 1. Fetch live full details of this order to ensure fresh items list
   useEffect(() => {
@@ -123,7 +123,7 @@ function EditOrderModal({
       setLoadingAction(true);
       setStatusMessage('');
       setErrorMessage('');
-      const itemId = item.id || item.order_item_id;
+      const itemId = item.order_item_id || item.id;
       const res = await updateOrderItem(orderId, itemId, newQty);
 
       const updatedOrder = res.data || res.order;
@@ -132,7 +132,7 @@ function EditOrderModal({
       } else {
         setCurrentOrder((prev) => ({
           ...prev,
-          items: orderItems.map((it) => (it.id === itemId ? { ...it, quantity: newQty } : it)),
+          items: orderItems.map((it) => ((it.order_item_id || it.id) === itemId ? { ...it, quantity: newQty } : it)),
         }));
       }
 
@@ -156,7 +156,7 @@ function EditOrderModal({
       setLoadingAction(true);
       setStatusMessage('');
       setErrorMessage('');
-      const itemId = item.id || item.order_item_id;
+      const itemId = item.order_item_id || item.id;
       const res = await removeOrderItem(orderId, itemId);
 
       const updatedOrder = res.data || res.order;
@@ -165,7 +165,7 @@ function EditOrderModal({
       } else {
         setCurrentOrder((prev) => ({
           ...prev,
-          items: orderItems.filter((it) => it.id !== itemId),
+          items: orderItems.filter((it) => (it.order_item_id || it.id) !== itemId),
         }));
       }
 
@@ -190,7 +190,7 @@ function EditOrderModal({
   };
 
   // Execute actual payload submission to backend
-  const executeAddProductPayload = async (product, quantity, itemName, price, notes = '') => {
+  const executeAddProductPayload = async (product, quantity, itemName, price, notes = '', shotsDeduction = null) => {
     try {
       setLoadingAction(true);
       setStatusMessage('');
@@ -206,6 +206,7 @@ function EditOrderModal({
           unit_price: Number(price) || 0,
           quantity: quantity || 1,
           notes: notes || '',
+          shotsDeduction: shotsDeduction,
         },
       ];
 
@@ -240,7 +241,8 @@ function EditOrderModal({
       1,
       formattedName,
       portionOption.price,
-      noteText
+      noteText,
+      portionOption.shots
     );
   };
 

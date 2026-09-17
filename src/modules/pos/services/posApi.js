@@ -82,9 +82,10 @@ export const updateOrderItem = async (orderId, itemId, quantity, notes = '') => 
   });
 };
 
-export const removeOrderItem = async (orderId, itemId) => {
+export const removeOrderItem = async (orderId, itemId, reason = 'Customer changed order') => {
   return await api('/pos/orders/' + orderId + '/items/' + itemId, {
     method: 'DELETE',
+    body: JSON.stringify({ reason }),
   });
 };
 

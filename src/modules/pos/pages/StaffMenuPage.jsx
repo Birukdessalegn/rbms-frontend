@@ -836,7 +836,7 @@ function StaffMenuPage() {
 
                       <p className="text-[10px] text-slate-400 mt-1">
                         Recorded at {new Date(ord.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        {ord.cashier_name && ` by Cashier: ${ord.cashier_name}`}
+                        {ord.staff_member_name && ` • Recipient: ${ord.staff_member_name}${ord.staff_department ? ` (${ord.staff_department})` : ""}`}
                       </p>
                     </div>
 

@@ -177,9 +177,12 @@ function WaiterServedOrdersPage() {
           waiter_first_name: item.waiter_first_name || existing.waiter_first_name || "",
           waiter_last_name: item.waiter_last_name || existing.waiter_last_name || "",
           waiter_name: item.waiter_name || existing.waiter_name || "",
-          waiter_id: item.waiter_id || existing.waiter_id,
-          employee_id: item.employee_id || item.employeeId || existing.employee_id || existing.employeeId,
-          user_id: item.user_id || existing.user_id,
+          waiter_username: item.waiter_username || existing.waiter_username || "",
+          waiter_id: item.waiter_id || item.waiter_employee_id || existing.waiter_id,
+          waiter_employee_id: item.waiter_employee_id || item.waiter_id || existing.waiter_employee_id,
+          waiter_user_id: item.waiter_user_id || existing.waiter_user_id,
+          employee_id: item.employee_id || item.employeeId || item.waiter_employee_id || item.waiter_id || existing.employee_id || existing.employeeId,
+          user_id: item.user_id || item.waiter_user_id || existing.user_id,
           created_by: item.created_by || existing.created_by,
           created_at: item.created_at || item.createdAt || existing.created_at || new Date().toISOString(),
           items: uniqueItems,
@@ -216,11 +219,13 @@ function WaiterServedOrdersPage() {
       const orderWaiterId = String(
         order.waiter_id ??
         order.waiterId ??
+        order.waiter_employee_id ??
         order.employee_id ??
         order.employeeId ??
         ""
       );
       const orderUserId = String(
+        order.waiter_user_id ??
         order.user_id ??
         order.userId ??
         order.created_by ??
@@ -236,6 +241,7 @@ function WaiterServedOrdersPage() {
         waiterFullName ||
         order.waiter_name ||
         order.waiterName ||
+        order.waiter_username ||
         order.server_name ||
         ""
       ).trim().toLowerCase();

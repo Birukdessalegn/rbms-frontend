@@ -40,6 +40,12 @@ function StaffMenuPage() {
   const [orderNotes, setOrderNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [cashTendered, setCashTendered] = useState("");
+  const [paymentTiming, setPaymentTiming] = useState("pay_now"); // 'pay_now' | 'pay_later'
+
+  // Mark as Paid modal state
+  const [payingOrder, setPayingOrder] = useState(null);
+  const [markPaidMethod, setMarkPaidMethod] = useState("cash");
+  const [markingPaid, setMarkingPaid] = useState(false);
 
   // States
   const [loadingMenu, setLoadingMenu] = useState(false);
@@ -59,39 +65,35 @@ function StaffMenuPage() {
         const list = res.employees || res.data || (Array.isArray(res) ? res : []);
         setEmployees(list.filter((e) => e.status !== "inactive" && e.is_active !== false));
       } catch (err) {
-        console.warn("Could not fetch employees for staff menu:", err);
+        console.warn("Failed to load employees:", err);
       }
     };
     fetchEmployees();
   }, []);
 
-  // 2. Fetch Staff Menu Products
+  // 2. Fetch Products
   const loadMenuProducts = async () => {
     try {
       setLoadingMenu(true);
-      const [pRes, cRes] = await Promise.all([
+      const [prodRes, catRes] = await Promise.all([
         api("/products").catch(() => ({ products: [] })),
-        api("/products/categories").catch(() => ({ categories: [] })),
+        api("/product-categories").catch(() => ({ categories: [] })),
       ]);
 
-      const pList = pRes.products || pRes.data || (Array.isArray(pRes) ? pRes : []);
-      // Filter out products marked strictly for Customer Only
-      // Only keep products where menu_type is 'employee' or 'both'
-      const eligibleForStaff = pList.filter((p) => {
-        if (p.is_active === false) return false;
-        const app = String(p.applicable_for || p.applicableFor || "both").toLowerCase();
-        if (app === "inventory") return false;
+      const allProds = prodRes.products || (Array.isArray(prodRes) ? prodRes : []);
+      const allCats = catRes.categories || (Array.isArray(catRes) ? catRes : []);
 
-        const menuType = String(p.menu_type || p.menuType || "both").toLowerCase();
-        return menuType === "employee" || menuType === "both";
+      // Filter products: ONLY show items allowed for staff (menu_type === 'employee' or 'both')
+      const staffAllowed = allProds.filter((p) => {
+        const mt = (p.menu_type || "both").toLowerCase();
+        return (mt === "employee" || mt === "both") && p.status !== "inactive";
       });
 
-      setProducts(eligibleForStaff);
-
-      const cList = cRes.categories || cRes.data || (Array.isArray(cRes) ? cRes : []);
-      setCategories(cList);
+      setProducts(staffAllowed);
+      setCategories(allCats);
     } catch (err) {
-      console.warn("Failed to load staff menu products:", err);
+      console.error("Failed to load staff menu products:", err);
+      setErrorMessage("Failed to load menu items.");
     } finally {
       setLoadingMenu(false);
     }
@@ -161,30 +163,28 @@ function StaffMenuPage() {
   const addToCart = (product) => {
     setCartItems((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
+      const staffPrice = Number(product.staff_price !== null && product.staff_price !== undefined ? product.staff_price : 0);
       if (existing) {
         return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      const staffPrice = Number(product.staff_price !== null && product.staff_price !== undefined ? product.staff_price : 0);
       return [...prev, { product, quantity: 1, staffPrice }];
     });
   };
 
   const updateQuantity = (productId, delta) => {
-    setCartItems((prev) => {
-      return prev
+    setCartItems((prev) =>
+      prev
         .map((item) => {
           if (item.product.id === productId) {
-            const newQty = item.quantity + delta;
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
+            const newQ = item.quantity + delta;
+            return newQ > 0 ? { ...item, quantity: newQ } : null;
           }
           return item;
         })
-        .filter(Boolean);
-    });
+        .filter(Boolean)
+    );
   };
 
   const removeFromCart = (productId) => {
@@ -198,9 +198,8 @@ function StaffMenuPage() {
 
   const isFreeMeal = cartSubtotal === 0;
 
-  // Submit Staff Order
-  const handlePlaceStaffOrder = async (e) => {
-    if (e) e.preventDefault();
+  // Submit Staff Order (with Pay Now vs Pay Later options)
+  const handlePlaceStaffOrder = async (isPaidNow = true) => {
     if (!selectedEmployee) {
       setErrorMessage("Please select the staff member receiving this meal first.");
       return;
@@ -215,6 +214,8 @@ function StaffMenuPage() {
       setErrorMessage("");
       setSuccessMessage("");
 
+      const shouldBePaid = isFreeMeal ? true : isPaidNow;
+
       const payload = {
         employeeId: selectedEmployee.id,
         employeeName: `${selectedEmployee.first_name || ""} ${selectedEmployee.last_name || ""}`.trim() + (selectedEmployee.department ? ` (${selectedEmployee.department})` : ""),
@@ -224,8 +225,9 @@ function StaffMenuPage() {
           quantity: ci.quantity,
           price: ci.staffPrice,
         })),
+        paymentStatus: shouldBePaid ? "paid" : "pending",
         paymentMethod: isFreeMeal ? "free" : paymentMethod,
-        amountPaid: isFreeMeal ? 0 : cartSubtotal,
+        amountPaid: shouldBePaid ? cartSubtotal : 0,
         notes: orderNotes.trim() || undefined,
       };
 
@@ -235,8 +237,9 @@ function StaffMenuPage() {
       });
 
       const orderNumber = res.order?.order_number || "SO-New";
+      const statusLabel = shouldBePaid ? "PAID" : "PAYMENT PENDING / UNPAID";
       setSuccessMessage(
-        `Staff meal order #${orderNumber} successfully placed for ${selectedEmployee.first_name}! Kitchen and Bar tickets dispatched.`
+        `Staff meal #${orderNumber} placed for ${selectedEmployee.first_name} (${statusLabel})! Tickets sent to kitchen/bar.`
       );
 
       // Reset cart
@@ -251,6 +254,31 @@ function StaffMenuPage() {
       setErrorMessage(err.message || "Failed to submit staff meal order.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Mark an existing unpaid staff order as Paid
+  const handleMarkOrderPaid = async () => {
+    if (!payingOrder) return;
+    try {
+      setMarkingPaid(true);
+      await api(`/pos/orders/${payingOrder.id}/payment`, {
+        method: "POST",
+        body: JSON.stringify({
+          amount: Number(payingOrder.total || 0),
+          paymentMethod: markPaidMethod,
+          status: "paid",
+          notes: `Staff meal settled by ${payingOrder.employee_name || "Employee"}`,
+        }),
+      });
+
+      setPayingOrder(null);
+      setSuccessMessage(`Order #${payingOrder.order_number} marked as PAID successfully!`);
+      loadHistory();
+    } catch (err) {
+      alert(err.message || "Failed to record payment for staff order.");
+    } finally {
+      setMarkingPaid(false);
     }
   };
 
@@ -719,34 +747,61 @@ function StaffMenuPage() {
               )}
             </div>
 
-            {/* Checkout Action Button */}
-            <button
-              type="button"
-              disabled={submitting || cartItems.length === 0 || !selectedEmployee}
-              onClick={handlePlaceStaffOrder}
-              className={`mt-3 w-full rounded-2xl py-3 text-xs font-black shadow-md active:scale-95 transition flex items-center justify-center gap-2 disabled:opacity-50 ${
-                isFreeMeal
-                  ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20"
-                  : "bg-purple-600 text-white hover:bg-purple-700 shadow-purple-600/20"
-              }`}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Submitting Staff Order...</span>
-                </>
-              ) : isFreeMeal ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  <span>Confirm Free Staff Meal & Dispatch</span>
-                </>
-              ) : (
-                <>
-                  <DollarSign className="h-4 w-4" />
-                  <span>Accept {cartSubtotal.toFixed(2)} ETB & Dispatch</span>
-                </>
-              )}
-            </button>
+            {/* Checkout Action Buttons */}
+            {isFreeMeal ? (
+              <button
+                type="button"
+                disabled={submitting || cartItems.length === 0 || !selectedEmployee}
+                onClick={() => handlePlaceStaffOrder(true)}
+                className="mt-3 w-full rounded-2xl py-3 text-xs font-black shadow-md active:scale-95 transition flex items-center justify-center gap-2 bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20 disabled:opacity-50"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Submitting Staff Order...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    <span>Confirm Free Staff Meal & Dispatch</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {/* 1. Pay Now & Dispatch */}
+                <button
+                  type="button"
+                  disabled={submitting || cartItems.length === 0 || !selectedEmployee}
+                  onClick={() => handlePlaceStaffOrder(true)}
+                  className="w-full rounded-2xl py-2.5 text-xs font-black shadow-md active:scale-95 transition flex items-center justify-center gap-2 bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20 disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Collect {cartSubtotal.toFixed(2)} ETB & Mark Paid</span>
+                    </>
+                  )}
+                </button>
+
+                {/* 2. Order Unpaid & Pay Later */}
+                <button
+                  type="button"
+                  disabled={submitting || cartItems.length === 0 || !selectedEmployee}
+                  onClick={() => handlePlaceStaffOrder(false)}
+                  className="w-full rounded-2xl py-2.5 text-xs font-black border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 active:scale-95 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                  title="Employee hasn't paid yet. Dispatch order as Payment Pending."
+                >
+                  <Clock className="h-4 w-4 text-amber-700" />
+                  <span>Order First (Unpaid / Pay Later) & Dispatch</span>
+                </button>
+              </div>
+            )}
 
           </div>
 
@@ -792,6 +847,7 @@ function StaffMenuPage() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Subsidized Birr Collected</p>
               <p className="text-xl font-black text-blue-900 mt-0.5">
                 {historyOrders
+                  .filter((o) => o.payment_status === "paid")
                   .reduce((sum, o) => sum + Number(o.total || 0), 0)
                   .toLocaleString("en-US", { minimumFractionDigits: 2 })}{" "}
                 <span className="text-xs font-semibold text-blue-700">ETB</span>
@@ -814,27 +870,34 @@ function StaffMenuPage() {
               historyOrders.map((ord) => {
                 const totalAmt = Number(ord.total || 0);
                 const isFree = totalAmt === 0 || ord.payment_status === "free";
+                const isPaid = isFree || ord.payment_status === "paid";
                 const itemsList = Array.isArray(ord.items) ? ord.items : [];
 
                 return (
                   <div key={ord.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-xs font-black text-purple-700">
                           #{ord.order_number}
                         </span>
                         <span className="text-xs font-bold text-slate-800">
-                          {ord.notes || "Staff Meal"}
+                          {ord.employee_name ? `${ord.employee_name}` : (ord.notes || "Staff Meal")}
                         </span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
-                            isFree
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-purple-100 text-purple-800"
-                          }`}
-                        >
-                          {isFree ? "Free Allowance" : "Paid Subsidized"}
-                        </span>
+                        {isFree ? (
+                          <span className="rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-800">
+                            Free Allowance
+                          </span>
+                        ) : isPaid ? (
+                          <span className="rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            PAID
+                          </span>
+                        ) : (
+                          <span className="rounded-full px-2 py-0.5 text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 animate-pulse">
+                            <Clock className="h-3 w-3" />
+                            UNPAID / PENDING
+                          </span>
+                        )}
                       </div>
 
                       {/* Items Summary */}
@@ -852,13 +915,27 @@ function StaffMenuPage() {
                       </p>
                     </div>
 
-                    <div className="text-right shrink-0">
-                      <span className="text-sm font-black text-slate-900 block">
-                        {totalAmt.toLocaleString("en-US", { minimumFractionDigits: 2 })} ETB
-                      </span>
-                      <span className="text-[10px] font-bold text-emerald-600">
-                        ✓ Dispatched to Kitchen/Bar
-                      </span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right">
+                        <span className="text-sm font-black text-slate-900 block">
+                          {totalAmt.toLocaleString("en-US", { minimumFractionDigits: 2 })} ETB
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-600">
+                          ✓ Dispatched
+                        </span>
+                      </div>
+
+                      {/* Mark as Paid button for unpaid staff orders */}
+                      {!isPaid && (
+                        <button
+                          type="button"
+                          onClick={() => setPayingOrder(ord)}
+                          className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-3 py-1.5 shadow-sm active:scale-95 transition flex items-center gap-1.5"
+                        >
+                          <DollarSign className="h-3.5 w-3.5" />
+                          <span>Mark as Paid</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -866,6 +943,81 @@ function StaffMenuPage() {
             )}
           </div>
 
+        </div>
+      )}
+
+      {/* MARK AS PAID MODAL */}
+      {payingOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Mark Staff Meal as Paid</h3>
+                <p className="text-xs text-slate-500 font-mono">Order #{payingOrder.order_number}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPayingOrder(null)}
+                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="my-4 space-y-3">
+              <div className="rounded-2xl bg-purple-50 p-3 flex items-center justify-between">
+                <span className="text-xs font-bold text-purple-900">Amount Due:</span>
+                <span className="text-base font-black text-purple-950">
+                  {Number(payingOrder.total || 0).toFixed(2)} ETB
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Payment Method Received
+                </label>
+                <select
+                  value={markPaidMethod}
+                  onChange={(e) => setMarkPaidMethod(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs font-bold text-slate-900 outline-none focus:border-purple-500 focus:bg-white"
+                >
+                  <option value="cash">Cash (Birr)</option>
+                  <option value="telebirr">Telebirr</option>
+                  <option value="cbe_birr">CBE Birr</option>
+                  <option value="card">Card / POS</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPayingOrder(null)}
+                disabled={markingPaid}
+                className="flex-1 rounded-xl border border-slate-200 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 active:scale-95 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleMarkOrderPaid}
+                disabled={markingPaid}
+                className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 py-2 text-xs font-black text-white shadow-md shadow-emerald-600/20 active:scale-95 transition flex items-center justify-center gap-1.5"
+              >
+                {markingPaid ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    <span>Confirm Paid</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -52,6 +52,23 @@ function StaffMenuPage() {
   // History state
   const [historyOrders, setHistoryOrders] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
+
+  const handleMarkServed = async (orderId) => {
+    try {
+      setUpdatingOrderId(orderId);
+      await api(`/pos/orders/${orderId}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "completed" }),
+      });
+      // Refresh history list
+      loadHistory();
+    } catch (err) {
+      console.error("Failed to mark staff order as served:", err);
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
 
   // 1. Fetch Employees
   useEffect(() => {
@@ -910,15 +927,39 @@ function StaffMenuPage() {
                       </p>
                     </div>
 
-                    <div className="text-right shrink-0">
-                      <span className="text-sm font-black text-slate-900 block">
-                        {totalAmt.toLocaleString("en-US", { minimumFractionDigits: 2 })} ETB
-                      </span>
-                      <span className={`text-[10px] font-bold block mt-0.5 ${
-                        overallStatus === "ready" ? "text-emerald-700 font-black" : "text-slate-500"
-                      }`}>
-                        {overallStatus === "ready" ? "🔔 Ready for Handover" : overallStatus === "preparing" ? "🔥 Cooking in Kitchen / Bar" : "✓ Sent to Kitchen/Bar"}
-                      </span>
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      <div className="text-right">
+                        <span className="text-sm font-black text-slate-900 block">
+                          {totalAmt.toLocaleString("en-US", { minimumFractionDigits: 2 })} ETB
+                        </span>
+                        <span className={`text-[10px] font-bold block mt-0.5 ${
+                          overallStatus === "ready" ? "text-emerald-700 font-black" : overallStatus === "completed" || overallStatus === "served" ? "text-slate-400" : "text-slate-500"
+                        }`}>
+                          {overallStatus === "ready" ? "🔔 Ready for Handover" : overallStatus === "preparing" ? "🔥 Cooking in Kitchen / Bar" : overallStatus === "completed" || overallStatus === "served" ? "✓ Served" : "✓ Sent to Kitchen/Bar"}
+                        </span>
+                      </div>
+
+                      {/* Action Button: Mark as Served */}
+                      {(overallStatus === "ready" || overallStatus === "preparing") && (
+                        <button
+                          type="button"
+                          onClick={() => handleMarkServed(ord.id)}
+                          disabled={updatingOrderId === ord.id}
+                          className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs px-3 py-1.5 shadow-sm transition disabled:opacity-50"
+                        >
+                          {updatingOrderId === ord.id ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <span>Serving...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>Mark as Served</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

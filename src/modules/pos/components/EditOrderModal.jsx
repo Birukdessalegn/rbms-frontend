@@ -160,17 +160,27 @@ function EditOrderModal({
       const res = await removeOrderItem(orderId, itemId);
 
       const updatedOrder = res.data || res.order;
-      if (updatedOrder) {
-        setCurrentOrder(updatedOrder);
-      } else {
-        setCurrentOrder((prev) => ({
-          ...prev,
-          items: orderItems.filter((it) => (it.order_item_id || it.id) !== itemId),
-        }));
-      }
+      const remainingItems = updatedOrder?.items || orderItems.filter((it) => (it.order_item_id || it.id) !== itemId);
+      const isNowCancelled = updatedOrder?.status === 'cancelled' || remainingItems.length === 0;
 
-      setStatusMessage(`"${itemName}" voided and inventory stock restored.`);
-      notifyChange();
+      if (isNowCancelled) {
+        setStatusMessage(`All items voided. Order has been cancelled and table released.`);
+        notifyChange();
+        setTimeout(() => {
+          if (onClose) onClose();
+        }, 1200);
+      } else {
+        if (updatedOrder) {
+          setCurrentOrder(updatedOrder);
+        } else {
+          setCurrentOrder((prev) => ({
+            ...prev,
+            items: remainingItems,
+          }));
+        }
+        setStatusMessage(`"${itemName}" voided and inventory stock restored.`);
+        notifyChange();
+      }
     } catch (err) {
       setErrorMessage(err.message || 'Failed to remove item.');
     } finally {

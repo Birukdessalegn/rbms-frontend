@@ -290,6 +290,7 @@ function ActiveOrders() {
     if (o.status === "cancelled" || o.status === "completed") return false;
     if (o.payment_status === "paid") return false;
     if (paidOrderIds.has(String(o.id || o.order_id))) return false;
+    if (!Array.isArray(o.items) || o.items.length === 0) return false;
     const paidAmt = Number(o.paid_amount || 0);
     const orderTotal = Number(o.total || o.total_amount || 0);
     const itemsTotal = (o.items || []).reduce((acc, i) => acc + Number(i.quantity || i.qty || 1) * Number(i.unit_price || i.price || 0), 0);

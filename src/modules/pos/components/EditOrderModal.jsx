@@ -247,6 +247,9 @@ function EditOrderModal({
   // Filtered menu items
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
+      // Exclude disabled items
+      if (p.is_active === false) return false;
+
       // Exclude pure inventory raw items (e.g. flour, cooking oil)
       const applicableFor = String(p.applicable_for || p.applicableFor || 'both').toLowerCase();
       if (applicableFor === 'inventory') return false;

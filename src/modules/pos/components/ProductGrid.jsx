@@ -36,6 +36,11 @@ function ProductGrid({
   }, []);
 
 const filteredProducts = products.filter((product) => {
+  // Hide disabled products from the POS ordering screen
+  if (product.is_active === false) {
+    return false;
+  }
+
   const localMap = getProductApplicableMap();
   const localApp = localMap[String(product.id)] || localMap[String(product.product_code || product.productCode)];
   const applicableFor = (product.applicable_for || product.applicableFor || localApp || "both").toLowerCase();

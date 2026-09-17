@@ -97,15 +97,9 @@ function TodaySalesAuditPage() {
       return sum + qty * price;
     }, 0);
 
-    const tax = Number(order.tax ?? order.tax_amount ?? 0);
-    const service = Number(order.service_charge ?? order.service_charge_amount ?? 0);
     const discount = Number(order.discount ?? order.discount_amount ?? 0);
-
-    if (tax > 0 || service > 0) {
-      return Math.max(subtotal - discount + tax + service, 0);
-    }
-    const vat = Number((subtotal * 0.15).toFixed(2));
-    return Math.max(subtotal - discount + vat, 0);
+    // Registered product menu price already includes 15% VAT
+    return Math.max(subtotal - discount, 0);
   };
 
   const extractFullName = (first, last) => {

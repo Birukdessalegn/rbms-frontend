@@ -302,10 +302,10 @@ function PaymentModal({
 
       const calculatedTotal = calculatedSubtotal > 0
         ? Math.max(
-          calculatedSubtotal - discount + tax,
+          calculatedSubtotal - discount,
           0
         )
-        : (backendTotal > 0 ? backendTotal : Math.max(calculatedSubtotal - discount + tax, 0));
+        : (backendTotal > 0 ? backendTotal : Math.max(calculatedSubtotal - discount, 0));
 
       const paid = (
         loadedOrder.payments || []
@@ -426,16 +426,10 @@ function PaymentModal({
     const orderTotalTax = Number(fullOrder?.tax ?? fullOrder?.tax_amount ?? 0);
     const orderTotalService = Number(fullOrder?.service_charge ?? fullOrder?.service_charge_amount ?? 0);
 
-    // Calculate proportional tax and service charge strictly for the selected items
-    const selectedTax = orderTotalTax > 0
-      ? Number((orderTotalTax * ratio).toFixed(2))
-      : 0;
-
-    const selectedServiceCharge = orderTotalService > 0
-      ? Number((orderTotalService * ratio).toFixed(2))
-      : 0;
-
-    const grand = Math.max(Number((sub + selectedServiceCharge + selectedTax).toFixed(2)), 0);
+    // Product menu prices already have 15% VAT included. Grand total is directly the selected items subtotal
+    const grand = Math.max(Number(sub.toFixed(2)), 0);
+    const selectedTax = Number((grand - (grand / 1.15)).toFixed(2));
+    const selectedServiceCharge = 0;
 
     return {
       selectedSubtotal: sub,
@@ -521,11 +515,11 @@ function PaymentModal({
 
   const total = dbTotal > 0
     ? dbTotal
-    : Math.max(calculatedSubtotal - discount + orderTotalTax + orderTotalService, 0);
+    : Math.max(calculatedSubtotal - discount, 0);
 
-  // Tax / VAT (15% included or explicit)
-  const tax = orderTotalTax > 0 ? orderTotalTax : (total * (15 / 115));
-  const subtotal = Math.max(total - tax - orderTotalService, 0);
+  // Tax / VAT (15% included in customer menu price)
+  const tax = Number((total - (total / 1.15)).toFixed(2));
+  const subtotal = Number((total / 1.15).toFixed(2));
 
   /* 
    * Already paid 
@@ -1476,17 +1470,10 @@ function PaymentModal({
                     <span>{selectedItemsSummary.selectedServiceCharge.toFixed(2)} ETB</span>
                   </div>
                 )}
-                {selectedItemsSummary.selectedTax > 0 ? (
-                  <div className="flex justify-between text-slate-600 font-medium">
-                    <span>VAT Tax</span>
-                    <span>{selectedItemsSummary.selectedTax.toFixed(2)} ETB</span>
-                  </div>
-                ) : (
                   <div className="flex justify-between text-emerald-600 font-semibold text-[11px]">
                     <span>VAT / Tax</span>
-                    <span>Included in Product Price</span>
+                    <span>15% Included ({selectedItemsSummary.selectedTax.toFixed(2)} ETB)</span>
                   </div>
-                )}
                 <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-black text-amber-900">
                   <span>Customer Share Total</span>
                   <span className="text-emerald-700 font-black">
@@ -1664,7 +1651,7 @@ function PaymentModal({
 
                 <div className="flex justify-between text-sm text-gray-500">
                   <span>
-                    VAT / Tax (15%)
+                    VAT / Tax (15% Included)
                   </span>
 
                   <span>

@@ -549,16 +549,10 @@ export const printOrderReceipt = (order, options = {}) => {
   const service = Number(order.service_charge ?? order.service_charge_amount ?? 0);
   const discount = Number(order.discount ?? order.discount_amount ?? 0);
 
-  let vatAmount = tax;
+  let grossTotal = recordedTotal > 0 ? recordedTotal : Math.max(netSubtotal - discount, 0);
+  let vatAmount = Number((grossTotal - (grossTotal / 1.15)).toFixed(2));
+  let baseNet = Number((grossTotal / 1.15).toFixed(2));
   let serviceCharge = service;
-  let grossTotal = recordedTotal;
-
-  if (grossTotal <= 0) {
-    vatAmount = tax > 0 ? tax : Number((netSubtotal * 0.15).toFixed(2));
-    grossTotal = Math.max(netSubtotal - discount + vatAmount + serviceCharge, 0);
-  } else if (vatAmount <= 0) {
-    vatAmount = Number((netSubtotal * 0.15).toFixed(2));
-  }
 
   const pStatus = String(order.payment_status || "unpaid").toUpperCase();
   const pMethod = String(order.payment_method || order.paymentMethod || "CASH").toUpperCase();
@@ -653,12 +647,22 @@ export const printOrderReceipt = (order, options = {}) => {
         <div class="divider"></div>
 
         <div class="flex-between" style="font-size: 10px; margin-bottom: 2px;">
-          <span>Subtotal (Excl. VAT):</span>
-          <span>${netSubtotal.toFixed(2)} ETB</span>
+          <span>Items Total (Menu Price):</span>
+          <span>${(grossTotal + discount).toFixed(2)} ETB</span>
+        </div>
+        ${discount > 0 ? `
+          <div class="flex-between" style="font-size: 10px; margin-bottom: 2px; color: #666;">
+            <span>Discount:</span>
+            <span>-${discount.toFixed(2)} ETB</span>
+          </div>
+        ` : ""}
+        <div class="flex-between" style="font-size: 10px; margin-bottom: 2px; color: #555;">
+          <span>Net Base (Excl. VAT):</span>
+          <span>${baseNet.toFixed(2)} ETB</span>
         </div>
         <div class="flex-between font-bold" style="font-size: 10px; margin-bottom: 2px;">
-          <span>VAT (15%):</span>
-          <span>+${vatAmount.toFixed(2)} ETB</span>
+          <span>15% VAT (Included in Price):</span>
+          <span>${vatAmount.toFixed(2)} ETB</span>
         </div>
         ${serviceCharge > 0 ? `
           <div class="flex-between" style="font-size: 10px; margin-bottom: 2px;">
@@ -666,17 +670,11 @@ export const printOrderReceipt = (order, options = {}) => {
             <span>+${serviceCharge.toFixed(2)} ETB</span>
           </div>
         ` : ""}
-        ${discount > 0 ? `
-          <div class="flex-between" style="font-size: 10px; margin-bottom: 2px; color: #666;">
-            <span>Discount:</span>
-            <span>-${discount.toFixed(2)} ETB</span>
-          </div>
-        ` : ""}
 
         <div class="double-divider"></div>
 
         <div class="flex-between font-bold" style="font-size: 14px; margin: 4px 0;">
-          <span>TOTAL (INCL. VAT):</span>
+          <span>TOTAL (INCL. 15% VAT):</span>
           <span>${grossTotal.toFixed(2)} ETB</span>
         </div>
 

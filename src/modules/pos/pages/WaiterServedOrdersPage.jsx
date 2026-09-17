@@ -385,13 +385,8 @@ function WaiterServedOrdersPage() {
     const service = Number(order.service_charge ?? order.service_charge_amount ?? 0);
     const discount = Number(order.discount ?? order.discount_amount ?? 0);
 
-    if (tax > 0 || service > 0) {
-      return Math.max(itemsSubtotal - discount + tax + service, 0);
-    }
-
-    // Standard 15% VAT fallback if not explicitly stored
-    const vat = Number((itemsSubtotal * 0.15).toFixed(2));
-    return Math.max(itemsSubtotal - discount + vat, 0);
+    // Registered product prices already include 15% VAT - do not add on top
+    return Math.max(itemsSubtotal - discount, 0);
   };
 
   const handlePrintOrder = (order) => {
@@ -1356,32 +1351,32 @@ function WaiterServedOrdersPage() {
               {/* Total Calculation */}
               {(() => {
                 const detailItems = Array.isArray(selectedOrderDetail.items) ? selectedOrderDetail.items : [];
-                const netSubtotal = detailItems.reduce(
-                  (sum, i) => sum + (Number(i.quantity ?? i.qty ?? 1) * Number(i.unit_price ?? i.price ?? i.product_price ?? 0)),
-                  0
-                );
                 const grossTotal = calculateOrderGrossTotal(selectedOrderDetail);
-                const recordedTax = Number(selectedOrderDetail.tax ?? selectedOrderDetail.tax_amount ?? 0);
-                const vatAmount = recordedTax > 0 ? recordedTax : Number((netSubtotal * 0.15).toFixed(2));
-                const serviceCharge = Number(selectedOrderDetail.service_charge ?? selectedOrderDetail.service_charge_amount ?? 0);
+                const discount = Number(selectedOrderDetail.discount ?? selectedOrderDetail.discount_amount ?? 0);
+                const vatAmount = Number((grossTotal - (grossTotal / 1.15)).toFixed(2));
+                const baseNet = Number((grossTotal / 1.15).toFixed(2));
 
                 return (
                   <div className="space-y-2">
                     <div className="rounded-xl bg-slate-50 p-3 border border-slate-200 text-xs space-y-1.5">
                       <div className="flex justify-between text-slate-600">
-                        <span>Items Subtotal (Excl. VAT):</span>
-                        <span className="font-mono font-medium">{netSubtotal.toFixed(2)} ETB</span>
+                        <span>Items Subtotal (Menu Price):</span>
+                        <span className="font-mono font-medium">{(grossTotal + discount).toFixed(2)} ETB</span>
                       </div>
-                      <div className="flex justify-between text-slate-600">
-                        <span>VAT (15%):</span>
-                        <span className="font-mono font-medium text-emerald-700">+{vatAmount.toFixed(2)} ETB</span>
-                      </div>
-                      {serviceCharge > 0 && (
-                        <div className="flex justify-between text-slate-600">
-                          <span>Service Charge:</span>
-                          <span className="font-mono font-medium text-slate-700">+{serviceCharge.toFixed(2)} ETB</span>
+                      {discount > 0 && (
+                        <div className="flex justify-between text-rose-600 font-medium">
+                          <span>Discount:</span>
+                          <span className="font-mono">-{discount.toFixed(2)} ETB</span>
                         </div>
                       )}
+                      <div className="flex justify-between text-slate-600 pt-1 border-t border-slate-200/60">
+                        <span>Net Base Amount (Excl. VAT):</span>
+                        <span className="font-mono font-medium">{baseNet.toFixed(2)} ETB</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>15% VAT (Included in Price):</span>
+                        <span className="font-mono font-medium text-emerald-700">{vatAmount.toFixed(2)} ETB</span>
+                      </div>
                     </div>
                     <div className="rounded-2xl bg-slate-900 p-4 text-white flex items-center justify-between">
                       <div>

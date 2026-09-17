@@ -246,24 +246,41 @@ function WaiterServedOrdersPage() {
         ""
       ).trim().toLowerCase();
 
-      // Check ID match against employee_id and user_id
+      const orderCreatedBy = String(order.created_by || order.userId || "");
+
+      // Check ID match against employee_id, user_id, and created_by
       const matchesId = Boolean(
-        (employeeIdStr && (orderWaiterId === employeeIdStr || orderUserId === employeeIdStr)) ||
-        (userIdStr && (orderWaiterId === userIdStr || orderUserId === userIdStr))
+        (employeeIdStr && (
+          orderWaiterId === employeeIdStr ||
+          orderUserId === employeeIdStr ||
+          orderCreatedBy === employeeIdStr ||
+          String(order.waiter_employee_id || "") === employeeIdStr
+        )) ||
+        (userIdStr && (
+          orderWaiterId === userIdStr ||
+          orderUserId === userIdStr ||
+          orderCreatedBy === userIdStr ||
+          String(order.waiter_user_id || "") === userIdStr
+        ))
       );
 
-      // Check Name match
+      // Check Name match against username, first name, and full name
       const matchesName = Boolean(
-        (userNameLower && orderWaiterName.includes(userNameLower)) ||
-        (userFullName && (orderWaiterName.includes(userFullName) || userFullName.includes(orderWaiterName))) ||
+        (userNameLower && (
+          orderWaiterName.includes(userNameLower) ||
+          userNameLower.includes(orderWaiterName)
+        )) ||
+        (userFullName && (
+          orderWaiterName.includes(userFullName) ||
+          userFullName.includes(orderWaiterName)
+        )) ||
         (userFirstName && userFirstName.length >= 2 && orderWaiterName.includes(userFirstName))
       );
 
       const isMyOrder = matchesId || matchesName;
 
-      // For privileged roles (admin / manager), allow scoping to "all" if requested; default is strictly "mine"
-      const isPrivileged = userRole === "admin" || userRole === "superadmin" || userRole === "manager";
-      if ((!isPrivileged || waiterScope === "mine") && !isMyOrder) {
+      // Scoping: default is strictly "mine", or "all" if requested by user
+      if (waiterScope === "mine" && !isMyOrder) {
         return false;
       }
 
@@ -277,7 +294,12 @@ function WaiterServedOrdersPage() {
       const rawDate = order.created_at || order.createdAt || order.date;
       if (!rawDate) return false;
 
-      const orderDate = new Date(rawDate);
+      // Normalize date string with T so ISO-8601 parsing works reliably across all browsers/mobile
+      const normalizedDateStr = typeof rawDate === "string" ? rawDate.replace(" ", "T") : rawDate;
+      let orderDate = new Date(normalizedDateStr);
+      if (isNaN(orderDate.getTime())) {
+        orderDate = new Date(rawDate);
+      }
       if (isNaN(orderDate.getTime())) return false;
 
       const now = new Date();
@@ -571,9 +593,9 @@ function WaiterServedOrdersPage() {
                 <span className="text-blue-600 font-semibold">
                   {userFullName || user?.username || "Staff"}
                 </span>
-                {waiterScope === "all" && (userRole === "admin" || userRole === "manager") && (
+                {waiterScope === "all" && (
                   <span className="ml-1.5 rounded bg-purple-100 text-purple-800 text-[10px] font-extrabold px-1.5 py-0.5 uppercase tracking-wide">
-                    All Waiters View
+                    All Orders View
                   </span>
                 )}
               </p>
@@ -769,34 +791,34 @@ function WaiterServedOrdersPage() {
             )}
           </div>
 
-          {/* Admin / Manager Waiter Scope Toggle */}
-          {(userRole === "admin" || userRole === "manager") && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500">Scope:</span>
-              <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setWaiterScope("mine")}
-                  className={`rounded-lg px-2.5 py-1 transition ${waiterScope === "mine"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-slate-600 hover:text-slate-900"
-                    }`}
-                >
-                  My Orders Only
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWaiterScope("all")}
-                  className={`rounded-lg px-2.5 py-1 transition ${waiterScope === "all"
-                      ? "bg-purple-600 text-white shadow-sm"
-                      : "text-slate-600 hover:text-slate-900"
-                    }`}
-                >
-                  All Waiters
-                </button>
-              </div>
+          {/* Waiter Scope Toggle */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500">Scope:</span>
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setWaiterScope("mine")}
+                className={`rounded-lg px-2.5 py-1 transition ${
+                  waiterScope === "mine"
+                    ? "bg-blue-600 text-white shadow-sm font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                My Orders
+              </button>
+              <button
+                type="button"
+                onClick={() => setWaiterScope("all")}
+                className={`rounded-lg px-2.5 py-1 transition ${
+                  waiterScope === "all"
+                    ? "bg-purple-600 text-white shadow-sm font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                All Orders
+              </button>
             </div>
-          )}
+          </div>
         </div>
 
         {/* ROW 2: Search, Status, and Shift Filters */}
@@ -892,11 +914,21 @@ function WaiterServedOrdersPage() {
             <h3 className="mt-3 text-sm font-bold text-slate-800">
               No Served Orders Found
             </h3>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-500 max-w-sm">
               {searchQuery || statusFilter !== "all" || shiftFilter !== "all" || dateRangeFilter !== "today"
                 ? "No orders match your filter criteria for this period."
-                : "You haven't served any orders today yet."}
+                : "No orders assigned to you for this period."}
             </p>
+            {waiterScope === "mine" && (
+              <button
+                type="button"
+                onClick={() => setWaiterScope("all")}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-blue-50 px-3.5 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100 active:scale-95 transition"
+              >
+                <span>View all active shift orders</span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         ) : (
           <div>

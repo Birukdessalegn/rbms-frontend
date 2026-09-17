@@ -23,7 +23,7 @@ function POSPage() {
   const isBartender = user?.role?.toUpperCase() === "BARTENDER" || user?.role_id === 8;
 
   const [orderItems, setOrderItems] = useState([]);
-  const [orderType, setOrderType] = useState("Dine In");
+  const orderType = "Dine In";
   const [selectedTable, setSelectedTable] = useState(null);
   const [activeCategory, setActiveCategory] = useState(isBartender ? "drinks" : "all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -113,7 +113,7 @@ function POSPage() {
     if (orderItems.length === 0) {
       return;
     }
-    if (orderType === "Dine In" && !selectedTable) {
+    if (!selectedTable) {
       alert("Please select a table for Dine In orders.");
       return;
     }
@@ -126,12 +126,7 @@ function POSPage() {
 
       const orderData = {
         orderNumber,
-        orderType:
-          orderType === "Dine In"
-            ? "dine_in"
-            : orderType === "Takeaway"
-            ? "takeaway"
-            : "delivery",
+        orderType: "dine_in",
 
         tableId,
         is_bar_order: isBartender || Boolean(selectedTable?.is_bar_seat),
@@ -252,22 +247,6 @@ function POSPage() {
 
       <ActiveOrders />
 
-      {/* Order Type */}
-      <div className="flex gap-2">
-        {["Dine In", "Takeaway"].map((type) => (
-          <button
-            key={type}
-            onClick={() => setOrderType(type)}
-            className={`rounded-lg px-5 py-2 text-sm font-medium transition ${
-              orderType === type
-                ? "bg-blue-600 text-white"
-                : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            {type}
-          </button>
-        ))}
-      </div>
 
       {/* Main POS */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">

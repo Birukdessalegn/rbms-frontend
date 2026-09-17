@@ -20,6 +20,7 @@ import {
   Building2,
   Eye,
   EyeOff,
+  Sparkles,
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -89,6 +90,43 @@ const emptyForm = {
   salary: "",
   status: "active",
   attendance: "Present",
+};
+
+// =====================================================
+// EMPLOYEE CODE AUTO-GENERATOR
+// =====================================================
+
+export const getNextEmployeeCode = (employees = []) => {
+  let maxNum = 0;
+  const prefix = "EMP";
+  const prefixDash = `${prefix}-`;
+
+  (Array.isArray(employees) ? employees : []).forEach((emp) => {
+    const code = String(
+      emp.employee_code ||
+      emp.employeeCode ||
+      emp.code ||
+      ""
+    ).toUpperCase().trim();
+
+    if (code.startsWith(prefixDash)) {
+      const numPart = parseInt(code.slice(prefixDash.length), 10);
+      if (!isNaN(numPart) && numPart > maxNum) {
+        maxNum = numPart;
+      }
+    } else {
+      const match = code.match(/EMP[-_]?(\d+)/i) || code.match(/\d+/);
+      if (match) {
+        const numPart = parseInt(match[1] || match[0], 10);
+        if (!isNaN(numPart) && numPart > maxNum) {
+          maxNum = numPart;
+        }
+      }
+    }
+  });
+
+  const nextNum = maxNum + 1;
+  return `${prefix}-${String(nextNum).padStart(3, "0")}`;
 };
 
 // =====================================================
@@ -304,7 +342,11 @@ function EmployeesPage() {
 
   const openCreateForm = () => {
     setEditingEmployee(null);
-    setForm(emptyForm);
+    const autoCode = getNextEmployeeCode(employeeList);
+    setForm({
+      ...emptyForm,
+      employeeCode: autoCode,
+    });
     setError("");
     setShowPassword(false);
     setShowForm(true);
@@ -378,6 +420,7 @@ function EmployeesPage() {
         ...previous,
         departmentId: value,
         roleId: currentDept?.defaultRoleId ? String(currentDept.defaultRoleId) : previous.roleId,
+        employeeCode: previous.employeeCode || getNextEmployeeCode(employeeList),
       }));
       return;
     }
@@ -1202,14 +1245,40 @@ function EmployeesPage() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <FormInput
-                    label="Employee ID"
-                    name="employeeCode"
-                    value={form.employeeCode}
-                    onChange={handleFormChange}
-                    placeholder="EMP-001"
-                    required
-                  />
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Employee ID <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = getNextEmployeeCode(employeeList);
+                          setForm((prev) => ({ ...prev, employeeCode: next }));
+                        }}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        Auto-generate
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="employeeCode"
+                        value={form.employeeCode}
+                        onChange={handleFormChange}
+                        placeholder="e.g. EMP-001"
+                        required
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 pr-14 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                      />
+                      {form.employeeCode && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-600 uppercase tracking-wide pointer-events-none">
+                          Auto
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
                   <FormInput
                     label="Phone"

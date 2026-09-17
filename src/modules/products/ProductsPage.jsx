@@ -19,6 +19,10 @@ import {
   Image as ImageIcon,
   Apple,
   Tag,
+  LayoutGrid,
+  List,
+  Power,
+  Edit3,
 } from "lucide-react";
 
 import api from "../../services/api";
@@ -204,6 +208,7 @@ function ProductsPage() {
 
   const [activeTab, setActiveTab] = useState("catalog"); // "catalog" | "menu"
   const [menuAudienceFilter, setMenuAudienceFilter] = useState("all"); // "all" | "customer" | "employee"
+  const [viewMode, setViewMode] = useState("cards"); // "cards" | "table"
 
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
@@ -767,6 +772,7 @@ function ProductsPage() {
           isAvailable: payload.is_available !== undefined ? payload.is_available : product.is_available,
           isTodaysSpecial: payload.is_todays_special !== undefined ? payload.is_todays_special : product.is_todays_special,
           staffPrice: payload.staff_price !== undefined ? payload.staff_price : product.staff_price,
+          isActive: payload.is_active !== undefined ? payload.is_active : product.is_active,
         }),
       });
     } catch (err) {
@@ -851,6 +857,16 @@ function ProductsPage() {
     selectedTagFilter,
     applicableFilter,
   ]);
+
+  const displayedProducts = useMemo(() => {
+    return filteredProducts.filter((product) => {
+      if (activeTab !== "menu" || menuAudienceFilter === "all") return true;
+      const scope = product.menu_type || "both";
+      if (menuAudienceFilter === "customer") return scope === "customer" || scope === "both";
+      if (menuAudienceFilter === "employee") return scope === "employee" || scope === "both";
+      return true;
+    });
+  }, [filteredProducts, activeTab, menuAudienceFilter]);
 
   // Standard Category Architecture: Food, Drink, Fruit, Inventory
   const standardCategories = useMemo(() => {
@@ -1317,6 +1333,36 @@ function ProductsPage() {
               <option value="inventory">📦 Raw Inventory / Ingredients</option>
             </select>
 
+            {/* View Mode Switcher (Cards vs Table) */}
+            <div className="flex items-center rounded-xl border border-slate-200 bg-slate-100 p-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewMode("cards")}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                  viewMode === "cards"
+                    ? "bg-white text-blue-700 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+                title="Card View (Great for Mobile)"
+              >
+                <LayoutGrid className="h-4 w-4" />
+                <span>Cards</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                  viewMode === "table"
+                    ? "bg-white text-blue-700 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+                title="Dense Table View"
+              >
+                <List className="h-4 w-4" />
+                <span>Table</span>
+              </button>
+            </div>
+
           </div>
 
         </div>
@@ -1482,343 +1528,458 @@ function ProductsPage() {
           </div>
         )}
 
-        {/* Table / Content */}
-
-        {filteredProducts.length === 0 ? (
-
+        {/* Products Content: Card Style vs Table View */}
+        {displayedProducts.length === 0 ? (
           <div className="flex h-56 flex-col items-center justify-center">
-
             <Package className="mb-3 h-10 w-10 text-slate-300" />
-
-            <p className="text-sm font-medium text-slate-500">
-              No products found
-            </p>
-
+            <p className="text-sm font-medium text-slate-500">No products found</p>
             <p className="mt-1 text-xs text-slate-400">
               Create your first product or adjust search filters.
             </p>
-
           </div>
+        ) : viewMode === "cards" ? (
+          /* ============================================================
+             CARD STYLE (Touch-Friendly for Phones & Modern Responsive Grid)
+          ============================================================ */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 p-3.5 sm:p-5">
+            {displayedProducts.map((product) => {
+              const isEnabled = product.is_active !== false;
+              const CategoryIcon = getCategoryIcon(
+                product.category_type,
+                product.category_name
+              );
+              const menuScope = product.menu_type || "both";
 
-        ) : (
+              return (
+                <div
+                  key={product.id}
+                  onClick={() => openEditModal(product)}
+                  className={`group relative flex flex-col justify-between rounded-2xl border bg-white p-4 shadow-xs transition hover:shadow-md cursor-pointer ${
+                    isEnabled
+                      ? "border-slate-200 hover:border-blue-300"
+                      : "border-slate-200/80 bg-slate-50/75 opacity-80"
+                  }`}
+                >
+                  {/* Card Header & Info */}
+                  <div>
+                    <div className="flex items-start gap-3">
+                      {/* Thumbnail or Icon */}
+                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 overflow-hidden border border-slate-200/80 shadow-xs">
+                        {(product.image_url || product.imageUrl) ? (
+                          <img
+                            src={formatImageUrl(product.image_url || product.imageUrl)}
+                            alt={product.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <CategoryIcon className="h-6 w-6 text-slate-500" />
+                        )}
+                        {product.is_todays_special && (
+                          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-white shadow">
+                            <Star className="h-2.5 w-2.5 fill-white" />
+                          </span>
+                        )}
+                      </div>
 
-          <div className="overflow-x-auto">
+                      {/* Name, Code, Badges */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1.5">
+                          <h4 className="font-extrabold text-sm sm:text-base text-slate-900 truncate group-hover:text-blue-600 transition">
+                            {product.name}
+                          </h4>
+                          {/* Status Badge */}
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold shrink-0 ${
+                              isEnabled
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                : "bg-slate-200 text-slate-600 border border-slate-300"
+                            }`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${isEnabled ? "bg-emerald-500" : "bg-slate-400"}`} />
+                            {isEnabled ? "Enabled" : "Disabled"}
+                          </span>
+                        </div>
 
-            <table className="w-full text-left text-sm">
+                        {product.product_code && (
+                          <p className="text-xs font-semibold text-slate-400 mt-0.5">
+                            {product.product_code}
+                          </p>
+                        )}
 
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-
-                <tr>
-
-                  <th className="px-5 py-4">
-                    Product
-                  </th>
-
-                  <th className="px-5 py-4">
-                    Category
-                  </th>
-
-                  <th className="px-5 py-4">
-                    Applicable For
-                  </th>
-
-                  <th className="px-5 py-4">
-                    Customer Price
-                  </th>
-
-                  <th className="px-5 py-4">
-                    Staff Price
-                  </th>
-
-                  <th className="px-5 py-4">
-                    Menu Audience
-                  </th>
-
-                  {activeTab === "menu" && (
-                    <th className="px-5 py-4 text-center">
-                      Today's Special
-                    </th>
-                  )}
-
-                  <th className="px-5 py-4 text-center">
-                    Available Today
-                  </th>
-
-                </tr>
-
-              </thead>
-
-              <tbody className="divide-y divide-slate-100">
-
-                {filteredProducts
-                  .filter((product) => {
-                    if (activeTab !== "menu" || menuAudienceFilter === "all") return true;
-                    const scope = product.menu_type || "both";
-                    if (menuAudienceFilter === "customer") return scope === "customer" || scope === "both";
-                    if (menuAudienceFilter === "employee") return scope === "employee" || scope === "both";
-                    return true;
-                  })
-                  .map((product) => {
-
-                    const CategoryIcon =
-                      getCategoryIcon(
-                        product.category_type,
-                        product.category_name
-                      );
-
-                    const menuScope = product.menu_type || "both";
-
-                    return (
-                      <tr
-                        key={product.id}
-                        onClick={() => openEditModal(product)}
-                        className="transition hover:bg-slate-100/80 cursor-pointer active:bg-slate-200/60"
-                        title="Click to view & edit product price and details"
-                      >
-
-                        {/* Product */}
-
-                        <td className="px-5 py-4">
-
-                          <div className="flex items-center gap-3">
-
-                            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 overflow-hidden">
-
-                              {(product.image_url || product.imageUrl) ? (
-                                <img
-                                  src={formatImageUrl(product.image_url || product.imageUrl)}
-                                  alt={product.name}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <CategoryIcon className="h-5 w-5" />
-                              )}
-
-                              {product.is_todays_special && (
-                                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-white shadow">
-                                  <Star className="h-2.5 w-2.5 fill-white" />
-                                </span>
-                              )}
-
-                            </div>
-
-                            <div>
-
-                              <div className="flex items-center gap-2">
-
-                                <p className="font-semibold text-slate-900">
-                                  {product.name}
-                                </p>
-
-                                {product.is_todays_special && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                                    <Sparkles className="h-2.5 w-2.5" />
-                                    Special
-                                  </span>
-                                )}
-
-                              </div>
-
-                              {product.product_code && (
-                                <p className="text-xs text-slate-400">
-                                  {product.product_code}
-                                </p>
-                              )}
-
-                            </div>
-
-                          </div>
-
-                        </td>
-
-                        {/* Category */}
-
-                        <td className="px-5 py-4">
-                          <div className="flex flex-col gap-1 items-start">
-                            <span className="rounded-full bg-blue-50 px-3 py-0.5 text-xs font-medium text-blue-700">
-                              {product.category_name || "Uncategorized"}
+                        <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                          <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-100">
+                            {product.category_name || "Uncategorized"}
+                          </span>
+                          {(product.tags || product.tag) && (
+                            <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                              <Tag className="h-2.5 w-2.5" />
+                              {product.tags || product.tag}
                             </span>
-                            {(product.tags || product.tag) && (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                                <Tag className="h-2.5 w-2.5" />
-                                {product.tags || product.tag}
+                          )}
+                          {product.is_todays_special && (
+                            <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                              <Sparkles className="h-2.5 w-2.5" />
+                              Special
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Pricing Section */}
+                    <div className="mt-3.5 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 border border-slate-100 p-2.5 text-xs">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Customer Price</p>
+                        <p className="text-sm font-black text-slate-900 mt-0.5">
+                          {Number(product.price || 0).toLocaleString()} <span className="text-[10px] font-semibold text-slate-500">ETB</span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Staff Price</p>
+                        <p className="text-xs font-black text-slate-700 mt-0.5">
+                          {Number(product.staff_price || 0) === 0 ? (
+                            <span className="text-emerald-700 font-extrabold">Free (0 ETB)</span>
+                          ) : (
+                            `${Number(product.staff_price).toLocaleString()} ETB`
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Shots / Purpose badges */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[11px] text-slate-500">
+                      {Boolean(product.is_shot_item || product.isShotItem) && Number(product.shots_capacity || product.shotsCapacity) > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-extrabold text-purple-700 border border-purple-200">
+                          🥃 {product.shots_capacity || product.shotsCapacity || 30} Shots
+                        </span>
+                      )}
+                      {((product.applicable_for || product.applicableFor || "both").toLowerCase() === "inventory") ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-200">
+                          <Package className="h-2.5 w-2.5 text-amber-600" />
+                          Raw Inventory
+                        </span>
+                      ) : ((product.applicable_for || product.applicableFor || "both").toLowerCase() === "sales") ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 border border-emerald-200">
+                          POS Sales Only
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Card Action Bar (Touch-Optimized Footer) */}
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2"
+                  >
+                    {/* 1-Click Enable / Disable Action Button */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleToggleMenuSetting(product, {
+                          is_active: !isEnabled,
+                        })
+                      }
+                      className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-black transition cursor-pointer shadow-xs active:scale-[0.98] ${
+                        isEnabled
+                          ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                          : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+                      }`}
+                      title={isEnabled ? "Click to Disable Product" : "Click to Enable Product"}
+                    >
+                      <Power className="h-3.5 w-3.5" />
+                      <span>{isEnabled ? "Enabled" : "Disabled"}</span>
+                    </button>
+
+                    {/* Menu Audience Selector */}
+                    <select
+                      value={menuScope}
+                      onChange={(e) =>
+                        handleToggleMenuSetting(product, {
+                          menu_type: e.target.value,
+                        })
+                      }
+                      className="rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500 shadow-xs cursor-pointer"
+                      title="Menu Audience"
+                    >
+                      <option value="both">Both</option>
+                      <option value="customer">Customer</option>
+                      <option value="employee">Staff</option>
+                    </select>
+
+                    {/* Today's Special Toggle */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleToggleMenuSetting(product, {
+                          is_todays_special: !product.is_todays_special,
+                        })
+                      }
+                      className={`flex items-center justify-center rounded-xl p-2 transition cursor-pointer border shadow-xs ${
+                        product.is_todays_special
+                          ? "bg-amber-100 border-amber-300 text-amber-800"
+                          : "bg-white border-slate-200 text-slate-400 hover:text-amber-600"
+                      }`}
+                      title="Toggle Special"
+                    >
+                      <Star
+                        className={`h-4 w-4 ${
+                          product.is_todays_special
+                            ? "fill-amber-500 text-amber-500"
+                            : ""
+                        }`}
+                      />
+                    </button>
+
+                    {/* Edit Details Button */}
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(product)}
+                      className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition cursor-pointer shadow-xs"
+                      title="Edit Product Details"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* ============================================================
+             TABLE VIEW (Dense & Classic Desktop Table)
+          ============================================================ */
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-5 py-4">Product</th>
+                  <th className="px-5 py-4">Category</th>
+                  <th className="px-5 py-4">Applicable For</th>
+                  <th className="px-5 py-4">Customer Price</th>
+                  <th className="px-5 py-4">Staff Price</th>
+                  <th className="px-5 py-4">Menu Audience</th>
+                  {activeTab === "menu" && (
+                    <th className="px-5 py-4 text-center">Today's Special</th>
+                  )}
+                  <th className="px-5 py-4 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {displayedProducts.map((product) => {
+                  const isEnabled = product.is_active !== false;
+                  const CategoryIcon = getCategoryIcon(
+                    product.category_type,
+                    product.category_name
+                  );
+                  const menuScope = product.menu_type || "both";
+
+                  return (
+                    <tr
+                      key={product.id}
+                      onClick={() => openEditModal(product)}
+                      className={`transition cursor-pointer active:bg-slate-200/60 ${
+                        isEnabled
+                          ? "hover:bg-slate-100/80"
+                          : "bg-slate-50/60 opacity-80 hover:bg-slate-100/60"
+                      }`}
+                      title="Click to view & edit product price and details"
+                    >
+                      {/* Product */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 overflow-hidden">
+                            {(product.image_url || product.imageUrl) ? (
+                              <img
+                                src={formatImageUrl(product.image_url || product.imageUrl)}
+                                alt={product.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <CategoryIcon className="h-5 w-5" />
+                            )}
+                            {product.is_todays_special && (
+                              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-white shadow">
+                                <Star className="h-2.5 w-2.5 fill-white" />
                               </span>
                             )}
                           </div>
-                        </td>
 
-                        {/* Applicable For Column */}
-                        <td className="px-5 py-4">
-                          {((product.applicable_for || product.applicableFor || "both").toLowerCase() === "inventory") ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
-                              <Package className="h-3 w-3 text-amber-600" />
-                              Raw Inventory
-                            </span>
-                          ) : ((product.applicable_for || product.applicableFor || "both").toLowerCase() === "sales") ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
-                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                              POS Sales Only
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">
-                              <span className="h-2 w-2 rounded-full bg-blue-500" />
-                              Sales & Stock
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Customer Price */}
-
-                        <td className="px-5 py-4 font-semibold text-slate-900">
-
-                          {Number(
-                            product.price || 0
-                          ).toLocaleString()}{" "}
-                          <span className="text-xs font-normal text-slate-500">
-                            ETB / {product.unit || "pcs"}
-                          </span>
-
-                          {Boolean(product.is_shot_item || product.isShotItem) && Number(product.shots_capacity || product.shotsCapacity) > 0 && (
-                            <div className="mt-1">
-                              <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-extrabold text-purple-700 border border-purple-200">
-                                🥃 {product.shots_capacity || product.shotsCapacity || 30} Shots/Bottle
-                              </span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-slate-900">
+                                {product.name}
+                              </p>
+                              {product.is_todays_special && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                  <Sparkles className="h-2.5 w-2.5" />
+                                  Special
+                                </span>
+                              )}
                             </div>
-                          )}
+                            {product.product_code && (
+                              <p className="text-xs text-slate-400">
+                                {product.product_code}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
 
-                        </td>
-
-                        {/* Staff Price */}
-
-                        <td className="px-5 py-4 font-medium text-slate-700">
-
-                          {Number(product.staff_price || 0) === 0 ? (
-                            <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
-                              Free (0 ETB)
-                            </span>
-                          ) : (
-                            <span>
-                              {Number(product.staff_price).toLocaleString()} ETB
-                            </span>
-                          )}
-
-                        </td>
-
-                        {/* Menu Audience Toggle */}
-
-                        <td className="px-5 py-4">
-
-                          {activeTab === "menu" ? (
-                            <select
-                              value={menuScope}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) =>
-                                handleToggleMenuSetting(product, {
-                                  menu_type: e.target.value,
-                                })
-                              }
-                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 outline-none focus:border-blue-500"
-                            >
-                              <option value="both">Both (Cust & Staff)</option>
-                              <option value="customer">Customer Only</option>
-                              <option value="employee">Employee Only</option>
-                            </select>
-                          ) : (
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                menuScope === "customer"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : menuScope === "employee"
-                                  ? "bg-purple-100 text-purple-800"
-                                  : "bg-slate-100 text-slate-700"
-                              }`}
-                            >
-                              {menuScope === "customer"
-                                ? "Customer Only"
-                                : menuScope === "employee"
-                                ? "Employee Only"
-                                : "Both"}
+                      {/* Category */}
+                      <td className="px-5 py-4">
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="rounded-full bg-blue-50 px-3 py-0.5 text-xs font-medium text-blue-700">
+                            {product.category_name || "Uncategorized"}
+                          </span>
+                          {(product.tags || product.tag) && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                              <Tag className="h-2.5 w-2.5" />
+                              {product.tags || product.tag}
                             </span>
                           )}
+                        </div>
+                      </td>
 
-                        </td>
-
-                        {/* Today's Special Toggle (Menu Tab) */}
-
-                        {activeTab === "menu" && (
-                          <td className="px-5 py-4 text-center">
-
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleMenuSetting(product, {
-                                  is_todays_special: !product.is_todays_special,
-                                });
-                              }}
-                              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                                product.is_todays_special
-                                  ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
-                                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                              }`}
-                            >
-                              <Star
-                                className={`h-3.5 w-3.5 ${
-                                  product.is_todays_special
-                                    ? "fill-amber-500 text-amber-500"
-                                    : ""
-                                }`}
-                              />
-                              {product.is_todays_special ? "Special" : "Normal"}
-                            </button>
-
-                          </td>
+                      {/* Applicable For Column */}
+                      <td className="px-5 py-4">
+                        {((product.applicable_for || product.applicableFor || "both").toLowerCase() === "inventory") ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                            <Package className="h-3 w-3 text-amber-600" />
+                            Raw Inventory
+                          </span>
+                        ) : ((product.applicable_for || product.applicableFor || "both").toLowerCase() === "sales") ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                            POS Sales Only
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">
+                            <span className="h-2 w-2 rounded-full bg-blue-500" />
+                            Sales & Stock
+                          </span>
                         )}
+                      </td>
 
-                        {/* Available Today Switch */}
+                      {/* Customer Price */}
+                      <td className="px-5 py-4 font-semibold text-slate-900">
+                        {Number(product.price || 0).toLocaleString()}{" "}
+                        <span className="text-xs font-normal text-slate-500">
+                          ETB / {product.unit || "pcs"}
+                        </span>
+                        {Boolean(product.is_shot_item || product.isShotItem) && Number(product.shots_capacity || product.shotsCapacity) > 0 && (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-extrabold text-purple-700 border border-purple-200">
+                              🥃 {product.shots_capacity || product.shotsCapacity || 30} Shots/Bottle
+                            </span>
+                          </div>
+                        )}
+                      </td>
 
+                      {/* Staff Price */}
+                      <td className="px-5 py-4 font-medium text-slate-700">
+                        {Number(product.staff_price || 0) === 0 ? (
+                          <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+                            Free (0 ETB)
+                          </span>
+                        ) : (
+                          <span>
+                            {Number(product.staff_price).toLocaleString()} ETB
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Menu Audience Toggle */}
+                      <td className="px-5 py-4">
+                        {activeTab === "menu" ? (
+                          <select
+                            value={menuScope}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) =>
+                              handleToggleMenuSetting(product, {
+                                menu_type: e.target.value,
+                              })
+                            }
+                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 outline-none focus:border-blue-500"
+                          >
+                            <option value="both">Both (Cust & Staff)</option>
+                            <option value="customer">Customer Only</option>
+                            <option value="employee">Employee Only</option>
+                          </select>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              menuScope === "customer"
+                                ? "bg-blue-100 text-blue-800"
+                                : menuScope === "employee"
+                                ? "bg-purple-100 text-purple-800"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {menuScope === "customer"
+                              ? "Customer Only"
+                              : menuScope === "employee"
+                              ? "Employee Only"
+                              : "Both"}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Today's Special Toggle (Menu Tab) */}
+                      {activeTab === "menu" && (
                         <td className="px-5 py-4 text-center">
-
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleToggleMenuSetting(product, {
-                                is_available: !product.is_available,
+                                is_todays_special: !product.is_todays_special,
                               });
                             }}
-                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition ${
-                              product.is_available
-                                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
-                                : "bg-red-100 text-red-800 hover:bg-red-200"
+                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                              product.is_todays_special
+                                ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                             }`}
                           >
-
-                            <span
-                              className={`h-2 w-2 rounded-full ${
-                                product.is_available
-                                  ? "bg-emerald-500"
-                                  : "bg-red-500"
+                            <Star
+                              className={`h-3.5 w-3.5 ${
+                                product.is_todays_special
+                                  ? "fill-amber-500 text-amber-500"
+                                  : ""
                               }`}
                             />
-
-                            {product.is_available ? "Available" : "Sold Out"}
-
+                            {product.is_todays_special ? "Special" : "Normal"}
                           </button>
-
                         </td>
+                      )}
 
-                      </tr>
-                    );
-                  }
-                )}
-
+                      {/* Unified Enable / Disable Switch */}
+                      <td className="px-5 py-4 text-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleMenuSetting(product, {
+                              is_active: !isEnabled,
+                            });
+                          }}
+                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black transition shadow-xs cursor-pointer ${
+                            isEnabled
+                              ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-200"
+                              : "bg-slate-200 text-slate-700 hover:bg-slate-300 border border-slate-300"
+                          }`}
+                          title={isEnabled ? "Click to Disable Product" : "Click to Enable Product"}
+                        >
+                          <Power className="h-3 w-3" />
+                          <span>{isEnabled ? "Enabled" : "Disabled"}</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
-
             </table>
-
           </div>
-
         )}
 
       </div>

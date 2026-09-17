@@ -1004,13 +1004,13 @@ export default function VipCustomersPage() {
 
       {/* VIP CUSTOMER CREDIT ORDERS & STATEMENT MODAL */}
       {showOrdersModal && selectedOrderCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-3 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="relative flex flex-col w-full max-w-3xl max-h-[92vh] rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-2 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative flex flex-col w-full max-w-3xl max-h-[94vh] sm:max-h-[92vh] rounded-2xl sm:rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden">
             
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-5 py-4">
-              <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl font-extrabold text-sm shadow-xs ${
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-3 sm:px-5 py-3 sm:py-4">
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <div className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl font-extrabold text-xs sm:text-sm shadow-xs ${
                   (selectedOrderCustomer.tier || "").toLowerCase().includes("promoter")
                     ? "bg-purple-100 text-purple-900 border border-purple-200"
                     : "bg-amber-100 text-amber-800 border border-amber-200"
@@ -1018,15 +1018,15 @@ export default function VipCustomersPage() {
                   {selectedOrderCustomer.name.substring(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-extrabold text-slate-900">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
                       {selectedOrderCustomer.name}
                     </h3>
-                    <span className="rounded-full bg-amber-100 border border-amber-300/80 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">
+                    <span className="rounded-full bg-amber-100 border border-amber-300/80 px-2 py-0.5 text-[9px] sm:text-[10px] font-extrabold text-amber-900">
                       {selectedOrderCustomer.tier || "VIP"}
                     </span>
                   </div>
-                  <p className="flex items-center gap-2 text-xs text-slate-500 font-medium mt-0.5">
+                  <p className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
                     <span>📞 {selectedOrderCustomer.phone || "No phone"}</span>
                     {selectedOrderCustomer.company && (
                       <span>&bull; 🏢 {selectedOrderCustomer.company}</span>
@@ -1035,12 +1035,12 @@ export default function VipCustomersPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={reloadCustomerOrders}
                   disabled={loadingOrders}
-                  className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
+                  className="rounded-xl border border-slate-200 bg-white p-1.5 sm:p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
                   title="Refresh Orders"
                 >
                   <RefreshCw className={`h-4 w-4 ${loadingOrders ? "animate-spin text-amber-600" : ""}`} />
@@ -1051,7 +1051,7 @@ export default function VipCustomersPage() {
                     setShowOrdersModal(false);
                     setSelectedReceiptOrder(null);
                   }}
-                  className="rounded-xl border border-slate-200 bg-white p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                  className="rounded-xl border border-slate-200 bg-white p-1.5 sm:p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1059,25 +1059,25 @@ export default function VipCustomersPage() {
             </div>
 
             {/* Customer Credit Overview Bar */}
-            <div className="grid grid-cols-3 gap-2 border-b border-slate-100 bg-white px-5 py-3 text-center">
-              <div className="rounded-xl bg-red-50/70 border border-red-100 p-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-red-600">Current Debt</p>
-                <p className="text-sm font-black text-red-700 mt-0.5">
-                  {Number(selectedOrderCustomer.current_debt || 0).toLocaleString()} <span className="text-[10px]">ETB</span>
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 border-b border-slate-100 bg-white px-3 sm:px-5 py-2.5 sm:py-3 text-center">
+              <div className="rounded-xl bg-red-50/70 border border-red-100 p-2 sm:p-2.5">
+                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-red-600">Current Debt</p>
+                <p className="text-xs sm:text-sm font-black text-red-700 mt-0.5">
+                  {Number(selectedOrderCustomer.current_debt || 0).toLocaleString()} <span className="text-[9px] sm:text-[10px]">ETB</span>
                 </p>
               </div>
-              <div className="rounded-xl bg-blue-50/70 border border-blue-100 p-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Credit Limit</p>
-                <p className="text-sm font-black text-blue-700 mt-0.5">
+              <div className="rounded-xl bg-blue-50/70 border border-blue-100 p-2 sm:p-2.5">
+                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-600">Credit Limit</p>
+                <p className="text-xs sm:text-sm font-black text-blue-700 mt-0.5">
                   {(selectedOrderCustomer.tier || "").toLowerCase().includes("gold") ||
                   Number(selectedOrderCustomer.credit_limit || 0) >= 999999
                     ? "♾️ Unlimited"
                     : `${Number(selectedOrderCustomer.credit_limit || 0).toLocaleString()} ETB`}
                 </p>
               </div>
-              <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Available Credit</p>
-                <p className="text-sm font-black text-emerald-700 mt-0.5">
+              <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-2 sm:p-2.5">
+                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-600">Available Credit</p>
+                <p className="text-xs sm:text-sm font-black text-emerald-700 mt-0.5">
                   {(selectedOrderCustomer.tier || "").toLowerCase().includes("gold") ||
                   Number(selectedOrderCustomer.credit_limit || 0) >= 999999
                     ? "♾️ Unlimited"
@@ -1091,7 +1091,7 @@ export default function VipCustomersPage() {
             </div>
 
             {/* Modal Body: Credit Orders List */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                   <Receipt className="h-3.5 w-3.5 text-amber-600" />
@@ -1252,167 +1252,171 @@ export default function VipCustomersPage() {
         if (!receiptData) return null;
 
         return (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="relative w-full max-w-md rounded-3xl bg-white p-6 sm:p-7 text-center shadow-2xl border border-slate-100 space-y-4">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-2 sm:p-4 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="relative flex flex-col w-full max-w-sm sm:max-w-md max-h-[94vh] sm:max-h-[90vh] rounded-2xl sm:rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden">
               
               {/* Close Button Top-Right */}
               <button
                 type="button"
                 onClick={() => setSelectedReceiptOrder(null)}
-                className="absolute right-4 top-4 rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                className="absolute right-3 top-3 sm:right-4 sm:top-4 z-20 rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                title="Close"
               >
                 <X className="h-4 w-4" />
               </button>
 
-              {/* Header Icon */}
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 border border-amber-200 text-amber-600 shadow-xs">
-                <Crown className="h-8 w-8" />
-              </div>
-
-              <div>
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-0.5 text-xs font-bold text-amber-800 uppercase tracking-wider mb-1">
-                  VIP Credit Receipt
-                </div>
-                <h2 className="text-xl font-black text-slate-900">
-                  {selectedOrderCustomer.name}
-                </h2>
-                <p className="text-xs text-slate-500 font-medium">
-                  {selectedOrderCustomer.tier} &bull; {selectedOrderCustomer.phone || "No Phone Recorded"}
-                </p>
-              </div>
-
-              {/* Statement Card */}
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-2.5 text-xs text-left">
-                <div className="flex justify-between items-center text-slate-900 pb-2 border-b border-slate-200/80">
-                  <span className="font-bold text-slate-600">Billed This Visit:</span>
-                  <span className="text-base font-black text-blue-700">
-                    {receiptData.chargedAmount.toFixed(2)} ETB
-                  </span>
+              {/* Scrollable Modal Body to fit any screen height and phones */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 text-center space-y-3 sm:space-y-4 scrollbar-thin">
+                {/* Header Icon */}
+                <div className="mx-auto flex h-11 w-11 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-amber-100 border border-amber-200 text-amber-600 shadow-xs">
+                  <Crown className="h-6 w-6 sm:h-7 sm:w-7" />
                 </div>
 
-                <div className="flex justify-between text-slate-600 font-medium pt-1">
-                  <span>Order Reference:</span>
-                  <span className="font-bold text-slate-800">
-                    #{selectedReceiptOrder.order_number || selectedReceiptOrder.order_id}
-                  </span>
+                <div>
+                  <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] sm:text-xs font-bold text-amber-800 uppercase tracking-wider mb-1">
+                    VIP Credit Receipt
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
+                    {selectedOrderCustomer.name}
+                  </h2>
+                  <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
+                    {selectedOrderCustomer.tier} &bull; {selectedOrderCustomer.phone || "No Phone Recorded"}
+                  </p>
                 </div>
 
-                {selectedReceiptOrder.table_number && (
-                  <div className="flex justify-between text-slate-600 font-medium">
-                    <span>Table:</span>
+                {/* Statement Card */}
+                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-slate-50/80 p-3 sm:p-4 space-y-2 sm:space-y-2.5 text-xs text-left">
+                  <div className="flex justify-between items-center text-slate-900 pb-2 border-b border-slate-200/80">
+                    <span className="font-bold text-slate-600">Billed This Visit:</span>
+                    <span className="text-sm sm:text-base font-black text-blue-700">
+                      {receiptData.chargedAmount.toFixed(2)} ETB
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between text-slate-600 font-medium pt-0.5">
+                    <span>Order Reference:</span>
                     <span className="font-bold text-slate-800">
-                      Table {selectedReceiptOrder.table_number}
+                      #{selectedReceiptOrder.order_number || selectedReceiptOrder.order_id}
                     </span>
                   </div>
-                )}
 
-                <div className="flex justify-between text-slate-600 font-medium">
-                  <span>Date & Time:</span>
-                  <span className="font-bold text-slate-800">
-                    {receiptData.date.toLocaleString([], {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
-
-                <div className="flex justify-between text-slate-600 font-medium">
-                  <span>Credit Ceiling / Limit:</span>
-                  <span className="font-bold text-slate-800">
-                    {receiptData.isUnlimited ? "Unlimited" : `${receiptData.limit.toLocaleString()} ETB`}
-                  </span>
-                </div>
-
-                <div className="flex justify-between text-slate-600 font-medium">
-                  <span>Accumulated Debt:</span>
-                  <span className="font-bold text-amber-700">
-                    {receiptData.debt.toLocaleString()} ETB
-                  </span>
-                </div>
-
-                {/* Items preview */}
-                {receiptData.items && receiptData.items.length > 0 && (
-                  <div className="pt-2 border-t border-slate-200/60">
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      Ordered Items:
-                    </span>
-                    <div className="max-h-24 overflow-y-auto space-y-1 pr-1">
-                      {receiptData.items.map((itm, i) => (
-                        <div key={i} className="flex justify-between text-[11px] text-slate-700">
-                          <span>{itm.quantity}x {itm.product_name}</span>
-                          <span className="font-semibold">{Number(itm.total || 0).toFixed(2)} ETB</span>
-                        </div>
-                      ))}
+                  {selectedReceiptOrder.table_number && (
+                    <div className="flex justify-between text-slate-600 font-medium">
+                      <span>Table:</span>
+                      <span className="font-bold text-slate-800">
+                        Table {selectedReceiptOrder.table_number}
+                      </span>
                     </div>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center text-emerald-950 font-extrabold text-sm border-t border-slate-200/80 pt-2.5 mt-1 bg-emerald-50/60 -mx-4 -mb-4 p-3 rounded-b-2xl border-emerald-100">
-                  <span className="text-emerald-900 font-bold">Remaining Available Limit:</span>
-                  <span className="text-emerald-700 font-black text-base">
-                    {receiptData.isUnlimited
-                      ? "Unlimited"
-                      : `${receiptData.remainingLimit.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })} ETB`}
-                  </span>
-                </div>
-              </div>
-
-              {/* 1-Click Action Buttons */}
-              <div className="space-y-2 pt-1">
-                {/* WhatsApp 1-Click Button */}
-                <button
-                  type="button"
-                  onClick={() => handleShareWhatsApp(receiptData)}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 px-4 text-sm font-black text-white shadow-md shadow-emerald-600/20 active:scale-[0.98] transition cursor-pointer"
-                >
-                  <MessageCircle className="h-5 w-5" />
-                  Send WhatsApp Receipt
-                </button>
-
-                {/* Telegram 1-Click Button */}
-                <button
-                  type="button"
-                  onClick={() => handleShareTelegram(receiptData)}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-sky-500 hover:bg-sky-600 py-3 px-4 text-sm font-black text-white shadow-md shadow-sky-500/20 active:scale-[0.98] transition cursor-pointer"
-                >
-                  <Send className="h-5 w-5" />
-                  Send Telegram Receipt
-                </button>
-
-                {/* Copy Receipt Text Button */}
-                <button
-                  type="button"
-                  onClick={() => handleCopyReceipt(receiptData)}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 py-2.5 px-4 text-xs font-bold text-slate-700 active:scale-[0.98] transition cursor-pointer"
-                >
-                  {copiedReceipt ? (
-                    <>
-                      <Check className="h-4 w-4 text-emerald-600" />
-                      <span className="text-emerald-700">Receipt Copied to Clipboard!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4 text-slate-500" />
-                      <span>Copy Receipt Statement</span>
-                    </>
                   )}
-                </button>
 
-                {/* Return back to orders list */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedReceiptOrder(null)}
-                  className="w-full flex items-center justify-center gap-1.5 rounded-2xl py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition cursor-pointer"
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  Back to All Orders
-                </button>
+                  <div className="flex justify-between text-slate-600 font-medium">
+                    <span>Date & Time:</span>
+                    <span className="font-bold text-slate-800">
+                      {receiptData.date.toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between text-slate-600 font-medium">
+                    <span>Credit Ceiling / Limit:</span>
+                    <span className="font-bold text-slate-800">
+                      {receiptData.isUnlimited ? "Unlimited" : `${receiptData.limit.toLocaleString()} ETB`}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between text-slate-600 font-medium">
+                    <span>Accumulated Debt:</span>
+                    <span className="font-bold text-amber-700">
+                      {receiptData.debt.toLocaleString()} ETB
+                    </span>
+                  </div>
+
+                  {/* Items preview */}
+                  {receiptData.items && receiptData.items.length > 0 && (
+                    <div className="pt-2 border-t border-slate-200/60">
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                        Ordered Items:
+                      </span>
+                      <div className="max-h-20 sm:max-h-24 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
+                        {receiptData.items.map((itm, i) => (
+                          <div key={i} className="flex justify-between text-[11px] text-slate-700">
+                            <span className="truncate max-w-[170px] sm:max-w-[210px]">{itm.quantity}x {itm.product_name}</span>
+                            <span className="font-semibold shrink-0">{Number(itm.total || 0).toFixed(2)} ETB</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center text-emerald-950 font-extrabold text-xs sm:text-sm border-t border-slate-200/80 pt-2 mt-1 bg-emerald-50/60 -mx-3 sm:-mx-4 -mb-3 sm:-mb-4 p-2.5 sm:p-3 rounded-b-xl sm:rounded-b-2xl border-emerald-100">
+                    <span className="text-emerald-900 font-bold">Remaining Available Limit:</span>
+                    <span className="text-emerald-700 font-black text-sm sm:text-base">
+                      {receiptData.isUnlimited
+                        ? "Unlimited"
+                        : `${receiptData.remainingLimit.toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })} ETB`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 1-Click Action Buttons */}
+                <div className="space-y-2 pt-1">
+                  {/* WhatsApp 1-Click Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleShareWhatsApp(receiptData)}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl sm:rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm font-black text-white shadow-md shadow-emerald-600/20 active:scale-[0.98] transition cursor-pointer"
+                  >
+                    <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                    Send WhatsApp Receipt
+                  </button>
+
+                  {/* Telegram 1-Click Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleShareTelegram(receiptData)}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl sm:rounded-2xl bg-sky-500 hover:bg-sky-600 py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm font-black text-white shadow-md shadow-sky-500/20 active:scale-[0.98] transition cursor-pointer"
+                  >
+                    <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+                    Send Telegram Receipt
+                  </button>
+
+                  {/* Copy Receipt Text Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleCopyReceipt(receiptData)}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl sm:rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 py-2 sm:py-2.5 px-3 sm:px-4 text-xs font-bold text-slate-700 active:scale-[0.98] transition cursor-pointer"
+                  >
+                    {copiedReceipt ? (
+                      <>
+                        <Check className="h-4 w-4 text-emerald-600" />
+                        <span className="text-emerald-700">Receipt Copied to Clipboard!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 text-slate-500" />
+                        <span>Copy Receipt Statement</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Return back to orders list */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedReceiptOrder(null)}
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl sm:rounded-2xl py-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Back to All Orders
+                  </button>
+                </div>
               </div>
             </div>
           </div>

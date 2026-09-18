@@ -14,7 +14,7 @@ import {
   Check, 
   Loader2 
 } from 'lucide-react';
-import { getOrderDetails, addOrderItems, updateOrderItem, removeOrderItem } from '../services/posApi';
+import { getOrderDetails, addOrderItems, updateOrderItem, removeOrderItem, cancelOrder } from '../services/posApi';
 import DrinkPortionModal from './DrinkPortionModal';
 import { formatImageUrl, getCustomShotsMap } from '../../products/ProductsPage';
 import api from '../../../services/api';
@@ -184,6 +184,31 @@ function EditOrderModal({
       }
     } catch (err) {
       setErrorMessage(err.message || 'Failed to remove item.');
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  // Cancel entire order (void all items & restore stock)
+  const handleCancelEntireOrder = async () => {
+    const orderNum = currentOrder?.order_number || currentOrder?.orderNumber || orderId;
+    if (!window.confirm(`Are you sure you want to cancel Order #${orderNum}? All items will be cancelled, stock will be returned to inventory, and the table will be freed.`)) {
+      return;
+    }
+
+    try {
+      setLoadingAction(true);
+      setStatusMessage('');
+      setErrorMessage('');
+
+      await cancelOrder(orderId, 'Order cancelled by staff');
+      setStatusMessage(`Order #${orderNum} cancelled and inventory stock restored.`);
+      notifyChange();
+      setTimeout(() => {
+        if (onClose) onClose();
+      }, 1200);
+    } catch (err) {
+      setErrorMessage(err.message || 'Failed to cancel order.');
     } finally {
       setLoadingAction(false);
     }
@@ -663,6 +688,18 @@ function EditOrderModal({
             </div>
 
             <div className="flex items-center gap-2">
+              {orderItems.length > 0 && (
+                <button
+                  type="button"
+                  disabled={loadingAction}
+                  onClick={handleCancelEntireOrder}
+                  className="rounded-lg sm:rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 sm:py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 active:scale-95 disabled:opacity-40 transition whitespace-nowrap"
+                  title="Cancel this order and return all items to stock"
+                >
+                  Cancel Order
+                </button>
+              )}
+
               {mobileTab === 'add' && orderItems.length > 0 && (
                 <button
                   type="button"

@@ -89,6 +89,13 @@ export const removeOrderItem = async (orderId, itemId, reason = 'Customer change
   });
 };
 
+export const cancelOrder = async (orderId, reason = 'Order cancelled') => {
+  return await api('/pos/orders/' + orderId + '/status', {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'cancelled', reason }),
+  });
+};
+
 export default {
   getCurrentShift,
   startShift,
@@ -98,4 +105,6 @@ export default {
   addOrderItems,
   updateOrderItem,
   removeOrderItem,
+  cancelOrder,
 };
+

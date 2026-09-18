@@ -8,6 +8,7 @@ function ProductGrid({
   activeCategory = "all",
   orderItems = [],
   searchTerm = "",
+  isBartender = false,
 })  {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,11 +56,28 @@ const filteredProducts = products.filter((product) => {
     return false;
   }
 
-  const selCat = String(activeCategory || "all").toLowerCase().trim();
   const pCatName = (product.category_name || "").toLowerCase();
   const pCatType = (product.category_type || "").toLowerCase();
   const pTags = (product.tags || product.tag || "").toLowerCase();
   const pName = (product.name || "").toLowerCase();
+
+  // For Bartender: strictly only allow drinks, beverages, beers, wines, and spirits
+  if (isBartender) {
+    const isFood =
+      pCatType === "food" ||
+      pCatName.includes("food") ||
+      pCatName.includes("kitchen") ||
+      pCatName.includes("burger") ||
+      pCatName.includes("pizza") ||
+      pCatName.includes("salad") ||
+      pCatName.includes("meal") ||
+      pCatName.includes("dessert");
+    if (isFood) {
+      return false;
+    }
+  }
+
+  const selCat = String(activeCategory || "all").toLowerCase().trim();
 
   const matchesCategory =
     selCat === "all" ||

@@ -27,6 +27,7 @@ function CategoryTabs({
   activeCategory = "all",
   onSelectCategory,
   products = [],
+  isBartender = false,
 }) {
   const [categories, setCategories] = useState([]);
 
@@ -67,22 +68,45 @@ function CategoryTabs({
     }).length;
   };
 
+  const isFoodCategory = (name = "", type = "") => {
+    const n = String(name).toLowerCase();
+    const t = String(type).toLowerCase();
+    return (
+      t === "food" ||
+      n.includes("food") ||
+      n.includes("kitchen") ||
+      n.includes("burger") ||
+      n.includes("pizza") ||
+      n.includes("salad") ||
+      n.includes("meal") ||
+      n.includes("dessert")
+    );
+  };
+
   // Base smart tabs
-  const defaultTabs = [
-    { id: "all", name: "All", type: "all" },
-    { id: "food", name: "Food", type: "food" },
-    { id: "fruit", name: "Fruit", type: "fruit" },
-    { id: "drinks", name: "Drinks", type: "beverage" },
-    { id: "bar", name: "Bar", type: "bar" },
-  ];
+  const defaultTabs = isBartender
+    ? [
+        { id: "all", name: "All Drinks", type: "all" },
+        { id: "drinks", name: "Drinks", type: "beverage" },
+        { id: "bar", name: "Bar & Spirits", type: "bar" },
+      ]
+    : [
+        { id: "all", name: "All", type: "all" },
+        { id: "food", name: "Food", type: "food" },
+        { id: "fruit", name: "Fruit", type: "fruit" },
+        { id: "drinks", name: "Drinks", type: "beverage" },
+        { id: "bar", name: "Bar", type: "bar" },
+      ];
 
   // Merge with dynamic categories from database
-  const dynamicTabs = categories.map((c) => ({
-    id: String(c.id),
-    name: c.name,
-    type: c.type,
-    isDynamic: true,
-  }));
+  const dynamicTabs = categories
+    .filter((c) => !isBartender || !isFoodCategory(c.name, c.type))
+    .map((c) => ({
+      id: String(c.id),
+      name: c.name,
+      type: c.type,
+      isDynamic: true,
+    }));
 
   // Combine and deduplicate
   const allTabs = [

@@ -114,19 +114,26 @@ function TableSelector({
 
   // Filter accessible tables for this user role:
   // Waiters must NEVER see bar tables / bar counter seats on the waiter menu page!
+  // Bartenders must ONLY see bar tables / bar counter seats!
   const accessibleTables = useMemo(() => {
+    if (isBartender) {
+      return tables.filter((t) => isBarSeatTable(t));
+    }
     if (isWaiter) {
       return tables.filter((t) => !isBarSeatTable(t));
     }
     return tables;
-  }, [tables, isWaiter]);
+  }, [tables, isWaiter, isBartender]);
 
-  // If a waiter had a bar table selected (e.g. from previous state), deselect it
+  // If a waiter had a bar table selected, or a bartender had a dining table selected, deselect it
   useEffect(() => {
     if (isWaiter && selectedTable && isBarSeatTable(selectedTable)) {
       onSelectTable?.(null);
     }
-  }, [isWaiter, selectedTable, onSelectTable]);
+    if (isBartender && selectedTable && !isBarSeatTable(selectedTable)) {
+      onSelectTable?.(null);
+    }
+  }, [isWaiter, isBartender, selectedTable, onSelectTable]);
 
   // Counts for tabs
   const counts = useMemo(() => {
@@ -235,6 +242,11 @@ function TableSelector({
             <div className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-slate-800 bg-white rounded-lg shadow-xs">
               <UtensilsCrossed className="h-3.5 w-3.5 text-blue-600" />
               Dining Tables ({counts.dining})
+            </div>
+          ) : isBartender ? (
+            <div className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-amber-950 bg-white rounded-lg shadow-xs border border-amber-200">
+              <Wine className="h-3.5 w-3.5 text-amber-600" />
+              Bar Tables & Seats ({counts.bar})
             </div>
           ) : (
             <>

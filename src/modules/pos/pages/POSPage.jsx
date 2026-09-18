@@ -248,20 +248,21 @@ function POSPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Point of Sale
+            {isBartender ? "Bar Menu & Ordering" : "Point of Sale"}
           </h1>
 
           <p className="mt-1 text-sm text-gray-500">
-            Create and manage restaurant and bar orders.
+            {isBartender
+              ? "Select a bar table or counter stool and place drink orders."
+              : "Create and manage restaurant and bar orders."}
           </p>
         </div>
       </div>
 
-      <ActiveOrders />
+      {!isBartender && <ActiveOrders />}
 
 
       {/* Main POS */}
@@ -274,11 +275,13 @@ function POSPage() {
           <div className="rounded-xl border border-gray-200 bg-white p-5">
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-gray-900">
-                {isWaiter ? "Dining Tables" : "Tables"}
+                {isBartender ? "Bar Tables & Stools" : isWaiter ? "Dining Tables" : "Tables"}
               </h2>
 
               <p className="text-sm text-gray-500">
-                {isWaiter
+                {isBartender
+                  ? "Select a bar table or counter seat for this order."
+                  : isWaiter
                   ? "Select an available dining table for this order."
                   : "Select a table or bar seat for this order."}
               </p>
@@ -320,6 +323,7 @@ function POSPage() {
             <CategoryTabs
               activeCategory={activeCategory}
               onSelectCategory={setActiveCategory}
+              isBartender={isBartender}
             />
           </div>
 
@@ -329,6 +333,7 @@ function POSPage() {
               activeCategory={activeCategory}
               orderItems={orderItems}
               searchTerm={searchTerm}
+              isBartender={isBartender}
             />
           </div>
         </div>

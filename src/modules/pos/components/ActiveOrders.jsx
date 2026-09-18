@@ -723,11 +723,7 @@ function ActiveOrders() {
             <p className="font-semibold text-gray-600">
               {isWaiter
                 ? "No active orders assigned to you."
-                : orderTabFilter === "paid"
-                ? "No paid orders recorded yet today."
-                : orderTabFilter === "active"
-                ? "No active unpaid orders open right now."
-                : "No active or paid orders found."}
+                : "No active unpaid orders open right now."}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
               {isWaiter

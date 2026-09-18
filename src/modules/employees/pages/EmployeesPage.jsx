@@ -993,8 +993,8 @@ function EmployeesPage() {
                         {getEmployeeUsername(employee) !== "-" ? (
                           getEmployeeUsername(employee)
                         ) : (
-                          <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200/60">
-                            Offline Staff
+                          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                            No Account
                           </span>
                         )}
                       </div>
@@ -1352,7 +1352,7 @@ function EmployeesPage() {
                       <option value="">Select department</option>
                       {departments.map((department) => (
                         <option key={department.id} value={department.id}>
-                          {department.name} {department.isOffline ? "(Offline / Ground)" : ""}
+                          {department.name}
                         </option>
                       ))}
                     </select>
@@ -1469,36 +1469,25 @@ function EmployeesPage() {
               </div>
 
               {/* LOGIN CREDENTIALS */}
-              <div className={`rounded-xl border p-5 transition ${isOfflineStaff ? "border-amber-200 bg-amber-50/40" : "border-blue-100 bg-blue-50/50"}`}>
+              <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-5 transition">
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <KeyRound
                       size={18}
-                      className={isOfflineStaff ? "text-amber-600" : "text-blue-600"}
+                      className="text-blue-600"
                     />
                     <div>
                       <h3 className="font-semibold text-gray-900">
-                        Login Credentials {isOfflineStaff && <span className="text-xs font-normal text-amber-700 font-medium">(Optional for Offline Staff)</span>}
+                        Login Credentials {isOfflineStaff && <span className="text-xs font-normal text-gray-500">(Optional)</span>}
                       </h3>
                       <p className="text-xs text-gray-500">
                         {isOfflineStaff
-                          ? "This offline position is tracked for daily attendance and payroll without system login."
+                          ? "Leave blank if this staff member does not require a system login account."
                           : "These credentials will be stored in the users table."}
                       </p>
                     </div>
                   </div>
-                  {isOfflineStaff && (
-                    <span className="rounded-md bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 border border-amber-200">
-                      Offline Ground Staff
-                    </span>
-                  )}
                 </div>
-
-                {isOfflineStaff && (
-                  <div className="mb-4 rounded-lg bg-amber-100/70 p-3 text-xs text-amber-900 border border-amber-200/80">
-                    💡 <strong>Offline Staff:</strong> Employees in this position (Fruit Man, House Keeping, Security, Parking, Lift Man) operate on-ground and only participate in <strong>Daily Attendance</strong> and <strong>Payroll</strong>. A system login account is not required.
-                  </div>
-                )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormInput
@@ -1506,7 +1495,7 @@ function EmployeesPage() {
                     name="username"
                     value={form.username}
                     onChange={handleFormChange}
-                    placeholder={isOfflineStaff ? "Leave blank for offline staff" : "e.g. brook"}
+                    placeholder={isOfflineStaff ? "Optional (leave blank)" : "e.g. brook"}
                     required={!editingEmployee && !isOfflineStaff}
                   />
 
@@ -1528,7 +1517,7 @@ function EmployeesPage() {
                           editingEmployee
                             ? "Leave blank to keep current password"
                             : isOfflineStaff
-                            ? "Leave blank (no password needed)"
+                            ? "Optional (leave blank)"
                             : "Enter password"
                         }
                         className="w-full rounded-lg border border-gray-200 pl-3 pr-10 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"

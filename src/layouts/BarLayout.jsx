@@ -7,6 +7,7 @@ import {
   BarChart3,
   LogOut,
   ChevronDown,
+  ShoppingCart,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -18,6 +19,11 @@ const menuItems = [
     name: "Bar Dashboard",
     path: "/bar",
     icon: Wine,
+  },
+  {
+    name: "Bar Counter POS",
+    path: "/pos",
+    icon: ShoppingCart,
   },
   {
     name: "New Orders",

@@ -12,6 +12,7 @@ import {
   Bell,
   ClipboardList,
   UtensilsCrossed,
+  Wine,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRestaurant } from "../context/RestaurantContext";
@@ -103,13 +104,18 @@ function POSLayout() {
 
   const userRole = (user?.role || "").toLowerCase();
   const isWaiter = userRole === "waiter" || Number(user?.roleId || user?.role_id) === 5;
+  const isBartender = userRole === "bartender" || Number(user?.roleId || user?.role_id) === 8;
 
   const accessibleMenuItems = menuItems.filter((item) => {
-    if (isWaiter && item.path === "/pos/staff-menu") {
+    if ((isWaiter || isBartender) && item.path === "/pos/staff-menu") {
       return false;
     }
     return true;
   });
+
+  const finalMenuItems = isBartender
+    ? [{ name: "Bar Dashboard", path: "/bar", icon: Wine }, ...accessibleMenuItems]
+    : accessibleMenuItems;
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -136,7 +142,7 @@ function POSLayout() {
             </h1>
 
             <p className="text-xs text-slate-400">
-              POS & Waiter
+              {isBartender ? "Bar & Counter POS" : "POS & Waiter"}
             </p>
           </div>
 
@@ -151,7 +157,7 @@ function POSLayout() {
             Operations
           </p>
 
-          {accessibleMenuItems.map((item) => {
+          {finalMenuItems.map((item) => {
             const Icon = item.icon;
 
             return (

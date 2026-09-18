@@ -262,7 +262,7 @@ function POSPage() {
         </div>
       </div>
 
-      {!isBartender && <ActiveOrders />}
+      <ActiveOrders />
 
 
       {/* Main POS */}

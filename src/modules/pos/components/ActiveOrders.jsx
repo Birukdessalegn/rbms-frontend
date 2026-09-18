@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useRestaurant } from "../../../context/RestaurantContext";
 import { useAuth } from "../../../context/AuthContext";
+import { isBarSeatTable } from "./TableSelector";
 import PaymentModal from "./PaymentModal";
 import PaymentProofModal from "./PaymentProofModal";
 import EditOrderModal from "./EditOrderModal";
 import api from "../../../services/api";
-import { User, Eye, ShieldCheck, UserCheck, Crown } from "lucide-react";
+import { User, Eye, ShieldCheck, UserCheck, Crown, Wine } from "lucide-react";
 
 function ActiveOrders() {
   const [paymentOrder, setPaymentOrder] = useState(null);
@@ -339,7 +340,8 @@ function ActiveOrders() {
     ["cashier", "admin", "manager", "finance", "superadmin"].includes(userRoleName) ||
     [1, 2, 4, 5].includes(userRoleId);
 
-  const isWaiter = !isCashierOrAdmin && (userRoleName === "waiter" || userRoleId === 6);
+  const isBartender = !isCashierOrAdmin && (userRoleName === "bartender" || userRoleId === 8);
+  const isWaiter = !isCashierOrAdmin && !isBartender && (userRoleName === "waiter" || userRoleId === 6);
 
   const isOrderAssignedToWaiter = (order) => {
     if (!user) return false;
@@ -385,8 +387,59 @@ function ActiveOrders() {
     return false;
   };
 
+  /* Bartender Order Scoping: Strictly show bar counter stools and bar drink orders */
+  const isBarScopedOrder = (order) => {
+    if (!order) return false;
+
+    // 1. Table is a bar seat / counter stool
+    const tableNum = String(order.table_number || "").toLowerCase().trim();
+    if (tableNum.startsWith("b-") || tableNum.startsWith("bar") || tableNum === "bar") {
+      return true;
+    }
+
+    if (Array.isArray(tables) && tables.length > 0) {
+      const matchedTable = tables.find(
+        (t) =>
+          (order.table_id && String(t.id) === String(order.table_id)) ||
+          (tableNum && String(t.table_number || "").toLowerCase().trim() === tableNum)
+      );
+      if (matchedTable && isBarSeatTable(matchedTable)) {
+        return true;
+      }
+    }
+
+    // 2. Explicitly flagged as a bar order
+    if (
+      order.is_bar_order === true ||
+      order.is_bar_order === 1 ||
+      order.is_bar_order === "true" ||
+      order.isBarOnly === true
+    ) {
+      return true;
+    }
+
+    // 3. Created by or assigned to this bartender
+    if (user) {
+      const myUserId = String(user.id || "").trim().toLowerCase();
+      const myEmpId = user.employee_id || user.employeeId;
+      const myEmpIdStr = myEmpId ? String(myEmpId).trim().toLowerCase() : null;
+
+      const orderBartenderId = order.bartender_id ? String(order.bartender_id).trim().toLowerCase() : null;
+      if (myUserId && orderBartenderId && orderBartenderId === myUserId) return true;
+      if (myEmpIdStr && orderBartenderId && orderBartenderId === myEmpIdStr) return true;
+
+      if (isOrderAssignedToWaiter(order) && (order.is_bar_order || !order.table_number || tableNum.startsWith("b-") || tableNum.startsWith("bar"))) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   const visibleOrders = isWaiter
     ? activeOrders.filter(isOrderAssignedToWaiter)
+    : isBartender
+    ? activeOrders.filter(isBarScopedOrder)
     : activeOrders;
 
   // ============================================================
@@ -671,6 +724,11 @@ function ActiveOrders() {
                     <UserCheck className="h-3 w-3" />
                     Waiter View ({user?.username || user?.name || "Assigned Tickets"})
                   </span>
+                ) : isBartender ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800 border border-amber-200/80">
+                    <Wine className="h-3 w-3" />
+                    Bartender View ({user?.username || user?.name || "Bar Stools & Orders"})
+                  </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-bold text-purple-700 border border-purple-200/80">
                     <ShieldCheck className="h-3 w-3" />
@@ -682,6 +740,8 @@ function ActiveOrders() {
               <p className="mt-1 text-sm text-gray-500">
                 {isWaiter
                   ? "Showing only your active assigned table tickets."
+                  : isBartender
+                  ? "Showing only active bar counter stools and drink orders."
                   : "Monitor kitchen and bar orders and process customer payments."}
               </p>
             </div>
@@ -723,11 +783,15 @@ function ActiveOrders() {
             <p className="font-semibold text-gray-600">
               {isWaiter
                 ? "No active orders assigned to you."
+                : isBartender
+                ? "No active bar counter orders right now."
                 : "No active unpaid orders open right now."}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
               {isWaiter
                 ? "New orders created for your tables will appear here."
+                : isBartender
+                ? "Orders placed for bar stools and drinks will appear here."
                 : "Customer tickets created at tables or bar will appear here automatically."}
             </p>
           </div>

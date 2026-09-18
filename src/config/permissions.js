@@ -89,6 +89,8 @@ export const ROLE_PERMISSIONS = {
     "bar.update",
     "orders.view",
     "orders.create",
+    "payments.view",
+    "payments.create",
   ],
 
   [ROLES.STOREKEEPER]: [

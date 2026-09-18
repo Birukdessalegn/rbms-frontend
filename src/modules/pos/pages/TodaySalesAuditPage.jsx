@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   X,
   Check,
+  Crown,
 } from "lucide-react";
 import api from "../../../services/api";
 import { useAuth } from "../../../context/AuthContext";
@@ -997,6 +998,25 @@ function TodaySalesAuditPage() {
                     const waiterName = order.waiter_name || order.waiterName || order.user_name || "Staff Waiter";
                     const orderItems = parseItems(order.items || order.order_items);
 
+                    const vipCustomerName =
+                      order.vip_customer_name ||
+                      order.vipCustomerName ||
+                      order.vip_customer?.name ||
+                      (Array.isArray(payments)
+                        ? payments.find((p) => p.vip_customer_name)?.vip_customer_name
+                        : null) ||
+                      (order.notes && order.notes.includes("VIP:")
+                        ? order.notes.split("VIP:")[1]?.split(/[\n,]/)[0]?.trim()
+                        : null) ||
+                      (Array.isArray(payments)
+                        ? (() => {
+                            const pVip = payments.find(
+                              (p) => p.reference && String(p.reference).startsWith("VIP_CREDIT:")
+                            );
+                            return pVip ? String(pVip.reference).replace("VIP_CREDIT:", "").trim() : null;
+                          })()
+                        : null);
+
                     return (
                       <tr key={order.id || order.order_number} className="hover:bg-slate-50/80 transition">
                         {/* Table & Ticket */}
@@ -1013,6 +1033,13 @@ function TodaySalesAuditPage() {
                             <span className="mt-0.5 text-[10px] text-slate-400">
                               {order.created_at ? new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Today"}
                             </span>
+
+                            {vipCustomerName && (
+                              <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-black text-amber-950 bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 border border-amber-300 px-2 py-0.5 rounded-md shadow-2xs w-fit">
+                                <Crown size={11} className="text-amber-700 shrink-0" />
+                                <span>VIP: {vipCustomerName}</span>
+                              </span>
+                            )}
                           </div>
                         </td>
 
@@ -1096,26 +1123,40 @@ function TodaySalesAuditPage() {
                         <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
                           <div className="space-y-1.5">
                             {payments.length > 0 ? (
-                              payments.map((p, pIdx) => (
-                                <div key={pIdx} className="flex flex-wrap items-center gap-2">
-                                  {getMethodBadge(p.payment_method)}
-                                  {p.reference && (
-                                    <span className="font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
-                                      Ref: {p.reference}
-                                    </span>
-                                  )}
-                                  {(p.receipt_image || p.receiptImage) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setSelectedProofOrder(order)}
-                                      className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-extrabold text-blue-700 hover:bg-blue-100 border border-blue-200 print-hide"
-                                    >
-                                      <Eye size={10} />
-                                      <span>View Proof</span>
-                                    </button>
-                                  )}
-                                </div>
-                              ))
+                              payments.map((p, pIdx) => {
+                                const pVipName =
+                                  p.vip_customer_name ||
+                                  (p.reference && String(p.reference).startsWith("VIP_CREDIT:")
+                                    ? String(p.reference).replace("VIP_CREDIT:", "").trim()
+                                    : null);
+
+                                return (
+                                  <div key={pIdx} className="flex flex-wrap items-center gap-2">
+                                    {getMethodBadge(p.payment_method)}
+                                    {pVipName && (
+                                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-900">
+                                        <Crown size={10} className="text-amber-700" />
+                                        VIP: {pVipName}
+                                      </span>
+                                    )}
+                                    {p.reference && !String(p.reference).startsWith("VIP_CREDIT:") && (
+                                      <span className="font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                                        Ref: {p.reference}
+                                      </span>
+                                    )}
+                                    {(p.receipt_image || p.receiptImage) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedProofOrder(order)}
+                                        className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-extrabold text-blue-700 hover:bg-blue-100 border border-blue-200 print-hide"
+                                      >
+                                        <Eye size={10} />
+                                        <span>View Proof</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })
                             ) : (
                               <div className="flex items-center gap-2">
                                 {getMethodBadge(order.payment_method || (isPaid ? "cash" : "unpaid"))}

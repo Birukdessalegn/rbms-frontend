@@ -350,6 +350,14 @@ function TableSelector({
           const waiterName =
             rawWaiterName && rawWaiterName !== "Assigned Waiter" ? rawWaiterName : null;
 
+          const vipCustomerName =
+            activeOrderForTable?.vip_customer_name ||
+            activeOrderForTable?.vipCustomerName ||
+            activeOrderForTable?.vip_customer?.name ||
+            (Array.isArray(activeOrderForTable?.payments)
+              ? activeOrderForTable.payments.find((p) => p.vip_customer_name)?.vip_customer_name
+              : null);
+
           const isMyTable =
             (table.current_waiter_id && (
               Number(table.current_waiter_id) === Number(currentEmployeeId) ||
@@ -427,6 +435,14 @@ function TableSelector({
                 <div className="mt-2 flex items-center gap-1 rounded-lg bg-amber-100/90 px-2 py-1 text-[10px] font-bold text-amber-950 border border-amber-200/80">
                   <span>👤</span>
                   <span className="truncate">Serving: {waiterName || (isBar ? "Bartender" : "Waiter")}</span>
+                </div>
+              )}
+
+              {/* Show VIP Customer Badge if Table has VIP Order */}
+              {!isAvailable && vipCustomerName && (
+                <div className="mt-1 flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-200 to-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-950 border border-amber-300 shadow-2xs">
+                  <span>👑</span>
+                  <span className="truncate">VIP: {vipCustomerName}</span>
                 </div>
               )}
 

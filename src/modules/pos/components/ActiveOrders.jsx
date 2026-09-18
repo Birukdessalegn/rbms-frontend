@@ -5,7 +5,7 @@ import PaymentModal from "./PaymentModal";
 import PaymentProofModal from "./PaymentProofModal";
 import EditOrderModal from "./EditOrderModal";
 import api from "../../../services/api";
-import { User, Eye, ShieldCheck, UserCheck } from "lucide-react";
+import { User, Eye, ShieldCheck, UserCheck, Crown } from "lucide-react";
 
 function ActiveOrders() {
   const [paymentOrder, setPaymentOrder] = useState(null);
@@ -750,6 +750,25 @@ function ActiveOrders() {
                   const paidAmount = Number(order.paid_amount || order.paidAmount || 0);
                   const remainingBalance = Math.max(0, totalBirr - paidAmount);
 
+                  const vipCustomerName =
+                    order.vip_customer_name ||
+                    order.vipCustomerName ||
+                    order.vip_customer?.name ||
+                    (Array.isArray(order.payments)
+                      ? order.payments.find((p) => p.vip_customer_name)?.vip_customer_name
+                      : null) ||
+                    (order.notes && order.notes.includes("VIP:")
+                      ? order.notes.split("VIP:")[1]?.split(/[\n,]/)[0]?.trim()
+                      : null) ||
+                    (Array.isArray(order.payments)
+                      ? (() => {
+                          const pVip = order.payments.find(
+                            (p) => p.reference && String(p.reference).startsWith("VIP_CREDIT:")
+                          );
+                          return pVip ? String(pVip.reference).replace("VIP_CREDIT:", "").trim() : null;
+                        })()
+                      : null);
+
                   return (
 
                     <tr
@@ -799,6 +818,14 @@ function ActiveOrders() {
                             );
                           })()}
 
+                          {/* VIP Customer Tag */}
+                          {vipCustomerName && (
+                            <div className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-black text-amber-950 bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg shadow-xs w-fit">
+                              <Crown size={13} className="text-amber-700 shrink-0" />
+                              <span>VIP: {vipCustomerName}</span>
+                            </div>
+                          )}
+
                           {/* Total Amount & Paid Balance Breakdown */}
                           <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
                             <div className="flex items-center justify-between text-xs">
@@ -825,16 +852,31 @@ function ActiveOrders() {
                               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
                                 Payments Received ({order.payments.length})
                               </span>
-                              {order.payments.map((p, pIdx) => (
-                                <div key={p.id || pIdx} className="flex items-center justify-between text-[11px]">
-                                  <span className="font-bold text-slate-800">
-                                    {String(p.payment_method || p.method || "Cash").toUpperCase()}
-                                  </span>
-                                  <span className="font-bold text-emerald-700">
-                                    {Number(p.amount || 0).toFixed(2)} ETB
-                                  </span>
-                                </div>
-                              ))}
+                              {order.payments.map((p, pIdx) => {
+                                const pVipName =
+                                  p.vip_customer_name ||
+                                  (p.reference && String(p.reference).startsWith("VIP_CREDIT:")
+                                    ? String(p.reference).replace("VIP_CREDIT:", "").trim()
+                                    : null);
+
+                                return (
+                                  <div key={p.id || pIdx} className="flex items-center justify-between text-[11px] gap-1">
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                      <span className="font-bold text-slate-800">
+                                        {String(p.payment_method || p.method || "Cash").toUpperCase()}
+                                      </span>
+                                      {pVipName && (
+                                        <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded border border-amber-200">
+                                          👑 VIP: {pVipName}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="font-bold text-emerald-700 whitespace-nowrap">
+                                      {Number(p.amount || 0).toFixed(2)} ETB
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>

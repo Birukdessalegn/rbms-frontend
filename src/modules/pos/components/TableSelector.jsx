@@ -110,12 +110,29 @@ function TableSelector({
     user?.role_id === 1 ||
     user?.role_id === 2 ||
     user?.role_id === 4;
+  const isWaiter = !isBartender && !isManagerOrAdmin;
+
+  // Filter accessible tables for this user role:
+  // Waiters must NEVER see bar tables / bar counter seats on the waiter menu page!
+  const accessibleTables = useMemo(() => {
+    if (isWaiter) {
+      return tables.filter((t) => !isBarSeatTable(t));
+    }
+    return tables;
+  }, [tables, isWaiter]);
+
+  // If a waiter had a bar table selected (e.g. from previous state), deselect it
+  useEffect(() => {
+    if (isWaiter && selectedTable && isBarSeatTable(selectedTable)) {
+      onSelectTable?.(null);
+    }
+  }, [isWaiter, selectedTable, onSelectTable]);
 
   // Counts for tabs
   const counts = useMemo(() => {
     let barCount = 0;
     let diningCount = 0;
-    tables.forEach((t) => {
+    accessibleTables.forEach((t) => {
       if (isBarSeatTable(t)) {
         barCount++;
       } else {
@@ -123,15 +140,15 @@ function TableSelector({
       }
     });
     return {
-      all: tables.length,
+      all: accessibleTables.length,
       bar: barCount,
       dining: diningCount,
     };
-  }, [tables]);
+  }, [accessibleTables]);
 
   // Filtered tables based on tab and search
   const filteredTables = useMemo(() => {
-    return tables.filter((table) => {
+    return accessibleTables.filter((table) => {
       const isBar = isBarSeatTable(table);
 
       if (activeTab === "BAR" && !isBar) return false;
@@ -146,7 +163,7 @@ function TableSelector({
 
       return true;
     });
-  }, [tables, activeTab, searchQuery]);
+  }, [accessibleTables, activeTab, searchQuery]);
 
   if (loading && tables.length === 0) {
     return (
@@ -182,7 +199,7 @@ function TableSelector({
         <div className="flex items-center gap-2">
           <div>
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
-              Select Table / Bar Seat
+              {isWaiter ? "Select Dining Table" : "Select Table / Bar Seat"}
               {isBartender && (
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 flex items-center gap-1">
                   <Wine className="h-3 w-3" /> Bartender Mode
@@ -192,6 +209,8 @@ function TableSelector({
             <p className="text-xs text-slate-500">
               {isBartender
                 ? "Assign this order to a bar stool or dining guest"
+                : isWaiter
+                ? "Choose an available dining table to assign this order"
                 : "Choose a dining table or bar seat to assign this order"}
             </p>
           </div>
@@ -212,43 +231,52 @@ function TableSelector({
       {/* Filter Tabs & Quick Search */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-1">
         <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-100/70 p-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab("ALL")}
-            className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
-              activeTab === "ALL"
-                ? "bg-white text-slate-900 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            All ({counts.all})
-          </button>
+          {isWaiter ? (
+            <div className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-slate-800 bg-white rounded-lg shadow-xs">
+              <UtensilsCrossed className="h-3.5 w-3.5 text-blue-600" />
+              Dining Tables ({counts.dining})
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setActiveTab("ALL")}
+                className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
+                  activeTab === "ALL"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                All ({counts.all})
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("BAR")}
-            className={`flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-bold transition ${
-              activeTab === "BAR"
-                ? "bg-amber-500 text-white shadow-xs"
-                : "text-amber-800 hover:bg-amber-100/60"
-            }`}
-          >
-            <Wine className="h-3 w-3" />
-            Bar Stools ({counts.bar})
-          </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("BAR")}
+                className={`flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-bold transition ${
+                  activeTab === "BAR"
+                    ? "bg-amber-500 text-white shadow-xs"
+                    : "text-amber-800 hover:bg-amber-100/60"
+                }`}
+              >
+                <Wine className="h-3 w-3" />
+                Bar Stools ({counts.bar})
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("DINING")}
-            className={`flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-bold transition ${
-              activeTab === "DINING"
-                ? "bg-blue-600 text-white shadow-xs"
-                : "text-blue-800 hover:bg-blue-100/60"
-            }`}
-          >
-            <UtensilsCrossed className="h-3 w-3" />
-            Dining ({counts.dining})
-          </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("DINING")}
+                className={`flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-bold transition ${
+                  activeTab === "DINING"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-blue-800 hover:bg-blue-100/60"
+                }`}
+              >
+                <UtensilsCrossed className="h-3 w-3" />
+                Dining ({counts.dining})
+              </button>
+            </>
+          )}
         </div>
 
         {/* Quick Search inside TableSelector */}
@@ -419,10 +447,14 @@ function TableSelector({
       {filteredTables.length === 0 && (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center">
           <p className="text-sm font-medium text-slate-600">
-            No tables or bar seats found in this section.
+            {isWaiter
+              ? "No dining tables found matching your search."
+              : "No tables or bar seats found in this section."}
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            {activeTab === "BAR"
+            {isWaiter
+              ? "All tables may be currently occupied, or ask management to set up floor tables."
+              : activeTab === "BAR"
               ? "Create Bar Stools in Floor Management (/pos/tables) to assign bar orders."
               : "Create tables from the table management page."}
           </p>

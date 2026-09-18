@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRestaurant } from "../../../context/RestaurantContext";
 import { useAuth } from "../../../context/AuthContext";
-import TableSelector from "../components/TableSelector";
+import TableSelector, { isBarSeatTable } from "../components/TableSelector";
 import CategoryTabs from "../components/CategoryTabs";
 import ProductGrid from "../components/ProductGrid";
 import CurrentOrder from "../components/CurrentOrder";
@@ -20,7 +20,14 @@ function POSPage() {
     fetchKitchenOrders,
   } = useRestaurant();
 
-  const isBartender = user?.role?.toUpperCase() === "BARTENDER" || user?.role_id === 8;
+  const userRole = (user?.role || "").toUpperCase();
+  const isBartender = userRole === "BARTENDER" || user?.role_id === 8;
+  const isManagerOrAdmin =
+    ["ADMIN", "MANAGER", "CASHIER"].includes(userRole) ||
+    user?.role_id === 1 ||
+    user?.role_id === 2 ||
+    user?.role_id === 4;
+  const isWaiter = !isBartender && !isManagerOrAdmin;
 
   const [orderItems, setOrderItems] = useState([]);
   const orderType = "Dine In";
@@ -115,6 +122,10 @@ function POSPage() {
     }
     if (!selectedTable) {
       alert("Please select a table for Dine In orders.");
+      return;
+    }
+    if (isWaiter && isBarSeatTable(selectedTable)) {
+      alert("Bar tables and counter seats are reserved exclusively for the Bartender. Please select a dining table.");
       return;
     }
 
@@ -258,11 +269,13 @@ function POSPage() {
           <div className="rounded-xl border border-gray-200 bg-white p-5">
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-gray-900">
-                Tables
+                {isWaiter ? "Dining Tables" : "Tables"}
               </h2>
 
               <p className="text-sm text-gray-500">
-                Select a table for this order.
+                {isWaiter
+                  ? "Select an available dining table for this order."
+                  : "Select a table or bar seat for this order."}
               </p>
             </div>
 

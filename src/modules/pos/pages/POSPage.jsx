@@ -175,7 +175,7 @@ function POSPage() {
       // Explicitly update table status to occupied if table was selected
       if (selectedTable?.id) {
         try {
-          const waiterEmpId = user?.employee_id || user?.employeeId || null;
+          const waiterEmpId = user?.employee_id || user?.employeeId || user?.id || null;
           await api(`/tables/${selectedTable.id}/status`, {
             method: "PUT",
             body: JSON.stringify({

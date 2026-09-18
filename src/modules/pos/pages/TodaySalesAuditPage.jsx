@@ -339,6 +339,59 @@ function TodaySalesAuditPage() {
     return Array.from(set);
   }, [orders]);
 
+  /* Helper to check if an order belongs to VIP Credit / VIP Customer */
+  const isVipCreditOrder = (o) => {
+    if (!o) return false;
+    if (o.status === "cancelled") return false;
+
+    // Check direct VIP customer fields
+    if (o.vip_customer_id || o.vip_customer_name || o.vipCustomerName || o.vip_customer?.name) {
+      return true;
+    }
+
+    // Check payment method or status on order
+    const pMethod = (o.payment_method || "").toLowerCase();
+    const pStatus = (o.payment_status || "").toLowerCase();
+    if (
+      pMethod === "credit" ||
+      pMethod === "credit_pending" ||
+      pStatus === "credit_pending" ||
+      pStatus === "credit"
+    ) {
+      return true;
+    }
+
+    // Check notes for VIP tag
+    if (
+      o.notes &&
+      (String(o.notes).includes("VIP:") ||
+        String(o.notes).toLowerCase().includes("vip"))
+    ) {
+      return true;
+    }
+
+    // Check payment records on order
+    const pmts = o.payments || [];
+    if (Array.isArray(pmts) && pmts.length > 0) {
+      return pmts.some((p) => {
+        const m = (p.payment_method || p.method || "").toLowerCase();
+        if (m === "credit" || m === "credit_pending") return true;
+        if (p.vip_customer_id || p.vip_customer_name) return true;
+        const ref = String(p.reference || "");
+        if (
+          ref.toUpperCase().includes("VIP_CREDIT:") ||
+          ref.toUpperCase().startsWith("VIP:") ||
+          ref.toLowerCase().includes("vip")
+        ) {
+          return true;
+        }
+        return false;
+      });
+    }
+
+    return false;
+  };
+
   /* Financial Metrics Math */
   const paidOrders = orders.filter(
     (o) => o.payment_status === "paid" || o.status === "completed"
@@ -346,11 +399,22 @@ function TodaySalesAuditPage() {
   const unpaidOrders = orders.filter(
     (o) => o.payment_status !== "paid" && o.status !== "completed" && o.status !== "cancelled"
   );
-  const creditOrders = orders.filter((o) => o.payment_status === "credit_pending");
+  const creditOrders = orders.filter((o) => isVipCreditOrder(o));
 
   const totalRevenue = paidOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
   const totalPaidRevenue = totalRevenue;
-  const pendingCreditTotal = creditOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
+  const pendingCreditTotal = orders
+    .filter(
+      (o) =>
+        o.status !== "cancelled" &&
+        (o.payment_status === "credit_pending" ||
+          (isVipCreditOrder(o) && o.payment_status !== "paid" && o.status !== "completed") ||
+          (o.payment_status !== "paid" && o.status !== "completed"))
+    )
+    .reduce(
+      (sum, o) => sum + Math.max(getOrderTotal(o) - Number(o.paid_amount || 0), 0),
+      0
+    );
 
   /* Breakdown by payment method */
   let cashTotal = 0;
@@ -369,6 +433,8 @@ function TodaySalesAuditPage() {
           cashTotal += amt;
         } else if (["telebirr", "cbe_birr", "cbe", "card"].includes(method)) {
           digitalTotal += amt;
+        } else if (method === "credit" || method === "credit_pending") {
+          // VIP Credit
         } else {
           cashTotal += amt;
         }
@@ -380,6 +446,8 @@ function TodaySalesAuditPage() {
         cashTotal += amt;
       } else if (["telebirr", "cbe_birr", "cbe", "card"].includes(method)) {
         digitalTotal += amt;
+      } else if (method === "credit" || method === "credit_pending") {
+        // VIP Credit
       } else {
         cashTotal += amt;
       }
@@ -391,10 +459,20 @@ function TodaySalesAuditPage() {
     const orderNum = (order.order_number || String(order.id || "")).toLowerCase();
     const tableNum = String(order.table_number || order.table_id || "").toLowerCase();
     const waiter = (order.waiter_name || order.waiterName || order.user_name || "").toLowerCase();
+    const vipName = (
+      order.vip_customer_name ||
+      order.vipCustomerName ||
+      order.vip_customer?.name ||
+      (Array.isArray(order.payments) ? order.payments.find((p) => p.vip_customer_name)?.vip_customer_name : "") ||
+      ""
+    ).toLowerCase();
     const search = searchTerm.toLowerCase();
 
     const matchesSearch =
-      orderNum.includes(search) || tableNum.includes(search) || waiter.includes(search);
+      orderNum.includes(search) ||
+      tableNum.includes(search) ||
+      waiter.includes(search) ||
+      vipName.includes(search);
 
     const pStatus = (order.payment_status || "unpaid").toLowerCase();
     const isPaid = pStatus === "paid" || order.status === "completed";
@@ -405,7 +483,7 @@ function TodaySalesAuditPage() {
     } else if (statusFilter === "unpaid") {
       matchesStatus = !isPaid && order.status !== "cancelled";
     } else if (statusFilter === "credit") {
-      matchesStatus = pStatus === "credit_pending";
+      matchesStatus = isVipCreditOrder(order);
     }
 
     const waiterName = order.waiter_name || order.waiterName || order.user_name || "";
@@ -418,9 +496,12 @@ function TodaySalesAuditPage() {
     .filter((o) => o.payment_status === "paid" || o.status === "completed")
     .reduce((sum, o) => sum + getOrderTotal(o), 0);
 
-  const activeReportRevenue = statusFilter !== "all" || selectedWaiter !== "all" || searchTerm.trim()
-    ? filteredPaidRevenue
-    : totalPaidRevenue;
+  const activeReportRevenue =
+    statusFilter !== "all" || selectedWaiter !== "all" || searchTerm.trim()
+      ? (statusFilter === "credit"
+          ? filteredOrders.reduce((sum, o) => sum + getOrderTotal(o), 0)
+          : filteredPaidRevenue)
+      : totalPaidRevenue;
 
   const netSalesSubtotal = activeReportRevenue > 0
     ? Number((activeReportRevenue / 1.15).toFixed(2))
@@ -451,6 +532,8 @@ function TodaySalesAuditPage() {
             fCash += amt;
           } else if (["telebirr", "cbe_birr", "cbe", "card"].includes(method)) {
             fDigital += amt;
+          } else if (method === "credit" || method === "credit_pending") {
+            // VIP Credit
           } else {
             fCash += amt;
           }
@@ -462,6 +545,8 @@ function TodaySalesAuditPage() {
           fCash += amt;
         } else if (["telebirr", "cbe_birr", "cbe", "card"].includes(method)) {
           fDigital += amt;
+        } else if (method === "credit" || method === "credit_pending") {
+          // VIP Credit
         } else {
           fCash += amt;
         }

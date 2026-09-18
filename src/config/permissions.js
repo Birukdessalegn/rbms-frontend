@@ -37,6 +37,9 @@ export const ROLE_PERMISSIONS = {
     "reports.view",
     "finance.view",
     "cashier.reconcile",
+    "employees.view",
+    "attendance.view",
+    "leave.view",
   ],
 
   [ROLES.FRUIT_MANAGER]: [

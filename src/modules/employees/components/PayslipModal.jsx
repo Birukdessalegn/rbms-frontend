@@ -130,13 +130,23 @@ function PayslipModal({ isOpen, onClose, item, periodMonth }) {
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Attendance Log</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Attendance &amp; Leave Log</span>
                   <p className="font-semibold text-slate-800 mt-0.5">
                     <span className="text-emerald-700 font-bold">{item.days_worked || 0} Worked</span>
                     {" / "}
                     <span className={Number(item.days_absent) > 0 ? "text-rose-600 font-bold" : "text-slate-500"}>
                       {item.days_absent || 0} Absent
                     </span>
+                    {Number(item.paid_leave_days) > 0 && (
+                      <span className="text-blue-600 font-bold block text-[10px]">
+                        • {item.paid_leave_days}d Approved Paid Leave (0 ETB ded.)
+                      </span>
+                    )}
+                    {Number(item.unpaid_leave_days) > 0 && (
+                      <span className="text-amber-700 font-bold block text-[10px]">
+                        • {item.unpaid_leave_days}d Unpaid Leave Deducted
+                      </span>
+                    )}
                   </p>
                 </div>
 
@@ -187,8 +197,13 @@ function PayslipModal({ isOpen, onClose, item, periodMonth }) {
                     <td className="px-4 py-2 font-medium">Basic Monthly Salary</td>
                     <td className="px-4 py-2 text-right font-bold text-slate-900">{fmt(baseSalary)}</td>
                     <td className="px-4 py-2 font-medium border-l border-slate-100">
-                      Absence Deductions
-                      {absenceDed > 0 && <span className="text-[10px] text-slate-400 block">({item.days_absent} unexcused days)</span>}
+                      Absence &amp; Unpaid Leave Deductions
+                      {absenceDed > 0 && (
+                        <span className="text-[10px] text-slate-400 block">
+                          ({item.days_absent || 0} absent
+                          {Number(item.unpaid_leave_days) > 0 ? ` + ${item.unpaid_leave_days} unpaid leave` : ""})
+                        </span>
+                      )}
                     </td>
                     <td className={`px-4 py-2 text-right font-semibold ${absenceDed > 0 ? "text-rose-600" : ""}`}>
                       {fmt(absenceDed)}

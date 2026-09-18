@@ -296,11 +296,27 @@ function PayrollPage() {
                     </td>
 
                     <td className="px-4 py-4 text-center text-xs whitespace-nowrap">
-                      <span className="font-bold text-emerald-700">{emp.days_worked || 0} worked</span>
-                      <span className="text-slate-300 mx-1">/</span>
-                      <span className={Number(emp.days_absent) > 0 ? "font-bold text-rose-600" : "text-slate-400"}>
-                        {emp.days_absent || 0} absent
-                      </span>
+                      <div>
+                        <span className="font-bold text-emerald-700">{emp.days_worked || 0} worked</span>
+                        <span className="text-slate-300 mx-1">/</span>
+                        <span className={Number(emp.days_absent) > 0 ? "font-bold text-rose-600" : "text-slate-400"}>
+                          {emp.days_absent || 0} absent
+                        </span>
+                      </div>
+                      {(Number(emp.paid_leave_days) > 0 || Number(emp.unpaid_leave_days) > 0) && (
+                        <div className="text-[10px] mt-1 flex items-center justify-center gap-1">
+                          {Number(emp.paid_leave_days) > 0 && (
+                            <span className="rounded-md bg-blue-50 px-1.5 py-0.5 font-bold text-blue-700 border border-blue-200">
+                              {emp.paid_leave_days}d Paid Leave
+                            </span>
+                          )}
+                          {Number(emp.unpaid_leave_days) > 0 && (
+                            <span className="rounded-md bg-amber-50 px-1.5 py-0.5 font-bold text-amber-800 border border-amber-200">
+                              {emp.unpaid_leave_days}d Unpaid Leave
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
 
                     <td className="px-4 py-4 text-right font-medium text-slate-600">

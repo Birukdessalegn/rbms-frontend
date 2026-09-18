@@ -325,6 +325,11 @@ const navigationGroups = [
             icon: Clock,
           },
           {
+            name: "Leave Management",
+            path: "/employees/leave",
+            icon: CalendarDays,
+          },
+          {
             name: "Payroll & Salary",
             path: "/employees/payroll",
             icon: DollarSign,

@@ -17,6 +17,7 @@ import EmployeesPage from "../modules/employees/pages/EmployeesPage";
 import BarReportsPage from "../modules/bar/pages/BarReportsPage";
 import FinanceReportsPage from "../modules/finance/pages/FinanceReportsPage";
 import AttendancePage from "../modules/employees/pages/AttendancePage";
+import LeaveManagementPage from "../modules/employees/pages/LeaveManagementPage";
 import PayrollPage from "../modules/employees/pages/PayrollPage";
 
 import LoginPage from "../modules/auth/pages/LoginPage";
@@ -404,6 +405,11 @@ function AppRoutes() {
             <Route
               path="/employees/attendance"
               element={<AttendancePage />}
+            />
+
+            <Route
+              path="/employees/leave"
+              element={<LeaveManagementPage />}
             />
 
             <Route

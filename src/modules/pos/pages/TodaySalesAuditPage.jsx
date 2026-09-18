@@ -994,7 +994,8 @@ function TodaySalesAuditPage() {
                   {filteredOrders.map((order) => {
                     const orderTotal = getOrderTotal(order);
                     const payments = order.payments || [];
-                    const isPaid = order.payment_status === "paid" || order.status === "completed";
+                    const isCancelled = order.status === "cancelled";
+                    const isPaid = !isCancelled && (order.payment_status === "paid" || order.status === "completed");
                     const waiterName = order.waiter_name || order.waiterName || order.user_name || "Staff Waiter";
                     const orderItems = parseItems(order.items || order.order_items);
 
@@ -1106,7 +1107,9 @@ function TodaySalesAuditPage() {
                         <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
                           <span
                             className={`badge ${
-                              order.status === "completed"
+                              order.status === "cancelled"
+                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                : order.status === "completed"
                                 ? "badge-paid"
                                 : order.status === "ready"
                                 ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
@@ -1159,11 +1162,19 @@ function TodaySalesAuditPage() {
                               })
                             ) : (
                               <div className="flex items-center gap-2">
-                                {getMethodBadge(order.payment_method || (isPaid ? "cash" : "unpaid"))}
-                                {!isPaid && (
-                                  <span className="text-[11px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                    Unpaid / Pending
+                                {isCancelled ? (
+                                  <span className="text-[11px] font-extrabold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                    Cancelled / Voided
                                   </span>
+                                ) : (
+                                  <>
+                                    {getMethodBadge(order.payment_method || (isPaid ? "cash" : "unpaid"))}
+                                    {!isPaid && (
+                                      <span className="text-[11px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                        Unpaid / Pending
+                                      </span>
+                                    )}
+                                  </>
                                 )}
                                 {(order.receipt_image || order.receiptImage) && (
                                   <button

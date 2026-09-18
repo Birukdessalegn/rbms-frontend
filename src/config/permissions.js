@@ -84,8 +84,6 @@ export const ROLE_PERMISSIONS = {
     "dashboard.view",
     "bar.view",
     "bar.update",
-    "kitchen.view",
-    "pos.view",
     "orders.view",
     "orders.create",
   ],

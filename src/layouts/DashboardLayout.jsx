@@ -633,6 +633,20 @@ function DashboardLayout() {
             }
 
             /*
+              BARTENDER restricted items:
+              The Bartender only operates the Bar module.
+              Hide Kitchen, POS & Sales, F&B, Tables, Fruit, and Management.
+            */
+            if (normalizedRole === "BARTENDER") {
+              if (
+                item.name !== "Bar" ||
+                item.permission !== "bar.view"
+              ) {
+                return false;
+              }
+            }
+
+            /*
               Dashboard is strictly for ADMIN and MANAGER only.
             */
 

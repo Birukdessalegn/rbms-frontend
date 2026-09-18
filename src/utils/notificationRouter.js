@@ -83,6 +83,15 @@ export const getNotificationRoute = (notification, userRole = "") => {
     return `/inventory/transactions${transferQuery}`;
   }
 
+  // 1.5. Stock Shortage Discrepancy & Approvals
+  if (
+    refType === "stock_shortage" ||
+    title.includes("shortage") ||
+    message.includes("shortage")
+  ) {
+    return `/kitchen/stock-audit?tab=shortages`;
+  }
+
   // 2. Low Stock Alerts (Drink / Kitchen / Warehouse)
   if (
     refType.includes("stock") ||

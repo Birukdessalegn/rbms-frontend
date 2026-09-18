@@ -43,6 +43,11 @@ function WaiterServedOrdersPage() {
   const [selectedProofOrder, setSelectedProofOrder] = useState(null);
 
   const userRole = (user?.role || "").toLowerCase();
+  const isManagerOrAdmin =
+    ["admin", "manager", "cashier"].includes(userRole) ||
+    user?.role_id === 1 ||
+    user?.role_id === 2 ||
+    user?.role_id === 4;
   const userIdStr = String(user?.id || user?.user_id || user?.userId || "");
   const employeeIdStr = String(user?.employee_id || user?.employeeId || "");
   const userNameLower = (user?.username || user?.name || "").toLowerCase().trim();
@@ -279,8 +284,8 @@ function WaiterServedOrdersPage() {
 
       const isMyOrder = matchesId || matchesName;
 
-      // Scoping: default is strictly "mine", or "all" if requested by user
-      if (waiterScope === "mine" && !isMyOrder) {
+      // Scoping: waiters strictly see only their own orders; managers/admins can toggle
+      if ((!isManagerOrAdmin || waiterScope === "mine") && !isMyOrder) {
         return false;
       }
 
@@ -791,34 +796,36 @@ function WaiterServedOrdersPage() {
             )}
           </div>
 
-          {/* Waiter Scope Toggle */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">Scope:</span>
-            <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setWaiterScope("mine")}
-                className={`rounded-lg px-2.5 py-1 transition ${
-                  waiterScope === "mine"
-                    ? "bg-blue-600 text-white shadow-sm font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                My Orders
-              </button>
-              <button
-                type="button"
-                onClick={() => setWaiterScope("all")}
-                className={`rounded-lg px-2.5 py-1 transition ${
-                  waiterScope === "all"
-                    ? "bg-purple-600 text-white shadow-sm font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                All Orders
-              </button>
+          {/* Waiter Scope Toggle (Only visible to managers/admins) */}
+          {isManagerOrAdmin && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500">Scope:</span>
+              <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setWaiterScope("mine")}
+                  className={`rounded-lg px-2.5 py-1 transition ${
+                    waiterScope === "mine"
+                      ? "bg-blue-600 text-white shadow-sm font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  My Orders
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWaiterScope("all")}
+                  className={`rounded-lg px-2.5 py-1 transition ${
+                    waiterScope === "all"
+                      ? "bg-purple-600 text-white shadow-sm font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  All Orders
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* ROW 2: Search, Status, and Shift Filters */}

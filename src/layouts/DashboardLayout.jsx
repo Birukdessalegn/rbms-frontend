@@ -673,6 +673,7 @@ function DashboardLayout() {
               const visibleChildren = item.children.filter((child) => {
                 if (normalizedRole === "WAITER") {
                   const hiddenWaiterPaths = [
+                    "/pos/staff-menu",
                     "/employees/attendance",
                     "/pos/sales-audit",
                     "/pos/tables",

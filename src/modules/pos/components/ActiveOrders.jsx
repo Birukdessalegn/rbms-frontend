@@ -299,7 +299,7 @@ function ActiveOrders() {
     return true;
   });
 
-  /* Role-Based Order Scoping: Waiters (roleId 6) only see their own assigned tickets */
+  /* Role-Based Order Scoping: Waiters only see their own assigned/served tickets */
   const userRoleName = (
     typeof user?.role === "string"
       ? user.role
@@ -310,9 +310,55 @@ function ActiveOrders() {
     user?.roleId || user?.role_id || user?.role?.id || 0
   );
 
-  const isWaiter = userRoleName === "waiter" || userRoleId === 6;
+  const isWaiter = userRoleName === "waiter" || userRoleId === 5;
 
-  const visibleOrders = activeOrders;
+  const isOrderAssignedToWaiter = (order) => {
+    if (!user) return false;
+
+    const myUserId = String(user.id || "").trim().toLowerCase();
+    const myEmpId = user.employee_id || user.employeeId;
+    const myEmpIdStr = myEmpId ? String(myEmpId).trim() : null;
+    const myUsername = String(user.username || "").trim().toLowerCase();
+    const myFirstName = String(user.first_name || user.firstName || "").trim().toLowerCase();
+    const myLastName = String(user.last_name || user.lastName || "").trim().toLowerCase();
+    const myFullName = String(user.name || `${myFirstName} ${myLastName}`).trim().toLowerCase();
+
+    const orderWaiterIdStr = order.waiter_id ? String(order.waiter_id).trim().toLowerCase() : null;
+    const orderWaiterEmpIdStr = order.waiter_employee_id ? String(order.waiter_employee_id).trim().toLowerCase() : null;
+    const orderWaiterUserIdStr = order.waiter_user_id ? String(order.waiter_user_id).trim().toLowerCase() : null;
+    const orderUserIdStr = order.user_id ? String(order.user_id).trim().toLowerCase() : null;
+    const orderWaiterName = String(order.waiter_name || order.waiterName || order.server_name || "").trim().toLowerCase();
+
+    // 1. Check ID match (UUID or Employee Integer ID)
+    if (myUserId) {
+      if (orderWaiterIdStr && orderWaiterIdStr === myUserId) return true;
+      if (orderWaiterUserIdStr && orderWaiterUserIdStr === myUserId) return true;
+      if (orderUserIdStr && orderUserIdStr === myUserId) return true;
+    }
+    if (myEmpIdStr) {
+      if (orderWaiterIdStr && orderWaiterIdStr === myEmpIdStr) return true;
+      if (orderWaiterEmpIdStr && orderWaiterEmpIdStr === myEmpIdStr) return true;
+    }
+
+    // 2. Check Name / Username match
+    if (orderWaiterName) {
+      if (myUsername && (orderWaiterName === myUsername || orderWaiterName.includes(myUsername) || myUsername.includes(orderWaiterName))) {
+        return true;
+      }
+      if (myFullName && (orderWaiterName === myFullName || orderWaiterName.includes(myFullName) || myFullName.includes(orderWaiterName))) {
+        return true;
+      }
+      if (myFirstName && myFirstName.length >= 2 && orderWaiterName.includes(myFirstName)) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const visibleOrders = isWaiter
+    ? activeOrders.filter(isOrderAssignedToWaiter)
+    : activeOrders;
 
   // ============================================================
   // FIND BAR ORDER FOR RESTAURANT ORDER

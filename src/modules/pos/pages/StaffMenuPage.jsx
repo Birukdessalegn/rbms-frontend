@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { Navigate } from "react-router-dom";
 import {
   Utensils,
   Search,
@@ -26,6 +27,12 @@ import { useAuth } from "../../../context/AuthContext";
 
 function StaffMenuPage() {
   const { user } = useAuth();
+
+  const userRole = (user?.role || "").toLowerCase();
+  const isWaiter = userRole === "waiter" || Number(user?.roleId || user?.role_id) === 5;
+  if (isWaiter) {
+    return <Navigate to="/pos" replace />;
+  }
 
   const [activeTab, setActiveTab] = useState("order"); // 'order' | 'history'
   const [employees, setEmployees] = useState([]);

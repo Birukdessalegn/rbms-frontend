@@ -101,6 +101,16 @@ function POSLayout() {
     };
   }, []);
 
+  const userRole = (user?.role || "").toLowerCase();
+  const isWaiter = userRole === "waiter" || Number(user?.roleId || user?.role_id) === 5;
+
+  const accessibleMenuItems = menuItems.filter((item) => {
+    if (isWaiter && item.path === "/pos/staff-menu") {
+      return false;
+    }
+    return true;
+  });
+
   return (
     <div className="flex min-h-screen bg-slate-50">
 
@@ -141,7 +151,7 @@ function POSLayout() {
             Operations
           </p>
 
-          {menuItems.map((item) => {
+          {accessibleMenuItems.map((item) => {
             const Icon = item.icon;
 
             return (

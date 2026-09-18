@@ -117,7 +117,8 @@ function POSPage() {
   };
 
   const handleSendToKitchen = async () => {
-    if (orderItems.length === 0) {
+    if (!orderItems || orderItems.length === 0) {
+      alert("Your order ticket is empty. Please select menu items before sending.");
       return;
     }
     if (!selectedTable) {

@@ -29,15 +29,15 @@ function ActiveOrders() {
   // FETCH BAR & POS ORDERS
   // ============================================================
 
-  const fetchBarOrders = async () => {
+  const fetchBarOrders = async (isInitial = false) => {
     try {
-      setLoadingBarOrders(true);
+      if (isInitial) setLoadingBarOrders(true);
       const response = await api("/bar/orders");
       setBarOrders(response.orders || []);
     } catch (error) {
       console.error("Failed to fetch bar orders:", error);
     } finally {
-      setLoadingBarOrders(false);
+      if (isInitial) setLoadingBarOrders(false);
     }
   };
 
@@ -51,18 +51,18 @@ function ActiveOrders() {
   };
 
   useEffect(() => {
-    fetchBarOrders();
+    fetchBarOrders(true);
     fetchPosOrders();
     if (fetchKitchenOrders) fetchKitchenOrders();
     if (fetchTables) fetchTables();
 
-    // Auto refresh so waiter sees active orders & table statuses live without manual refresh
+    // Auto refresh so staff see active orders & table statuses live smoothly without screen flickering
     const interval = setInterval(() => {
-      fetchBarOrders();
+      fetchBarOrders(false);
       fetchPosOrders();
-      if (fetchKitchenOrders) fetchKitchenOrders();
-      if (fetchTables) fetchTables();
-    }, 3000);
+      if (fetchKitchenOrders) fetchKitchenOrders(true);
+      if (fetchTables) fetchTables(true);
+    }, 4000);
 
     return () => clearInterval(interval);
   }, []);
@@ -310,10 +310,17 @@ function ActiveOrders() {
     if (o.payment_status === "paid") return false;
     if (paidOrderIds.has(String(o.id || o.order_id))) return false;
 
-    // 2. Exclude if paid_amount settles the order total
-    const paidAmt = Number(o.paid_amount || 0);
+    // 2. Exclude empty ghost tickets (orders with 0 items and no charges)
+    const orderItems = Array.isArray(o.items) ? o.items : parseRawItems(o.items);
     const orderTotal = Number(o.total || o.total_amount || 0);
-    const itemsTotal = (o.items || []).reduce(
+    const hasSummary = Boolean(o.items_summary && String(o.items_summary).trim().length > 0);
+    if ((!orderItems || orderItems.length === 0) && !hasSummary && orderTotal <= 0) {
+      return false;
+    }
+
+    // 3. Exclude if paid_amount settles the order total
+    const paidAmt = Number(o.paid_amount || 0);
+    const itemsTotal = (orderItems || []).reduce(
       (acc, i) => acc + Number(i.quantity || i.qty || 1) * Number(i.unit_price || i.price || 0),
       0
     );

@@ -53,9 +53,10 @@ export function RestaurantProvider({ children }) {
   // ============================================================
   // Fetch Tables
   // ============================================================
-const fetchTables = async () => {
+const fetchTables = async (silent = false) => {
   if (!user) return;
   try {
+    if (!silent) setLoadingTables(true);
     const response = await api("/tables");
     const loadedTables =
       response.tables ||
@@ -67,7 +68,7 @@ const fetchTables = async () => {
   } catch (error) {
     console.error("Failed to fetch tables:", error);
   } finally {
-    setLoadingTables(false);
+    if (!silent) setLoadingTables(false);
   }
 };
 
@@ -75,10 +76,10 @@ const fetchTables = async () => {
   // FETCH KITCHEN ORDERS
   // ============================================================
 
-  const fetchKitchenOrders = async () => {
+  const fetchKitchenOrders = async (silent = false) => {
     if (!user) return;
     try {
-      setLoadingKitchen(true);
+      if (!silent) setLoadingKitchen(true);
 
       const response = await api("/kitchen/orders");
       const loadedOrders =
@@ -151,7 +152,7 @@ const fetchTables = async () => {
         error
       );
     } finally {
-      setLoadingKitchen(false);
+      if (!silent) setLoadingKitchen(false);
     }
   };
 

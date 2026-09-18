@@ -22,9 +22,14 @@ import {
   Activity,
   Printer,
   FileText,
+  AlertCircle,
+  TrendingDown,
+  ShieldAlert,
+  Apple,
 } from "lucide-react";
 import api from "../../../services/api";
 import { printReportArea } from "../../../utils/printHelper";
+import { useAuth } from "../../../context/AuthContext";
 
 // Robust image resolution helper for uploaded or absolute image URLs
 export const resolveImageUrl = (url) => {
@@ -47,12 +52,16 @@ export const resolveImageUrl = (url) => {
 
 
 export default function KitchenStockAuditPage() {
+  const { user } = useAuth();
+  const userRole = (user?.role || user?.role_name || user?.roleName || "").toLowerCase();
+  const canApproveShortage = userRole === "admin" || userRole === "manager";
+
   const [searchParams, setSearchParams] = useSearchParams();
   const initialOutlet = searchParams.get("outlet") || "all";
   const initialTab = searchParams.get("tab") || "audit";
 
-  const [activeTab, setActiveTab] = useState(initialTab); // "audit" | "requisitions" | "history" | "reports"
-  const [outletFilter, setOutletFilter] = useState(initialOutlet); // "all" | "kitchen" | "bar"
+  const [activeTab, setActiveTab] = useState(initialTab); // "audit" | "requisitions" | "history" | "shortages" | "reports"
+  const [outletFilter, setOutletFilter] = useState(initialOutlet); // "all" | "kitchen" | "bar" | "fruit"
 
   // Data states
   const [products, setProducts] = useState([]);
@@ -62,6 +71,7 @@ export default function KitchenStockAuditPage() {
   const [barOrders, setBarOrders] = useState([]);
   const [transfers, setTransfers] = useState([]);
   const [audits, setAudits] = useState([]);
+  const [shortages, setShortages] = useState([]);
 
   // UI states
   const [loading, setLoading] = useState(true);
@@ -73,17 +83,24 @@ export default function KitchenStockAuditPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [stockFilter, setStockFilter] = useState("all"); // "all" | "depleted" | "low" | "healthy"
   const [reqFilter, setReqFilter] = useState("pending"); // "pending" | "completed" | "cancelled" | "all"
+  const [shortageFilter, setShortageFilter] = useState("pending"); // "pending" | "approved" | "rejected" | "all"
 
   // Modals state
   const [depletionModalItem, setDepletionModalItem] = useState(null);
   const [stockFoundModalItem, setStockFoundModalItem] = useState(null);
+  const [shortageModalItem, setShortageModalItem] = useState(null);
   const [rejectReqItem, setRejectReqItem] = useState(null);
+  const [rejectShortageItem, setRejectShortageItem] = useState(null);
   const [submittingAction, setSubmittingAction] = useState(false);
 
   // Form states for modals
   const [auditNotes, setAuditNotes] = useState("");
   const [stockFoundCount, setStockFoundCount] = useState("");
+  const [shortageCount, setShortageCount] = useState("");
+  const [shortageReason, setShortageReason] = useState("unaccounted_missing");
+  const [shortageNotes, setShortageNotes] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectShortageReason, setRejectShortageReason] = useState("");
 
   // ============================================================
   // LOAD ALL DATA (KITCHEN & BAR)
@@ -103,6 +120,7 @@ export default function KitchenStockAuditPage() {
         bOrdersRes,
         transfersRes,
         auditsRes,
+        shortagesRes,
       ] = await Promise.all([
         api("/products").catch(() => []),
         api("/inventory/departments/kitchen").catch(() => api("/inventory").catch(() => [])),
@@ -111,6 +129,7 @@ export default function KitchenStockAuditPage() {
         api("/bar").catch(() => []),
         api("/inventory/transfers").catch(() => []),
         api("/kitchen/audits").catch(() => []),
+        api("/kitchen/shortages").catch(() => []),
       ]);
 
       setProducts(
@@ -155,6 +174,12 @@ export default function KitchenStockAuditPage() {
         auditsRes?.audits ||
           auditsRes?.data?.audits ||
           (Array.isArray(auditsRes) ? auditsRes : [])
+      );
+
+      setShortages(
+        shortagesRes?.shortages ||
+          shortagesRes?.data?.shortages ||
+          (Array.isArray(shortagesRes) ? shortagesRes : [])
       );
     } catch (err) {
       console.error("Failed to load audit data:", err);
@@ -252,6 +277,8 @@ export default function KitchenStockAuditPage() {
         outlet = "bar";
       } else if (dept === "kitchen" || dept === "food") {
         outlet = "kitchen";
+      } else if (dept === "fruit" || dept === "shisha" || catType === "fruit" || catType === "shisha") {
+        outlet = "fruit";
       } else if (p.is_bar_item === true || p.isBarItem === true) {
         outlet = "bar";
       } else if (catType === "beverage" || catType === "bar" || catType === "drink") {
@@ -293,8 +320,8 @@ export default function KitchenStockAuditPage() {
       return {
         ...p,
         displayName: p.name || p.product_name || "Item",
-        unit: p.unit || (outlet === "bar" ? "bottle" : "portion"),
-        outlet, // "kitchen" or "bar" directly from DB
+        unit: p.unit || (outlet === "bar" ? "bottle" : outlet === "fruit" ? "portion" : "portion"),
+        outlet, // "kitchen", "bar", or "fruit"
         imageUrl,
         currentStock,
         minStock,
@@ -312,20 +339,22 @@ export default function KitchenStockAuditPage() {
       // 1. Outlet separation filter
       if (outletFilter === "kitchen" && item.outlet !== "kitchen") return false;
       if (outletFilter === "bar" && item.outlet !== "bar") return false;
+      if (outletFilter === "fruit" && item.outlet !== "fruit") return false;
 
-      // 2. Stock status filter
+      // 2. Stock Health filter
       if (stockFilter === "depleted" && !item.isDepleted) return false;
       if (stockFilter === "low" && !item.isLow) return false;
       if (stockFilter === "healthy" && (item.isDepleted || item.isLow)) return false;
 
-      // 3. Search query
+      // 3. Search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchName = item.displayName.toLowerCase().includes(q);
-        const matchCode = (item.product_code || item.productCode || "").toLowerCase().includes(q);
+        const matchName = (item.displayName || "").toLowerCase().includes(q);
+        const matchCode = (item.product_code || "").toLowerCase().includes(q);
         const matchCat = (item.category_name || item.category || "").toLowerCase().includes(q);
         return matchName || matchCode || matchCat;
       }
+
       return true;
     });
   }, [allClassifiedItems, outletFilter, stockFilter, searchQuery]);
@@ -336,9 +365,10 @@ export default function KitchenStockAuditPage() {
       const toLoc = (t.to_location || "").toLowerCase();
       const st = (t.status || "").toLowerCase();
 
-      // Outlet filter on transfers
+      // Outlet filter
       if (outletFilter === "kitchen" && toLoc !== "kitchen") return false;
       if (outletFilter === "bar" && toLoc !== "bar") return false;
+      if (outletFilter === "fruit" && toLoc !== "fruit") return false;
 
       // Status filter
       if (reqFilter === "all") return true;
@@ -352,6 +382,7 @@ export default function KitchenStockAuditPage() {
       const dept = (a.department || "").toLowerCase();
       if (outletFilter === "kitchen" && dept !== "kitchen") return false;
       if (outletFilter === "bar" && dept !== "bar") return false;
+      if (outletFilter === "fruit" && dept !== "fruit") return false;
       return true;
     });
   }, [audits, outletFilter]);
@@ -360,17 +391,39 @@ export default function KitchenStockAuditPage() {
   const scopedItems = useMemo(() => {
     if (outletFilter === "kitchen") return allClassifiedItems.filter((i) => i.outlet === "kitchen");
     if (outletFilter === "bar") return allClassifiedItems.filter((i) => i.outlet === "bar");
+    if (outletFilter === "fruit") return allClassifiedItems.filter((i) => i.outlet === "fruit");
     return allClassifiedItems;
   }, [allClassifiedItems, outletFilter]);
 
   const kitchenDepletedCount = allClassifiedItems.filter((i) => i.outlet === "kitchen" && i.isDepleted).length;
   const barDepletedCount = allClassifiedItems.filter((i) => i.outlet === "bar" && i.isDepleted).length;
+  const fruitDepletedCount = allClassifiedItems.filter((i) => i.outlet === "fruit" && i.isDepleted).length;
 
   const depletedCount = scopedItems.filter((i) => i.isDepleted).length;
   const lowStockCount = scopedItems.filter((i) => i.isLow).length;
   const pendingRequisitionsCount = filteredTransfers.filter(
     (t) => (t.status || "").toLowerCase() === "pending"
   ).length;
+
+  const pendingShortages = useMemo(() => {
+    return (shortages || []).filter((s) => s.status === "pending_approval");
+  }, [shortages]);
+  const pendingShortagesCount = pendingShortages.length;
+
+  const filteredShortages = useMemo(() => {
+    return (shortages || []).filter((s) => {
+      if (shortageFilter !== "all" && s.status !== shortageFilter) return false;
+      if (outletFilter !== "all" && s.department !== outletFilter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const pName = (s.product_name || "").toLowerCase();
+        const pCode = (s.product_code || "").toLowerCase();
+        const pReason = (s.reason || "").toLowerCase();
+        return pName.includes(q) || pCode.includes(q) || pReason.includes(q);
+      }
+      return true;
+    });
+  }, [shortages, shortageFilter, outletFilter, searchQuery]);
 
   const todayAuditsCount = filteredAudits.filter((a) => {
     if (!a.created_at) return false;
@@ -510,6 +563,105 @@ export default function KitchenStockAuditPage() {
     }
   };
 
+  // 5. Open Shortage Modal
+  const openShortageModal = (item) => {
+    setShortageModalItem(item);
+    setShortageCount("");
+    setShortageReason("unaccounted_missing");
+    setShortageNotes("");
+  };
+
+  // 6. Submit Shortage Request (F&B Controller)
+  const handleCreateShortage = async () => {
+    if (!shortageModalItem) return;
+    const count = Number(shortageCount);
+    if (isNaN(count) || count < 0) {
+      alert("Please enter a valid non-negative physical count.");
+      return;
+    }
+    const exp = Number(shortageModalItem.currentStock || 0);
+    if (count >= exp) {
+      alert(`Physical count (${count}) must be less than recorded stock (${exp}) to report a shortage.`);
+      return;
+    }
+
+    try {
+      setSubmittingAction(true);
+      await api("/kitchen/shortages", {
+        method: "POST",
+        body: JSON.stringify({
+          productId: shortageModalItem.id,
+          department: shortageModalItem.outlet, // "kitchen", "bar", or "fruit"
+          expectedQuantity: exp,
+          physicalCount: count,
+          reason: shortageReason,
+          notes:
+            shortageNotes ||
+            `F&B Controller reported a shortage of ${exp - count} ${shortageModalItem.unit} in ${shortageModalItem.outlet}.`,
+        }),
+      });
+
+      triggerToast(
+        `Shortage of ${exp - count} ${shortageModalItem.unit} for "${shortageModalItem.displayName}" submitted for manager approval.`
+      );
+      setShortageModalItem(null);
+      setShortageCount("");
+      setShortageNotes("");
+      await loadData(true);
+    } catch (err) {
+      alert(err.message || "Failed to submit shortage report.");
+    } finally {
+      setSubmittingAction(false);
+    }
+  };
+
+  // 7. Approve Shortage (Manager / Admin)
+  const handleApproveShortage = async (shortageId) => {
+    if (!window.confirm("Are you sure you want to approve this shortage and officially update the system stock?")) {
+      return;
+    }
+    try {
+      setSubmittingAction(true);
+      await api(`/kitchen/shortages/${shortageId}/review`, {
+        method: "PUT",
+        body: JSON.stringify({
+          action: "approve",
+        }),
+      });
+
+      triggerToast("Shortage approved! Stock updated in system.");
+      await loadData(true);
+    } catch (err) {
+      alert(err.message || "Failed to approve shortage.");
+    } finally {
+      setSubmittingAction(false);
+    }
+  };
+
+  // 8. Reject Shortage (Manager / Admin)
+  const handleRejectShortage = async () => {
+    if (!rejectShortageItem) return;
+    try {
+      setSubmittingAction(true);
+      await api(`/kitchen/shortages/${rejectShortageItem.id}/review`, {
+        method: "PUT",
+        body: JSON.stringify({
+          action: "reject",
+          reviewNotes: rejectShortageReason || "Rejected by manager upon review.",
+        }),
+      });
+
+      triggerToast(`Shortage claim for #${rejectShortageItem.id} was rejected. Stock unchanged.`);
+      setRejectShortageItem(null);
+      setRejectShortageReason("");
+      await loadData(true);
+    } catch (err) {
+      alert(err.message || "Failed to reject shortage.");
+    } finally {
+      setSubmittingAction(false);
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 pb-8 text-slate-900 font-sans">
       <div className="space-y-4 sm:space-y-6">
@@ -587,11 +739,39 @@ export default function KitchenStockAuditPage() {
           )}
         </div>
 
+        {/* Manager/Admin Pending Shortage Approval Alert Banner */}
+        {canApproveShortage && pendingShortagesCount > 0 && (
+          <div className="rounded-2xl bg-gradient-to-r from-rose-600 via-rose-500 to-amber-600 p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+                <ShieldAlert className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm sm:text-base">
+                  {pendingShortagesCount} Stock Shortage{pendingShortagesCount > 1 ? "s" : ""} Awaiting Authorization
+                </h3>
+                <p className="text-xs text-rose-100 mt-0.5">
+                  F&B Controller reported inventory discrepancies. Physical count cannot update without your confirmation.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setActiveTab("shortages");
+                setShortageFilter("pending");
+              }}
+              className="px-4 py-2 bg-white text-rose-700 font-bold text-xs rounded-xl shadow hover:bg-rose-50 transition shrink-0 whitespace-nowrap"
+            >
+              Review & Authorize ({pendingShortagesCount})
+            </button>
+          </div>
+        )}
+
         {/* ========================================================
-            PRIMARY OUTLET FILTER: KITCHEN VS. BAR SEPARATION
+            PRIMARY OUTLET FILTER: KITCHEN, BAR, FRUIT SEPARATION
         ======================================================== */}
         <div className="bg-white border border-slate-200 p-2.5 sm:p-3 rounded-2xl shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-          <div className="grid grid-cols-3 gap-1.5 sm:flex sm:items-center sm:gap-2 w-full sm:w-auto">
+          <div className="grid grid-cols-2 xs:grid-cols-4 gap-1.5 sm:flex sm:items-center sm:gap-2 w-full sm:w-auto">
             {/* Kitchen Button */}
             <button
               onClick={() => {
@@ -638,6 +818,31 @@ export default function KitchenStockAuditPage() {
                   }`}
                 >
                   {barDepletedCount}
+                </span>
+              )}
+            </button>
+
+            {/* Fruit Button */}
+            <button
+              onClick={() => {
+                setOutletFilter("fruit");
+                setSearchParams({ outlet: "fruit" });
+              }}
+              className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm text-center ${
+                outletFilter === "fruit"
+                  ? "bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-400/50"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+              }`}
+            >
+              <Apple className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Fruit / Shisha</span>
+              {fruitDepletedCount > 0 && (
+                <span
+                  className={`px-1.5 py-0.2 text-[10px] font-black rounded-full shrink-0 ${
+                    outletFilter === "fruit" ? "bg-white text-emerald-700" : "bg-rose-500 text-white"
+                  }`}
+                >
+                  {fruitDepletedCount}
                 </span>
               )}
             </button>
@@ -784,6 +989,30 @@ export default function KitchenStockAuditPage() {
 
           <button
             onClick={() => {
+              setActiveTab("shortages");
+              setSearchParams((prev) => {
+                const n = new URLSearchParams(prev);
+                n.set("tab", "shortages");
+                return n;
+              });
+            }}
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-medium text-xs sm:text-sm transition shrink-0 whitespace-nowrap ${
+              activeTab === "shortages"
+                ? "bg-rose-50 text-rose-800 border border-rose-200 shadow-sm font-semibold"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+            }`}
+          >
+            <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+            <span>Shortage Approvals</span>
+            {pendingShortagesCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.2 text-[10px] sm:text-xs font-bold rounded-full bg-rose-600 text-white animate-pulse">
+                {pendingShortagesCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => {
               setActiveTab("reports");
               setSearchParams((prev) => {
                 const n = new URLSearchParams(prev);
@@ -857,10 +1086,10 @@ export default function KitchenStockAuditPage() {
                   className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 whitespace-nowrap ${
                     stockFilter === "healthy"
                       ? "bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
                   }`}
                 >
-                  Healthy ({scopedItems.length - depletedCount - lowStockCount})
+                  Healthy ({scopedItems.filter((i) => !i.isDepleted && !i.isLow).length})
                 </button>
               </div>
             </div>
@@ -883,6 +1112,7 @@ export default function KitchenStockAuditPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredInspectionItems.map((item) => {
                   const isBar = item.outlet === "bar";
+                  const isFruit = item.outlet === "fruit";
 
                   return (
                     <div
@@ -914,9 +1144,17 @@ export default function KitchenStockAuditPage() {
                           <div
                             className={`img-fallback-icon h-full w-full items-center justify-center ${
                               item.imageUrl ? "hidden" : "flex"
-                            } ${isBar ? "bg-purple-50 text-purple-600" : "bg-orange-50 text-orange-600"}`}
+                            } ${
+                              isFruit
+                                ? "bg-emerald-50 text-emerald-600"
+                                : isBar
+                                ? "bg-purple-50 text-purple-600"
+                                : "bg-orange-50 text-orange-600"
+                            }`}
                           >
-                            {isBar ? (
+                            {isFruit ? (
+                              <Apple className="h-7 w-7 stroke-[1.75]" />
+                            ) : isBar ? (
                               <Wine className="h-7 w-7 stroke-[1.75]" />
                             ) : (
                               <UtensilsCrossed className="h-7 w-7 stroke-[1.75]" />
@@ -948,12 +1186,14 @@ export default function KitchenStockAuditPage() {
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span
                               className={`px-1.5 py-0.2 text-[9px] font-bold rounded-sm uppercase tracking-wider ${
-                                isBar
+                                isFruit
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : isBar
                                   ? "bg-purple-50 text-purple-700 border border-purple-200"
                                   : "bg-orange-50 text-orange-700 border border-orange-200"
                               }`}
                             >
-                              {isBar ? "🍸 Bar" : "🍳 Kitchen"}
+                              {isFruit ? "🍎 Fruit / Shisha" : isBar ? "🍸 Bar" : "🍳 Kitchen"}
                             </span>
                             <span className="text-xs text-slate-500 truncate">
                               {item.category_name || item.category || "General"} &bull; SKU:{" "}
@@ -965,7 +1205,7 @@ export default function KitchenStockAuditPage() {
                           <div className="mt-2 flex items-center gap-2 text-xs">
                             <div className="bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
                               <span className="text-slate-500">
-                                {isBar ? "Bar Stock: " : "Kitchen Stock: "}
+                                {isFruit ? "Fruit Stock: " : isBar ? "Bar Stock: " : "Kitchen Stock: "}
                               </span>
                               <span
                                 className={`font-bold ${
@@ -990,17 +1230,17 @@ export default function KitchenStockAuditPage() {
                       </div>
 
                       {/* Bottom row: Inspection Action Buttons */}
-                      <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                      <div className="pt-2 border-t border-slate-100 grid grid-cols-3 gap-1.5">
                         <button
                           onClick={() => {
                             setDepletionModalItem(item);
                             setAuditNotes("");
                           }}
-                          className="flex-1 flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 sm:px-3 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition shadow-sm text-center truncate"
-                          title={`Confirm zero stock in ${isBar ? "bar counter" : "kitchen"}`}
+                          className="flex items-center justify-center gap-1 py-2 px-1 text-[11px] font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition shadow-sm text-center"
+                          title={`Confirm zero stock in ${item.outlet}`}
                         >
                           <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                          <span className="truncate">Confirm Out of Stock</span>
+                          <span className="truncate">Out of Stock</span>
                         </button>
 
                         <button
@@ -1009,11 +1249,20 @@ export default function KitchenStockAuditPage() {
                             setStockFoundCount("");
                             setAuditNotes("");
                           }}
-                          className="flex-1 flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 sm:px-3 text-xs font-semibold rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition shadow-sm text-center truncate"
-                          title={`Physically found stock in ${isBar ? "bar counter" : "kitchen"}? Restore it immediately`}
+                          className="flex items-center justify-center gap-1 py-2 px-1 text-[11px] font-semibold rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition shadow-sm text-center"
+                          title={`Physically found stock in ${item.outlet}? Restore it`}
                         >
                           <Search className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                          <span className="truncate">Stock Found</span>
+                          <span className="truncate">Found</span>
+                        </button>
+
+                        <button
+                          onClick={() => openShortageModal(item)}
+                          className="flex items-center justify-center gap-1 py-2 px-1 text-[11px] font-semibold rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition shadow-sm text-center"
+                          title={`Report shortage discrepancy for ${item.displayName}`}
+                        >
+                          <TrendingDown className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                          <span className="truncate">Shortage</span>
                         </button>
                       </div>
                     </div>
@@ -1291,6 +1540,323 @@ export default function KitchenStockAuditPage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB: SHORTAGE DISCREPANCIES & MANAGER APPROVALS
+        ======================================================== */}
+        {activeTab === "shortages" && (
+          <div className="space-y-4">
+            {/* Header & Role Info */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900">
+                    Stock Shortage Discrepancies & Approvals
+                  </h3>
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-rose-50 text-rose-700 border border-rose-200 uppercase tracking-wider">
+                    Separation of Duties
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Physical count discrepancies reported by F&B Controller across Kitchen, Bar, and Fruit outlets.
+                  {canApproveShortage ? (
+                    <span className="text-emerald-700 font-semibold ml-1">
+                      (You have Manager/Admin authority to confirm and adjust stock).
+                    </span>
+                  ) : (
+                    <span className="text-amber-700 font-medium ml-1">
+                      (Manager or Admin confirmation is required before system stock numbers update).
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* Status Filter buttons */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto pb-1 sm:pb-0">
+                <button
+                  onClick={() => setShortageFilter("pending_approval")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+                    shortageFilter === "pending_approval"
+                      ? "bg-rose-100 text-rose-800 border border-rose-300 font-semibold shadow-sm"
+                      : "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                  }`}
+                >
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  <span>Pending ({pendingShortagesCount})</span>
+                </button>
+
+                <button
+                  onClick={() => setShortageFilter("approved")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+                    shortageFilter === "approved"
+                      ? "bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold shadow-sm"
+                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                  }`}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Approved ({shortages.filter((s) => s.status === "approved").length})</span>
+                </button>
+
+                <button
+                  onClick={() => setShortageFilter("rejected")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+                    shortageFilter === "rejected"
+                      ? "bg-slate-200 text-slate-800 border border-slate-300 font-semibold shadow-sm"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  <span>Rejected ({shortages.filter((s) => s.status === "rejected").length})</span>
+                </button>
+
+                <button
+                  onClick={() => setShortageFilter("all")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 whitespace-nowrap ${
+                    shortageFilter === "all"
+                      ? "bg-slate-900 text-white font-semibold"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  All ({shortages.length})
+                </button>
+              </div>
+            </div>
+
+            {/* List / Empty State */}
+            {filteredShortages.length === 0 ? (
+              <div className="py-16 text-center text-slate-500 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <ShieldCheck className="h-10 w-10 text-slate-400 mx-auto mb-2" />
+                <p className="text-base font-medium text-slate-900">
+                  No shortage requests match your current filters.
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  To report a stock shortage, switch to the "Line Inspection" tab and click "Shortage" on any item.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredShortages.map((s) => {
+                  const isPending = s.status === "pending_approval";
+                  const isApproved = s.status === "approved";
+                  const isRejected = s.status === "rejected";
+                  const isBar = s.department === "bar";
+                  const isFruit = s.department === "fruit";
+
+                  const reasonLabelMap = {
+                    unaccounted_missing: "Unaccounted / Missing",
+                    spoilage_expired: "Spoilage / Expired",
+                    breakage_damage: "Breakage / Spillage",
+                    theft_pilferage: "Suspected Pilferage / Theft",
+                    over_portioning: "Over-portioning / Variance",
+                    other: "Other Reason",
+                  };
+
+                  return (
+                    <div
+                      key={s.id}
+                      className={`bg-white rounded-2xl border transition p-4 sm:p-5 shadow-sm ${
+                        isPending
+                          ? "border-rose-300 ring-1 ring-rose-200 bg-rose-50/10"
+                          : isApproved
+                          ? "border-emerald-200 bg-emerald-50/10"
+                          : "border-slate-200 opacity-80"
+                      }`}
+                    >
+                      {/* Top Bar: Department + Status + Timestamps */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`px-2 py-0.5 text-xs font-bold rounded-md uppercase tracking-wider ${
+                              isFruit
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : isBar
+                                ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                : "bg-orange-50 text-orange-700 border border-orange-200"
+                            }`}
+                          >
+                            {isFruit ? "🍎 Fruit / Shisha" : isBar ? "🍸 Bar Counter" : "🍳 Kitchen Line"}
+                          </span>
+
+                          <span className="text-xs text-slate-400">&bull;</span>
+
+                          <span className="text-xs text-slate-500 font-mono">
+                            Claim #{s.id}
+                          </span>
+
+                          <span className="text-xs text-slate-400">&bull;</span>
+
+                          <span className="text-xs text-slate-500">
+                            {new Date(s.created_at).toLocaleString([], {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div>
+                          {isPending && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300 animate-pulse">
+                              <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                              Pending Manager Approval
+                            </span>
+                          )}
+                          {isApproved && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                              Approved & Stock Adjusted
+                            </span>
+                          )}
+                          {isRejected && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                              <XCircle className="h-3.5 w-3.5 text-slate-500" />
+                              Rejected (Stock Kept)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Main Discrepancy Card Body */}
+                      <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                        {/* Left: Product Info */}
+                        <div className="md:col-span-5 min-w-0">
+                          <h4 className="text-base font-bold text-slate-900 truncate">
+                            {s.product_name}
+                          </h4>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                            <span>SKU: {s.product_code || "N/A"}</span>
+                            <span>&bull;</span>
+                            <span>Category: {s.category_name || "General"}</span>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2 flex-wrap">
+                            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                              Reason: {reasonLabelMap[s.reason] || s.reason}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              Reported by: <strong className="text-slate-800 font-semibold">{s.reported_by_name || "F&B Controller"}</strong>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Center: Numbers & Financial Impact */}
+                        <div className="md:col-span-4 grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
+                          <div>
+                            <span className="block text-[10px] uppercase font-bold text-slate-400">Expected</span>
+                            <span className="text-xs font-bold text-slate-700">{s.expected_quantity} {s.unit}</span>
+                          </div>
+                          <div>
+                            <span className="block text-[10px] uppercase font-bold text-slate-400">Actual Found</span>
+                            <span className="text-xs font-bold text-slate-900">{s.physical_count} {s.unit}</span>
+                          </div>
+                          <div className="border-l border-slate-200 pl-1">
+                            <span className="block text-[10px] uppercase font-bold text-rose-500">Shortage</span>
+                            <span className="text-xs font-black text-rose-600">-{s.shortage_quantity} {s.unit}</span>
+                          </div>
+                        </div>
+
+                        {/* Right: Estimated Loss & Unit Price */}
+                        <div className="md:col-span-3 text-right bg-rose-50/50 p-3 rounded-xl border border-rose-100">
+                          <span className="block text-[10px] uppercase font-bold text-rose-500">
+                            Estimated Write-Off Loss
+                          </span>
+                          <span className="text-sm sm:text-base font-black text-rose-700">
+                            {Number(s.total_loss_value || 0).toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            <span className="text-xs font-bold">ETB</span>
+                          </span>
+                          <span className="block text-[10px] text-slate-400 mt-0.5">
+                            @{Number(s.unit_cost || 0).toFixed(2)} ETB / {s.unit}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Notes / Reason text */}
+                      {s.notes && (
+                        <div className="mt-3 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-slate-700">
+                          <strong className="text-slate-900 font-semibold">Inspection Note: </strong>
+                          {s.notes}
+                        </div>
+                      )}
+
+                      {/* Review details if reviewed */}
+                      {!isPending && (
+                        <div className="mt-3 flex items-center justify-between text-xs bg-slate-100/70 p-2.5 rounded-xl border border-slate-200 text-slate-600">
+                          <div>
+                            <span className="font-semibold text-slate-800">
+                              {isApproved ? "Approved by" : "Rejected by"}:{" "}
+                            </span>
+                            {s.reviewed_by_name || "Manager"} &bull;{" "}
+                            {s.reviewed_at
+                              ? new Date(s.reviewed_at).toLocaleString([], {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : ""}
+                          </div>
+                          {s.review_notes && (
+                            <div className="italic text-slate-500 truncate max-w-sm">
+                              "{s.review_notes}"
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Actions for Pending Shortages */}
+                      {isPending && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                          <div className="text-xs text-slate-500">
+                            {canApproveShortage ? (
+                              <span className="text-emerald-700 font-medium flex items-center gap-1">
+                                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                                Reviewer authorization: Approving will immediately adjust system stock to {s.physical_count} {s.unit} and record a write-off transaction.
+                              </span>
+                            ) : (
+                              <span className="text-amber-700 font-medium flex items-center gap-1">
+                                <AlertCircle className="h-4 w-4 text-amber-600" />
+                                Logged by F&B Controller. Awaiting Manager / Admin confirmation.
+                              </span>
+                            )}
+                          </div>
+
+                          {canApproveShortage && (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => handleApproveShortage(s.id)}
+                                disabled={submittingAction}
+                                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition disabled:opacity-50"
+                              >
+                                <CheckCircle2 className="h-4 w-4" />
+                                <span>Approve & Adjust Stock</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setRejectShortageItem(s);
+                                  setRejectShortageReason("");
+                                }}
+                                disabled={submittingAction}
+                                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition disabled:opacity-50"
+                              >
+                                <XCircle className="h-4 w-4" />
+                                <span>Reject Claim</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1726,6 +2292,192 @@ export default function KitchenStockAuditPage() {
               >
                 <XCircle className="h-4 w-4" />
                 <span>{submittingAction ? "Rejecting..." : "Confirm Rejection"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL 4: REPORT SHORTAGE MODAL (F&B CONTROLLER)
+      ======================================================== */}
+      {shortageModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white border border-rose-300 rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+              <div className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                <TrendingDown className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-slate-900 truncate">
+                  Report Stock Shortage
+                </h3>
+                <p className="text-xs text-rose-600 font-medium truncate">
+                  {shortageModalItem.outlet === "fruit"
+                    ? "Fruit / Shisha"
+                    : shortageModalItem.outlet === "bar"
+                    ? "Bar Counter"
+                    : "Kitchen Line"}{" "}
+                  &bull; {shortageModalItem.displayName}
+                </p>
+              </div>
+            </div>
+
+            {/* Current Stock Banner */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs">
+              <span className="text-slate-600">Expected Recorded Stock:</span>
+              <span className="font-bold text-slate-900 text-sm">
+                {shortageModalItem.currentStock} {shortageModalItem.unit}
+              </span>
+            </div>
+
+            {/* Physical Count Input */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700">
+                Actual Physical Count Found *
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={shortageCount}
+                onChange={(e) => setShortageCount(e.target.value)}
+                placeholder={`Must be less than ${shortageModalItem.currentStock}`}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-rose-500 focus:bg-white"
+              />
+            </div>
+
+            {/* Live Calculation Preview */}
+            {shortageCount !== "" && !isNaN(Number(shortageCount)) && (
+              <div className="p-3 rounded-xl border border-rose-200 bg-rose-50/50 space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Calculated Shortage:</span>
+                  <strong className="text-rose-700 font-bold">
+                    -{Math.max(0, Number(shortageModalItem.currentStock) - Number(shortageCount))}{" "}
+                    {shortageModalItem.unit}
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Estimated Write-off Value:</span>
+                  <strong className="text-rose-800 font-bold">
+                    {(
+                      Math.max(0, Number(shortageModalItem.currentStock) - Number(shortageCount)) *
+                      Number(shortageModalItem.cost_price || shortageModalItem.costPrice || 0)
+                    ).toFixed(2)}{" "}
+                    ETB
+                  </strong>
+                </div>
+              </div>
+            )}
+
+            {/* Shortage Reason */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700">
+                Shortage Cause / Reason *
+              </label>
+              <select
+                value={shortageReason}
+                onChange={(e) => setShortageReason(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-rose-500 focus:bg-white"
+              >
+                <option value="unaccounted_missing">Unaccounted / Missing (Physically not found)</option>
+                <option value="spoilage_expired">Spoilage / Expired / Rotten</option>
+                <option value="breakage_damage">Breakage / Dropped / Spilled</option>
+                <option value="theft_pilferage">Suspected Pilferage / Theft</option>
+                <option value="over_portioning">Over-portioning / Recipe Variance</option>
+                <option value="other">Other Reason</option>
+              </select>
+            </div>
+
+            {/* Inspection Notes */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700">
+                Audit Notes / Incident Details
+              </label>
+              <textarea
+                value={shortageNotes}
+                onChange={(e) => setShortageNotes(e.target.value)}
+                placeholder="Describe where and how the shortage was discovered..."
+                rows={2}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-rose-500 focus:bg-white"
+              />
+            </div>
+
+            {/* Separation of duties alert */}
+            <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
+              <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+              <span>
+                <strong>Notice:</strong> This claim enters <strong>Pending Approval</strong>. System stock numbers will <strong>not</strong> change until confirmed by a Manager or Admin.
+              </span>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setShortageModalItem(null)}
+                disabled={submittingAction}
+                className="w-full sm:w-auto px-4 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition text-center"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateShortage}
+                disabled={submittingAction}
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition shadow-sm disabled:opacity-50"
+              >
+                <TrendingDown className="h-4 w-4" />
+                <span>{submittingAction ? "Submitting..." : "Submit Claim for Manager Review"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL 5: REJECT SHORTAGE MODAL (MANAGER / ADMIN)
+      ======================================================== */}
+      {rejectShortageItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white border border-slate-300 rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-3.5 sm:space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+              <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 shrink-0">
+                <XCircle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-slate-900 truncate">
+                  Reject Shortage Claim #{rejectShortageItem.id}
+                </h3>
+                <p className="text-xs text-slate-500 truncate">
+                  {rejectShortageItem.product_name} &bull; Keep stock at {rejectShortageItem.expected_quantity} {rejectShortageItem.unit}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700">Manager Rejection Reason *</label>
+              <textarea
+                value={rejectShortageReason}
+                onChange={(e) => setRejectShortageReason(e.target.value)}
+                placeholder="e.g. Discrepancy explained: items were moved to cold room storage without transfer slip. Stock remains valid."
+                rows={3}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-500 focus:bg-white"
+              />
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setRejectShortageItem(null)}
+                disabled={submittingAction}
+                className="w-full sm:w-auto px-4 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition text-center"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRejectShortage}
+                disabled={submittingAction}
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition shadow-sm disabled:opacity-50"
+              >
+                <XCircle className="h-4 w-4" />
+                <span>{submittingAction ? "Rejecting..." : "Confirm Rejection (Keep Stock)"}</span>
               </button>
             </div>
           </div>

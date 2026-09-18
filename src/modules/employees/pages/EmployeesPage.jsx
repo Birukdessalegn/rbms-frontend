@@ -58,6 +58,7 @@ const departments = [
   { id: 3775, name: "Security", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
   { id: 3776, name: "Parking", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
   { id: 3777, name: "Lift Man", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
+  { id: 3778, name: "Host", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
 ];
 
 const statusStyles = {

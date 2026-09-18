@@ -22,6 +22,8 @@ import {
   Copy,
   Check,
   Crown,
+  Landmark,
+  Building2,
 } from "lucide-react";
 import api from "../../../services/api";
 import { printThermalReceipt } from "../../../utils/printHelper";
@@ -108,6 +110,48 @@ function PaymentModal({
     const available = isUnlimited ? 999999999 : Math.max(limit - debt, 0);
     return { limit, debt, available, isUnlimited, isPromoter };
   }, [selectedVip]);
+
+  // Receiving Payment / Transfer Accounts (Bank & Mobile Money)
+  const [paymentAccounts, setPaymentAccounts] = useState([]);
+  const [copiedAccId, setCopiedAccId] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPaymentAccounts = async () => {
+      try {
+        const res = await api("/payment-accounts?active=true");
+        const list = res.accounts || res.data || [];
+        if (isMounted && Array.isArray(list) && list.length > 0) {
+          setPaymentAccounts(list);
+          return;
+        }
+      } catch (err) {
+        console.warn("Could not fetch remote payment accounts, using cache:", err);
+      }
+      try {
+        const cached = localStorage.getItem("rbms_payment_accounts");
+        if (cached && isMounted) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            setPaymentAccounts(parsed.filter((a) => a.is_active));
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchPaymentAccounts();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleCopyAccount = (acc) => {
+    if (!acc?.account_number) return;
+    navigator.clipboard.writeText(acc.account_number);
+    setCopiedAccId(acc.id);
+    setTimeout(() => setCopiedAccId(null), 2000);
+  };
 
   // PC Camera / WebCam state
   const [showWebcam, setShowWebcam] = useState(false);
@@ -2041,6 +2085,96 @@ function PaymentModal({
           {/* CAMERA RECEIPT PHOTO FOR MOBILE & CARD PAYMENTS */}
           {(paymentMethod === "card" || paymentMethod === "mobile_money") && (
             <div className="space-y-4">
+              {/* Official Transfer Accounts / Card Receiving Details */}
+              <div className="rounded-2xl border border-indigo-200 bg-gradient-to-b from-indigo-50/70 to-white p-4 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-indigo-900 font-extrabold text-sm">
+                    {paymentMethod === "mobile_money" ? (
+                      <Smartphone className="h-4 w-4 text-indigo-600" />
+                    ) : (
+                      <Landmark className="h-4 w-4 text-indigo-600" />
+                    )}
+                    <span>Club Receiving Account(s)</span>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded-full">
+                    {paymentMethod === "mobile_money" ? "Mobile Transfer" : "Card / Transfer"}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 font-medium">
+                  Provide these transfer details to the customer or copy directly for POS confirmation:
+                </p>
+
+                {paymentAccounts.length === 0 ? (
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 text-center text-xs text-slate-400">
+                    No active accounts configured yet. Admin can add accounts in Live Dashboard.
+                  </div>
+                ) : (
+                  <div className="grid gap-2.5">
+                    {paymentAccounts.map((acc) => (
+                      <div
+                        key={acc.id}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs hover:border-indigo-300 transition"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 font-bold border border-indigo-100">
+                            {acc.account_type === "telebirr" ? (
+                              <Smartphone className="h-4 w-4" />
+                            ) : acc.account_type === "card" ? (
+                              <CreditCard className="h-4 w-4" />
+                            ) : (
+                              <Landmark className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-black text-slate-800 truncate">
+                                {acc.provider}
+                              </span>
+                              {acc.account_holder && (
+                                <span className="text-[11px] font-semibold text-slate-400 truncate">
+                                  • {acc.account_holder}
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-mono text-sm font-black text-indigo-700 select-all tracking-wider">
+                              {acc.account_number}
+                            </p>
+                            {acc.notes && (
+                              <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                                {acc.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCopyAccount(acc)}
+                          className={`flex items-center gap-1 shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                            copiedAccId === acc.id
+                              ? "bg-emerald-600 text-white shadow-xs"
+                              : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
+                          }`}
+                          title="Copy account number"
+                        >
+                          {copiedAccId === acc.id ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              <span>Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-700">
                   Payment Confirmation Receipt (Camera / Screenshot)

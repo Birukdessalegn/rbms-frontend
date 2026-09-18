@@ -27,8 +27,10 @@ import {
   Search,
   X,
   Phone,
+  Landmark,
 } from "lucide-react";
 import api from "../../../services/api";
+import PaymentAccountsModal from "../components/PaymentAccountsModal";
 
 export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,7 @@ export default function AdminDashboardPage() {
   const [payments, setPayments] = useState([]);
   const [vipPaymentsList, setVipPaymentsList] = useState([]);
   const [multiLocationStock, setMultiLocationStock] = useState([]);
+  const [showAccountsModal, setShowAccountsModal] = useState(false);
 
   // Table Radar Filter & Work Journey Timeframe
   const [tableFilter, setTableFilter] = useState("all"); // "all" | "occupied" | "unpaid" | "available"
@@ -915,11 +918,12 @@ export default function AdminDashboardPage() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={() => setShowVipPaymentsModal(true)}
-            className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-2 text-xs font-extrabold transition shadow-xs cursor-pointer"
+            onClick={() => setShowAccountsModal(true)}
+            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 text-xs font-extrabold transition shadow-xs cursor-pointer"
+            title="Configure receiving bank accounts and Telebirr for Card & Mobile payments"
           >
-            <Receipt className="h-4 w-4" />
-            VIP Payments & Credit Log
+            <Landmark className="h-4 w-4" />
+            Add Account
           </button>
 
           <Link
@@ -1584,39 +1588,38 @@ export default function AdminDashboardPage() {
                       type="text"
                       value={vipSearchQuery}
                       onChange={(e) => setVipSearchQuery(e.target.value)}
-                      placeholder="Search VIP name, phone, order #..."
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 focus:bg-white transition"
+                      placeholder="Search VIP or auth..."
+                      className="w-full rounded-xl border border-slate-200 pl-9 pr-4 py-2 text-xs font-semibold focus:border-purple-500 focus:outline-hidden focus:ring-2 focus:ring-purple-200"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Transactions Table */}
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-200 bg-slate-100/80 text-[11px] font-extrabold uppercase text-slate-600">
-                    <tr>
-                      <th className="px-4 py-3">Date & Time</th>
-                      <th className="px-4 py-3">VIP Customer</th>
-                      <th className="px-4 py-3">Order & Table</th>
-                      <th className="px-4 py-3">Payment Method</th>
-                      <th className="px-4 py-3 text-right">Amount (ETB)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredVipPayments.length === 0 ? (
+              {vipPaymentsList.length === 0 ? (
+                <div className="py-16 text-center text-slate-400">
+                  <Receipt className="mx-auto h-10 w-10 text-slate-300 mb-2" />
+                  <p className="font-bold text-slate-600">No VIP Credit payments recorded yet</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Orders authorized under Special Person / VIP Credit will appear here.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-2xs">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-[11px] font-extrabold uppercase text-slate-500 tracking-wider border-b border-slate-200">
                       <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-slate-400 font-medium">
-                          No VIP credit payments found matching your search.
-                        </td>
+                        <th className="px-4 py-3">Date & Time</th>
+                        <th className="px-4 py-3">VIP Customer</th>
+                        <th className="px-4 py-3">Order / Table</th>
+                        <th className="px-4 py-3">Method & Auth</th>
+                        <th className="px-4 py-3 text-right">Amount Billed</th>
                       </tr>
-                    ) : (
-                      filteredVipPayments.map((vp) => {
-                        const rawDate = vp.paid_at || vp.order_created_at || vp.created_at || vp.createdAt || vp.payment_date || vp.date;
-                        const dateObj = new Date(rawDate);
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {vipPaymentsList.map((vp) => {
+                        const dateObj = new Date(vp.created_at || vp.paid_at || Date.now());
                         const formattedDate = !isNaN(dateObj.getTime())
-                          ? dateObj.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })
-                          : "Today";
+                          ? dateObj.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                          : "Recent";
                         const formattedTime = !isNaN(dateObj.getTime())
                           ? dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
                           : "--:--";
@@ -1644,39 +1647,51 @@ export default function AdminDashboardPage() {
                                     {vp.tier || "Gold VIP"}
                                   </span>
                                 </p>
-                                {vp.customer_phone && vp.customer_phone !== "-" && (
-                                  <p className="text-[11px] text-slate-500 flex items-center gap-1">
-                                    <Phone className="h-2.5 w-2.5 text-slate-400" />
-                                    {vp.customer_phone}
+                                {vp.phone && (
+                                  <p className="text-[11px] text-slate-500 font-mono">
+                                    {vp.phone}
                                   </p>
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 py-3">
-                              <p className="font-bold text-purple-900">{vp.order_number}</p>
-                              <p className="text-[10px] text-slate-500">Table: {vp.table_number}</p>
+                            <td className="px-4 py-3 font-medium text-slate-700">
+                              <p className="font-bold text-slate-900">
+                                {vp.table_number ? `Table #${vp.table_number}` : "Takeaway / Bar"}
+                              </p>
+                              <p className="text-[11px] text-slate-500 font-mono">
+                                Order #{vp.order_number || vp.order_id}
+                              </p>
                             </td>
                             <td className="px-4 py-3">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] font-black text-purple-900 border border-purple-200">
-                                💳 {vp.payment_method}
+                              <div className="space-y-0.5">
+                                <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 px-2 py-0.5 text-[10px] font-black text-purple-900 border border-purple-200">
+                                  VIP CREDIT
+                                </span>
+                                {vp.reference && (
+                                  <p className="text-[10px] text-slate-500 font-medium truncate max-w-[200px]" title={vp.reference}>
+                                    {vp.reference.replace("VIP_CREDIT:", "").trim()}
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="font-mono text-sm font-black text-purple-700">
+                                {formatMoney(vp.amount)}
                               </span>
-                            </td>
-                            <td className="px-4 py-3 text-right font-black text-purple-950 text-sm">
-                              {formatMoney(vp.amount)}
                             </td>
                           </tr>
                         );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between border-t border-slate-200 bg-white px-6 py-3">
-              <span className="text-xs text-slate-500 font-semibold">
-                Showing {filteredVipPayments.length} of {vipPaymentOrders.length} VIP credit transactions
+            <div className="border-t border-slate-100 bg-slate-50 px-6 py-3.5 flex items-center justify-between text-xs text-slate-500 font-medium">
+              <span>
+                Total Logged: <strong className="text-slate-900">{vipPaymentsList.length}</strong> payments
               </span>
               <button
                 type="button"
@@ -1688,6 +1703,16 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ============================================================
+          PAYMENT / TRANSFER ACCOUNTS MODAL
+      ============================================================ */}
+      {showAccountsModal && (
+        <PaymentAccountsModal
+          isOpen={showAccountsModal}
+          onClose={() => setShowAccountsModal(false)}
+        />
       )}
     </div>
   );

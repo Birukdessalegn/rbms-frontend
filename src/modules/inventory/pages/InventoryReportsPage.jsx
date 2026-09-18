@@ -223,7 +223,7 @@ function InventoryReportsPage() {
     csv += `Total Monitored SKUs,${totalItemsCount}\n`;
     csv += `In-Stock SKUs,${inStockCount}\n`;
     csv += `Low Stock Alerts,${lowStockCount}\n`;
-    csv += `Out of Stock / Depleted,${outOfStockCount}\n`;
+    csv += `Out of Stock,${outOfStockCount}\n`;
     csv += `Total Inventory Asset Valuation,${totalValuation.toFixed(2)} ETB\n\n`;
 
     // Items table
@@ -453,7 +453,7 @@ function InventoryReportsPage() {
             </div>
             <span className="text-slate-300 select-none hidden sm:inline">|</span>
             <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Depleted / Zero:</span>
+              <span className="text-[10px] font-bold uppercase text-slate-500">Out of Stock:</span>
               <strong className="text-red-700 font-black">{outOfStockCount} Items</strong>
             </div>
             <span className="text-slate-300 select-none hidden sm:inline">|</span>

@@ -534,7 +534,7 @@ export default function KitchenStockAuditPage() {
                     </span>
                   </div>
                   <p className="text-xs md:text-sm text-slate-500 mt-0.5">
-                    Physical on-line inspection to verify depleted stock, restore falsely depleted items, and approve store requisitions.
+                    Physical on-line inspection to verify out-of-stock items, restore falsely reported items, and approve store requisitions.
                   </p>
                 </div>
               </div>
@@ -674,7 +674,7 @@ export default function KitchenStockAuditPage() {
           <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-sm flex items-center justify-between hover:shadow transition">
             <div className="min-w-0 flex-1 mr-1">
               <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-rose-600 truncate">
-                Depleted Stock
+                Out of Stock
               </p>
               <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5 sm:mt-1">{depletedCount}</h3>
               <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Verification needed</p>
@@ -840,7 +840,7 @@ export default function KitchenStockAuditPage() {
                   }`}
                 >
                   <AlertTriangle className="h-3 w-3" />
-                  <span>Depleted ({depletedCount})</span>
+                  <span>Out of Stock ({depletedCount})</span>
                 </button>
                 <button
                   onClick={() => setStockFilter("low")}
@@ -1000,7 +1000,7 @@ export default function KitchenStockAuditPage() {
                           title={`Confirm zero stock in ${isBar ? "bar counter" : "kitchen"}`}
                         >
                           <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                          <span className="truncate">Approve Available Stock</span>
+                          <span className="truncate">Confirm Out of Stock</span>
                         </button>
 
                         <button
@@ -1265,7 +1265,7 @@ export default function KitchenStockAuditPage() {
                           <td className="py-3 px-4">
                             {isDepletedApproved ? (
                               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                                Verified Depleted
+                                Confirmed Out of Stock
                               </span>
                             ) : isStockFound ? (
                               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -1384,7 +1384,7 @@ export default function KitchenStockAuditPage() {
                 <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm">
                   <div className="flex items-center justify-between">
                     <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
-                      Depleted Lines
+                      Out of Stock Items
                     </p>
                     <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600 border border-rose-200 shrink-0">
                       <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -1438,7 +1438,7 @@ export default function KitchenStockAuditPage() {
 
                   <div className="mt-5 pt-4 border-t border-slate-100 space-y-3">
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Depleted Items:</span>
+                      <span className="text-slate-500">Out of Stock Items:</span>
                       <strong className="text-rose-600 font-bold">
                         {allClassifiedItems.filter((i) => i.outlet === "kitchen" && i.isDepleted).length} dishes
                       </strong>
@@ -1476,7 +1476,7 @@ export default function KitchenStockAuditPage() {
 
                   <div className="mt-5 pt-4 border-t border-slate-100 space-y-3">
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Depleted Items:</span>
+                      <span className="text-slate-500">Out of Stock Items:</span>
                       <strong className="text-rose-600 font-bold">
                         {allClassifiedItems.filter((i) => i.outlet === "bar" && i.isDepleted).length} lines
                       </strong>
@@ -1535,7 +1535,7 @@ export default function KitchenStockAuditPage() {
                 <ClipboardCheck className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-base font-bold text-slate-900 truncate">Approve Available Stock</h3>
+                <h3 className="text-base font-bold text-slate-900 truncate">Confirm Out of Stock</h3>
                 <p className="text-xs text-slate-500 truncate">
                   Confirm physical check in {depletionModalItem.outlet === "bar" ? "Bar Counter" : "Kitchen"}
                 </p>
@@ -1592,7 +1592,7 @@ export default function KitchenStockAuditPage() {
                 className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm disabled:opacity-50"
               >
                 <Check className="h-4 w-4" />
-                <span>{submittingAction ? "Submitting..." : "Confirm Depletion Approval"}</span>
+                <span>{submittingAction ? "Submitting..." : "Confirm Out of Stock"}</span>
               </button>
             </div>
           </div>

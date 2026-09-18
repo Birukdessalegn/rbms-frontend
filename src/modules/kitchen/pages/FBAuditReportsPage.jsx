@@ -603,7 +603,7 @@ export default function FBAuditReportsPage() {
           bgClass="bg-blue-50"
         />
         <ReportStatCard
-          title="Depleted / Zero"
+          title="Out of Stock (0)"
           value={`${metrics.totalDepleted} Items`}
           description={`${metrics.kitchenDepleted} Kitchen • ${metrics.barDepleted} Bar`}
           icon={AlertTriangle}
@@ -719,7 +719,7 @@ export default function FBAuditReportsPage() {
               <option value="all">All Stock Statuses</option>
               <option value="healthy">In Stock ({metrics.totalHealthy})</option>
               <option value="low">Low Stock ({metrics.totalLow})</option>
-              <option value="depleted">Depleted ({metrics.totalDepleted})</option>
+              <option value="depleted">Out of Stock ({metrics.totalDepleted})</option>
             </select>
           </div>
         </div>
@@ -1061,11 +1061,11 @@ export default function FBAuditReportsPage() {
                           <td className="py-3 px-4 whitespace-nowrap">
                             {it.isApprovedDepletion ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                <ShieldCheck className="h-3 w-3" /> Approved Depletion
+                                <ShieldCheck className="h-3 w-3" /> Approved Out of Stock
                               </span>
                             ) : it.isDepleted ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                <AlertTriangle className="h-3 w-3" /> Depleted / Zero
+                                <AlertTriangle className="h-3 w-3" /> Out of Stock (0)
                               </span>
                             ) : it.isLow ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
@@ -1241,7 +1241,7 @@ export default function FBAuditReportsPage() {
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                <XCircle className="h-3 w-3" /> Depleted Verified
+                                <XCircle className="h-3 w-3" /> Out of Stock Verified
                               </span>
                             )}
                           </td>

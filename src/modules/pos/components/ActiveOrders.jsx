@@ -15,7 +15,6 @@ function ActiveOrders() {
   const [loadingBarOrders, setLoadingBarOrders] = useState(false);
   const [paidOrderIds, setPaidOrderIds] = useState(new Set());
   const [posOrders, setPosOrders] = useState([]);
-  const [orderTabFilter, setOrderTabFilter] = useState("all");
 
   const {
     tables = [],
@@ -115,9 +114,7 @@ function ActiveOrders() {
 
     const isPaid =
       kOrder.payment_status === "paid" ||
-      kOrder.status === "completed" ||
       posMeta?.payment_status === "paid" ||
-      posMeta?.status === "completed" ||
       paidOrderIds.has(String(mainOrderId));
 
     if (!tableOrderGroupMap.has(tableGroupKey)) {
@@ -128,7 +125,7 @@ function ActiveOrders() {
         order_number: kOrder.order_number || `#${mainOrderId}`,
         table_id: kOrder.table_id,
         table_number: kOrder.table_number,
-        status: isPaid ? "completed" : (posMeta?.status || kOrder.status),
+        status: posMeta?.status || kOrder.status,
         payment_status: isPaid ? "paid" : (posMeta?.payment_status || kOrder.payment_status || "unpaid"),
         paid_amount: Number(posMeta?.paid_amount || 0),
         total: Number(posMeta?.total || kOrder.total || 0),
@@ -138,15 +135,18 @@ function ActiveOrders() {
         items: kItems,
         barOrder: null,
         waiter_id: kOrder.waiter_id || kOrder.waiterId || kOrder.user_id || kOrder.userId,
+        waiter_user_id: kOrder.waiter_user_id || kOrder.user_id,
+        waiter_employee_id: kOrder.waiter_employee_id || kOrder.employee_id,
         waiter_name: kOrder.waiter_name || kOrder.waiterName || kOrder.server_name || kOrder.user_name,
       });
     } else {
       const existing = tableOrderGroupMap.get(tableGroupKey);
       if (!existing.waiter_id) existing.waiter_id = kOrder.waiter_id || kOrder.waiterId || kOrder.user_id;
+      if (!existing.waiter_user_id) existing.waiter_user_id = kOrder.waiter_user_id || kOrder.user_id;
+      if (!existing.waiter_employee_id) existing.waiter_employee_id = kOrder.waiter_employee_id || kOrder.employee_id;
       if (!existing.waiter_name) existing.waiter_name = kOrder.waiter_name || kOrder.waiterName || kOrder.server_name;
       if (isPaid) {
         existing.payment_status = "paid";
-        existing.status = "completed";
       } else if (posMeta?.payment_status) {
         existing.payment_status = posMeta.payment_status;
         if (posMeta.paid_amount) existing.paid_amount = posMeta.paid_amount;
@@ -183,19 +183,18 @@ function ActiveOrders() {
     const posMeta = posOrderPaymentStatusMap.get(String(orderIdRef));
     const isPaid =
       bOrder.payment_status === "paid" ||
-      bOrder.status === "completed" ||
       posMeta?.payment_status === "paid" ||
-      posMeta?.status === "completed" ||
       paidOrderIds.has(String(orderIdRef));
 
     if (tableOrderGroupMap.has(tableGroupKey)) {
       const existing = tableOrderGroupMap.get(tableGroupKey);
       existing.barOrder = bOrder;
       if (!existing.waiter_id) existing.waiter_id = bOrder.waiter_id || bOrder.waiterId || bOrder.user_id;
+      if (!existing.waiter_user_id) existing.waiter_user_id = bOrder.waiter_user_id || bOrder.user_id;
+      if (!existing.waiter_employee_id) existing.waiter_employee_id = bOrder.waiter_employee_id || bOrder.employee_id;
       if (!existing.waiter_name) existing.waiter_name = bOrder.waiter_name || bOrder.waiterName;
       if (isPaid) {
         existing.payment_status = "paid";
-        existing.status = "completed";
       } else if (posMeta?.payment_status) {
         existing.payment_status = posMeta.payment_status;
         if (posMeta.paid_amount) existing.paid_amount = posMeta.paid_amount;
@@ -220,7 +219,7 @@ function ActiveOrders() {
         order_number: bOrder.order_number || `#B-${orderIdRef}`,
         table_id: bOrder.table_id,
         table_number: bOrder.table_number,
-        status: isPaid ? "completed" : (posMeta?.status || bOrder.status || "pending"),
+        status: posMeta?.status || bOrder.status || "pending",
         payment_status: isPaid ? "paid" : (posMeta?.payment_status || "unpaid"),
         paid_amount: Number(posMeta?.paid_amount || 0),
         total: Number(posMeta?.total || 0),
@@ -229,6 +228,8 @@ function ActiveOrders() {
         barOrder: bOrder,
         isBarOnly: true,
         waiter_id: bOrder.waiter_id || bOrder.waiterId || bOrder.user_id,
+        waiter_user_id: bOrder.waiter_user_id || bOrder.user_id,
+        waiter_employee_id: bOrder.waiter_employee_id || bOrder.employee_id,
         waiter_name: bOrder.waiter_name || bOrder.waiterName,
       });
     }
@@ -245,7 +246,6 @@ function ActiveOrders() {
     const pItems = parseRawItems(pOrder.items || pOrder.order_items);
     const isPaid =
       pOrder.payment_status === "paid" ||
-      pOrder.status === "completed" ||
       paidOrderIds.has(String(mainOrderId));
 
     if (!tableOrderGroupMap.has(tableGroupKey)) {
@@ -256,7 +256,7 @@ function ActiveOrders() {
         order_number: pOrder.order_number || `#${mainOrderId}`,
         table_id: pOrder.table_id,
         table_number: pOrder.table_number,
-        status: isPaid ? "completed" : pOrder.status,
+        status: pOrder.status,
         payment_status: isPaid ? "paid" : (pOrder.payment_status || "unpaid"),
         created_at: pOrder.created_at,
         items: pItems,
@@ -265,6 +265,8 @@ function ActiveOrders() {
         payments: pOrder.payments || [],
         receipt_image: pOrder.receipt_image || pOrder.receiptImage,
         waiter_id: pOrder.waiter_id || pOrder.waiterId || pOrder.user_id,
+        waiter_user_id: pOrder.waiter_user_id || pOrder.user_id,
+        waiter_employee_id: pOrder.waiter_employee_id || pOrder.employee_id,
         waiter_name: pOrder.waiter_name || pOrder.waiterName || pOrder.server_name || pOrder.waiter?.name,
         vip_customer_name: pOrder.vip_customer_name,
         vip_customer_tier: pOrder.vip_customer_tier,
@@ -279,6 +281,8 @@ function ActiveOrders() {
       if (pOrder.payments && pOrder.payments.length > 0) existing.payments = pOrder.payments;
       if (pOrder.receipt_image || pOrder.receiptImage) existing.receipt_image = pOrder.receipt_image || pOrder.receiptImage;
       if (!existing.waiter_id) existing.waiter_id = pOrder.waiter_id || pOrder.waiterId || pOrder.user_id;
+      if (!existing.waiter_user_id) existing.waiter_user_id = pOrder.waiter_user_id || pOrder.user_id;
+      if (!existing.waiter_employee_id) existing.waiter_employee_id = pOrder.waiter_employee_id || pOrder.employee_id;
       if (!existing.waiter_name) existing.waiter_name = pOrder.waiter_name || pOrder.waiterName || pOrder.server_name;
       if (pOrder.vip_customer_name) existing.vip_customer_name = pOrder.vip_customer_name;
       if (pOrder.vip_customer_tier) existing.vip_customer_tier = pOrder.vip_customer_tier;
@@ -297,15 +301,15 @@ function ActiveOrders() {
 
   const allGroupedOrders = Array.from(tableOrderGroupMap.values()).filter((o) => {
     if (o.status === "cancelled") return false;
-    if (!Array.isArray(o.items) || o.items.length === 0) return false;
     return true;
   });
 
   const activeOrders = allGroupedOrders.filter((o) => {
-    const isPaid =
-      o.status === "completed" ||
-      o.payment_status === "paid" ||
-      paidOrderIds.has(String(o.id || o.order_id));
+    // 1. Exclude explicitly paid or settled tickets
+    if (o.payment_status === "paid") return false;
+    if (paidOrderIds.has(String(o.id || o.order_id))) return false;
+
+    // 2. Exclude if paid_amount settles the order total
     const paidAmt = Number(o.paid_amount || 0);
     const orderTotal = Number(o.total || o.total_amount || 0);
     const itemsTotal = (o.items || []).reduce(
@@ -313,29 +317,12 @@ function ActiveOrders() {
       0
     );
     const effectiveTotal = orderTotal > 0 ? orderTotal : itemsTotal;
-    const isFullyPaid = isPaid || (paidAmt > 0 && effectiveTotal > 0 && paidAmt >= (effectiveTotal - 0.05));
+    if (paidAmt > 0 && effectiveTotal > 0 && paidAmt >= (effectiveTotal - 0.05)) {
+      return false;
+    }
 
-    if (orderTabFilter === "active") return !isFullyPaid;
-    if (orderTabFilter === "paid") return isFullyPaid;
     return true;
   });
-
-  const activeCount = allGroupedOrders.filter((o) => {
-    const isPaid =
-      o.status === "completed" ||
-      o.payment_status === "paid" ||
-      paidOrderIds.has(String(o.id || o.order_id));
-    const paidAmt = Number(o.paid_amount || 0);
-    const orderTotal = Number(o.total || o.total_amount || 0);
-    const itemsTotal = (o.items || []).reduce(
-      (acc, i) => acc + Number(i.quantity || i.qty || 1) * Number(i.unit_price || i.price || 0),
-      0
-    );
-    const effectiveTotal = orderTotal > 0 ? orderTotal : itemsTotal;
-    return !(isPaid || (paidAmt > 0 && effectiveTotal > 0 && paidAmt >= (effectiveTotal - 0.05)));
-  }).length;
-
-  const paidCount = allGroupedOrders.length - activeCount;
 
   /* Role-Based Order Scoping: Waiters only see their own assigned/served tickets */
   const userRoleName = (
@@ -700,41 +687,10 @@ function ActiveOrders() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
-                <button
-                  type="button"
-                  onClick={() => setOrderTabFilter("active")}
-                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition ${
-                    orderTabFilter === "active"
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  Active ({activeCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOrderTabFilter("paid")}
-                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition ${
-                    orderTabFilter === "paid"
-                      ? "bg-white text-emerald-700 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  Paid / VIP ({paidCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOrderTabFilter("all")}
-                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition ${
-                    orderTabFilter === "all"
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  All ({allGroupedOrders.length})
-                </button>
-              </div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800">
+                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                {visibleOrders.length} Active {visibleOrders.length === 1 ? "Order" : "Orders"}
+              </span>
 
               {visibleOrders.some(
                 (order) => {

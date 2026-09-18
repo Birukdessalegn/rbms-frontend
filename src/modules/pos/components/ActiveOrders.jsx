@@ -15,6 +15,7 @@ function ActiveOrders() {
   const [loadingBarOrders, setLoadingBarOrders] = useState(false);
   const [paidOrderIds, setPaidOrderIds] = useState(new Set());
   const [posOrders, setPosOrders] = useState([]);
+  const [orderTabFilter, setOrderTabFilter] = useState("all");
 
   const {
     tables = [],
@@ -265,6 +266,10 @@ function ActiveOrders() {
         receipt_image: pOrder.receipt_image || pOrder.receiptImage,
         waiter_id: pOrder.waiter_id || pOrder.waiterId || pOrder.user_id,
         waiter_name: pOrder.waiter_name || pOrder.waiterName || pOrder.server_name || pOrder.waiter?.name,
+        vip_customer_name: pOrder.vip_customer_name,
+        vip_customer_tier: pOrder.vip_customer_tier,
+        vip_customer_id: pOrder.vip_customer_id,
+        vip_customer_phone: pOrder.vip_customer_phone,
       });
     } else {
       const existing = tableOrderGroupMap.get(tableGroupKey);
@@ -275,6 +280,10 @@ function ActiveOrders() {
       if (pOrder.receipt_image || pOrder.receiptImage) existing.receipt_image = pOrder.receipt_image || pOrder.receiptImage;
       if (!existing.waiter_id) existing.waiter_id = pOrder.waiter_id || pOrder.waiterId || pOrder.user_id;
       if (!existing.waiter_name) existing.waiter_name = pOrder.waiter_name || pOrder.waiterName || pOrder.server_name;
+      if (pOrder.vip_customer_name) existing.vip_customer_name = pOrder.vip_customer_name;
+      if (pOrder.vip_customer_tier) existing.vip_customer_tier = pOrder.vip_customer_tier;
+      if (pOrder.vip_customer_id) existing.vip_customer_id = pOrder.vip_customer_id;
+      if (pOrder.vip_customer_phone) existing.vip_customer_phone = pOrder.vip_customer_phone;
       pItems.forEach((newItem) => {
         const hasItem = existing.items.some(
           (e) => (e.id && e.id === newItem.id) || (e.product_name || e.name) === (newItem.product_name || newItem.name)
@@ -286,18 +295,47 @@ function ActiveOrders() {
 
   const { user } = useAuth();
 
-  const activeOrders = Array.from(tableOrderGroupMap.values()).filter((o) => {
-    if (o.status === "cancelled" || o.status === "completed") return false;
-    if (o.payment_status === "paid") return false;
-    if (paidOrderIds.has(String(o.id || o.order_id))) return false;
+  const allGroupedOrders = Array.from(tableOrderGroupMap.values()).filter((o) => {
+    if (o.status === "cancelled") return false;
     if (!Array.isArray(o.items) || o.items.length === 0) return false;
-    const paidAmt = Number(o.paid_amount || 0);
-    const orderTotal = Number(o.total || o.total_amount || 0);
-    const itemsTotal = (o.items || []).reduce((acc, i) => acc + Number(i.quantity || i.qty || 1) * Number(i.unit_price || i.price || 0), 0);
-    const effectiveTotal = orderTotal > 0 ? orderTotal : itemsTotal;
-    if (paidAmt > 0 && effectiveTotal > 0 && paidAmt >= (effectiveTotal - 0.05)) return false;
     return true;
   });
+
+  const activeOrders = allGroupedOrders.filter((o) => {
+    const isPaid =
+      o.status === "completed" ||
+      o.payment_status === "paid" ||
+      paidOrderIds.has(String(o.id || o.order_id));
+    const paidAmt = Number(o.paid_amount || 0);
+    const orderTotal = Number(o.total || o.total_amount || 0);
+    const itemsTotal = (o.items || []).reduce(
+      (acc, i) => acc + Number(i.quantity || i.qty || 1) * Number(i.unit_price || i.price || 0),
+      0
+    );
+    const effectiveTotal = orderTotal > 0 ? orderTotal : itemsTotal;
+    const isFullyPaid = isPaid || (paidAmt > 0 && effectiveTotal > 0 && paidAmt >= (effectiveTotal - 0.05));
+
+    if (orderTabFilter === "active") return !isFullyPaid;
+    if (orderTabFilter === "paid") return isFullyPaid;
+    return true;
+  });
+
+  const activeCount = allGroupedOrders.filter((o) => {
+    const isPaid =
+      o.status === "completed" ||
+      o.payment_status === "paid" ||
+      paidOrderIds.has(String(o.id || o.order_id));
+    const paidAmt = Number(o.paid_amount || 0);
+    const orderTotal = Number(o.total || o.total_amount || 0);
+    const itemsTotal = (o.items || []).reduce(
+      (acc, i) => acc + Number(i.quantity || i.qty || 1) * Number(i.unit_price || i.price || 0),
+      0
+    );
+    const effectiveTotal = orderTotal > 0 ? orderTotal : itemsTotal;
+    return !(isPaid || (paidAmt > 0 && effectiveTotal > 0 && paidAmt >= (effectiveTotal - 0.05)));
+  }).length;
+
+  const paidCount = allGroupedOrders.length - activeCount;
 
   /* Role-Based Order Scoping: Waiters only see their own assigned/served tickets */
   const userRoleName = (
@@ -310,7 +348,11 @@ function ActiveOrders() {
     user?.roleId || user?.role_id || user?.role?.id || 0
   );
 
-  const isWaiter = userRoleName === "waiter" || userRoleId === 5;
+  const isCashierOrAdmin =
+    ["cashier", "admin", "manager", "finance", "superadmin"].includes(userRoleName) ||
+    [1, 2, 4, 5].includes(userRoleId);
+
+  const isWaiter = !isCashierOrAdmin && (userRoleName === "waiter" || userRoleId === 6);
 
   const isOrderAssignedToWaiter = (order) => {
     if (!user) return false;
@@ -657,20 +699,58 @@ function ActiveOrders() {
               </p>
             </div>
 
-            {visibleOrders.some(
-              (order) => {
-                const barOrder = getBarOrder(order);
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+                <button
+                  type="button"
+                  onClick={() => setOrderTabFilter("active")}
+                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition ${
+                    orderTabFilter === "active"
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Active ({activeCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderTabFilter("paid")}
+                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition ${
+                    orderTabFilter === "paid"
+                      ? "bg-white text-emerald-700 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Paid / VIP ({paidCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderTabFilter("all")}
+                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition ${
+                    orderTabFilter === "all"
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  All ({allGroupedOrders.length})
+                </button>
+              </div>
 
-                return (
-                  order.status === "ready" ||
-                  barOrder?.status === "ready"
-                );
-              }
-            ) && (
+              {visibleOrders.some(
+                (order) => {
+                  const barOrder = getBarOrder(order);
+
+                  return (
+                    order.status === "ready" ||
+                    barOrder?.status === "ready"
+                  );
+                }
+              ) && (
                 <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
                   Items Ready
                 </span>
               )}
+            </div>
 
           </div>
 
@@ -684,8 +764,20 @@ function ActiveOrders() {
 
           <div className="flex flex-col items-center justify-center h-40 text-sm text-gray-400">
             <User className="h-8 w-8 text-gray-300 mb-2" />
-            <p className="font-semibold text-gray-600">No active orders assigned to you.</p>
-            <p className="text-xs text-gray-400 mt-0.5">New orders created for your tables will appear here.</p>
+            <p className="font-semibold text-gray-600">
+              {isWaiter
+                ? "No active orders assigned to you."
+                : orderTabFilter === "paid"
+                ? "No paid orders recorded yet today."
+                : orderTabFilter === "active"
+                ? "No active unpaid orders open right now."
+                : "No active or paid orders found."}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {isWaiter
+                ? "New orders created for your tables will appear here."
+                : "Customer tickets created at tables or bar will appear here automatically."}
+            </p>
           </div>
 
         ) : (

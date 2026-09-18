@@ -7,6 +7,7 @@ import { useTheme } from "../context/ThemeContext";
 import api from "../services/api";
 import audioService from "../services/audioService";
 import { getNotificationRoute } from "../utils/notificationRouter";
+import SwipeableNotificationItem from "../components/SwipeableNotificationItem";
 
 import {
   LayoutDashboard,
@@ -362,12 +363,28 @@ function DashboardLayout() {
   const {
     notifications = [],
     markNotificationAsRead,
+    removeNotification,
     clearNotifications,
   } = useRestaurant();
 
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const panelTouchStartY = useRef(0);
+
+  const handlePanelTouchStart = (e) => {
+    panelTouchStartY.current = e.touches[0].clientY;
+  };
+
+  const handlePanelTouchEnd = (e) => {
+    const endY = e.changedTouches[0].clientY;
+    const diffY = endY - panelTouchStartY.current;
+    // Swipe up or swipe down by > 45px closes the toggle panel on mobile
+    if (Math.abs(diffY) > 45) {
+      setShowNotifications(false);
+    }
+  };
 
   const handleNotificationClick = (notification) => {
     markNotificationAsRead(notification.id);
@@ -1303,178 +1320,115 @@ function DashboardLayout() {
               </button>
 
               {showNotifications && (
-                <div className="fixed inset-x-2 top-14 sm:absolute sm:inset-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-80 max-w-sm mx-auto sm:mx-0 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <div
+                  onTouchStart={handlePanelTouchStart}
+                  onTouchEnd={handlePanelTouchEnd}
+                  className="fixed inset-x-2 top-14 sm:absolute sm:inset-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-80 max-w-sm mx-auto sm:mx-0 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-fade-in"
+                >
+                  {/* Mobile Drag / Swipe Handle */}
+                  <div className="sm:hidden pt-2.5 pb-1 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing bg-slate-50/70 border-b border-slate-100">
+                    <div className="w-10 h-1 rounded-full bg-slate-300" />
+                    <span className="text-[9px] text-slate-400 mt-0.5 font-medium tracking-tight">Swipe up or down to close</span>
+                  </div>
 
                   {/* Header */}
-
                   <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-
                     <div>
-
                       <h3 className="text-sm font-semibold text-slate-900">
                         Notifications
                       </h3>
-
                       <p className="text-[10px] text-slate-400">
-                        {unreadCount} unread
+                        {unreadCount} unread &bull; <span className="text-slate-400">Swipe left to dismiss</span>
                       </p>
-
                     </div>
 
-                    {notifications.length >
-                      0 && (
+                    {notifications.length > 0 && (
                       <button
-                        onClick={
-                          clearNotifications
-                        }
+                        onClick={clearNotifications}
                         className="text-[10px] font-medium text-blue-600 hover:text-blue-700"
                       >
                         Clear all
                       </button>
                     )}
-
                   </div>
 
                   {/* Notification List */}
-
-                  <div className="max-h-96 overflow-y-auto">
-
-                    {notifications.length ===
-                    0 ? (
+                  <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
+                    {notifications.length === 0 ? (
                       <div className="flex flex-col items-center justify-center px-4 py-10">
-
                         <Bell className="mb-2 h-8 w-8 text-slate-300" />
-
                         <p className="text-xs font-medium text-slate-500">
                           No notifications
                         </p>
-
                         <p className="mt-1 text-[10px] text-slate-400">
-                          New kitchen activity
-                          will appear here.
+                          New activity and stock alerts will appear here.
                         </p>
-
                       </div>
                     ) : (
-                      notifications.map(
-                        (notification) => (
-
-                          <button
-                            key={
-                              notification.id
-                            }
-                            onClick={() =>
-                              handleNotificationClick(
-                                notification
-                              )
-                            }
-                            className={`
-                              flex
-                              w-full
-                              gap-3
-                              border-b
-                              border-slate-100
-                              px-4
-                              py-3
-                              text-left
-                              transition
-                              hover:bg-slate-50
-
-                              ${
-                                notification.read
-                                  ? "bg-white"
-                                  : "bg-blue-50/50"
-                              }
-                            `}
+                      notifications.map((notification) => (
+                        <SwipeableNotificationItem
+                          key={notification.id}
+                          notification={notification}
+                          onClick={() => handleNotificationClick(notification)}
+                          onDismiss={(id) => removeNotification(id)}
+                        >
+                          <div
+                            className={`flex w-full gap-3 px-4 py-3 text-left transition hover:bg-slate-50 cursor-pointer ${
+                              notification.read
+                                ? "bg-white"
+                                : "bg-blue-50/50"
+                            }`}
                           >
-
                             {/* Icon */}
-
                             <div
-                              className={`
-                                mt-0.5
-                                flex
-                                h-8
-                                w-8
-                                shrink-0
-                                items-center
-                                justify-center
-                                rounded-lg
-
-                                ${
-                                  notification.type ===
-                                  "ready"
-                                    ? "bg-green-100 text-green-600"
-                                    : "bg-blue-100 text-blue-600"
-                                }
-                              `}
+                              className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                                notification.type === "ready"
+                                  ? "bg-green-100 text-green-600"
+                                  : notification.type === "warning" || notification.referenceType?.includes("shortage")
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-blue-100 text-blue-600"
+                              }`}
                             >
-
-                              {notification.type ===
-                              "ready" ? (
+                              {notification.type === "ready" ? (
                                 <CheckCircle2 className="h-4 w-4" />
                               ) : (
                                 <ClipboardList className="h-4 w-4" />
                               )}
-
                             </div>
 
                             {/* Content */}
-
                             <div className="min-w-0 flex-1">
-
                               <div className="flex items-start justify-between gap-2">
-
                                 <p
-                                  className={`
-                                    text-xs
-
-                                    ${
-                                      notification.read
-                                        ? "font-medium text-slate-700"
-                                        : "font-bold text-slate-900"
-                                    }
-                                  `}
+                                  className={`text-xs ${
+                                    notification.read
+                                      ? "font-medium text-slate-700"
+                                      : "font-bold text-slate-900"
+                                  }`}
                                 >
-                                  {
-                                    notification.title
-                                  }
+                                  {notification.title}
                                 </p>
-
                                 {!notification.read && (
                                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
                                 )}
-
                               </div>
 
                               <p className="mt-1 text-[11px] leading-4 text-slate-500">
-                                {
-                                  notification.message
-                                }
+                                {notification.message}
                               </p>
 
                               <p className="mt-1 text-[10px] text-slate-400">
-
                                 {notification.createdAt
-                                  ? new Date(
-                                      notification.createdAt
-                                    ).toLocaleTimeString(
-                                      [],
-                                      {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      }
-                                    )
+                                  ? new Date(notification.createdAt).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })
                                   : "Just now"}
-
                               </p>
-
                             </div>
-
-                          </button>
-
-                        )
-                      )
+                          </div>
+                        </SwipeableNotificationItem>
+                      ))
                     )}
 
                   </div>

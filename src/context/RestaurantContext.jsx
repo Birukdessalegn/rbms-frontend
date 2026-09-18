@@ -335,6 +335,15 @@ const fetchTables = async () => {
     }
   };
 
+  const removeNotification = (id) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setActiveToast((current) => (current?.id === id ? null : current));
+    if (String(id).startsWith("backend-")) {
+      const realId = id.replace("backend-", "");
+      api(`/notifications/${realId}/read`, { method: "PATCH" }).catch(() => {});
+    }
+  };
+
   const clearNotifications = () => {
     setNotifications([]);
     setActiveToast(null);
@@ -363,6 +372,7 @@ const fetchTables = async () => {
     activeToast,
     dismissToast,
     markNotificationAsRead,
+    removeNotification,
     clearNotifications,
   }}
 >

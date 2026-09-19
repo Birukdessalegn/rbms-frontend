@@ -394,38 +394,42 @@ function ActiveOrders() {
     return false;
   };
 
-  /* Bartender Order Scoping: Strictly show bar counter stools and bar drink orders */
+  /* Bartender Order Scoping: Strictly show bar counter stools and bar direct orders */
   const isBarScopedOrder = (order) => {
     if (!order) return false;
 
-    // 1. Table is a bar seat / counter stool
     const tableNum = String(order.table_number || "").toLowerCase().trim();
-    if (tableNum.startsWith("b-") || tableNum.startsWith("bar") || tableNum === "bar") {
-      return true;
-    }
 
+    // 1. Check if associated with a table
+    let matchedTable = null;
     if (Array.isArray(tables) && tables.length > 0) {
-      const matchedTable = tables.find(
+      matchedTable = tables.find(
         (t) =>
           (order.table_id && String(t.id) === String(order.table_id)) ||
           (tableNum && String(t.table_number || "").toLowerCase().trim() === tableNum)
       );
-      if (matchedTable && isBarSeatTable(matchedTable)) {
-        return true;
-      }
     }
 
-    // 2. Explicitly flagged as a bar order
-    if (
-      order.is_bar_order === true ||
-      order.is_bar_order === 1 ||
-      order.is_bar_order === "true" ||
-      order.isBarOnly === true
-    ) {
+    // 2. Strict Rule: If table is a dining table (not a bar seat), the bartender must NOT see it on Menu Page
+    if (matchedTable && !isBarSeatTable(matchedTable)) {
+      return false;
+    }
+
+    // If table number does not look like a bar seat and matchedTable is not bar seat, exclude
+    if (tableNum && !tableNum.startsWith("b-") && !tableNum.startsWith("bar") && tableNum !== "bar" && !matchedTable) {
+      return false;
+    }
+
+    // 3. Table is confirmed to be a bar seat / counter stool
+    if (tableNum.startsWith("b-") || tableNum.startsWith("bar") || tableNum === "bar") {
       return true;
     }
 
-    // 3. Created by or assigned to this bartender
+    if (matchedTable && isBarSeatTable(matchedTable)) {
+      return true;
+    }
+
+    // 4. Created by or assigned to this bartender
     if (user) {
       const myUserId = String(user.id || "").trim().toLowerCase();
       const myEmpId = user.employee_id || user.employeeId;
@@ -434,10 +438,11 @@ function ActiveOrders() {
       const orderBartenderId = order.bartender_id ? String(order.bartender_id).trim().toLowerCase() : null;
       if (myUserId && orderBartenderId && orderBartenderId === myUserId) return true;
       if (myEmpIdStr && orderBartenderId && orderBartenderId === myEmpIdStr) return true;
+    }
 
-      if (isOrderAssignedToWaiter(order) && (order.is_bar_order || !order.table_number || tableNum.startsWith("b-") || tableNum.startsWith("bar"))) {
-        return true;
-      }
+    // 5. Direct counter orders without any dining table
+    if (!tableNum && (order.is_bar_order === true || order.is_bar_order === 1 || order.is_bar_order === "true")) {
+      return true;
     }
 
     return false;

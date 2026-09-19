@@ -8,6 +8,7 @@ import api from "../services/api";
 import audioService from "../services/audioService";
 import { getNotificationRoute } from "../utils/notificationRouter";
 import SwipeableNotificationItem from "../components/SwipeableNotificationItem";
+import UserProfileModal from "../components/UserProfileModal";
 
 import {
   LayoutDashboard,
@@ -442,6 +443,9 @@ function DashboardLayout() {
     useState(false);
 
   const [showUserMenu, setShowUserMenu] =
+    useState(false);
+
+  const [showProfileModal, setShowProfileModal] =
     useState(false);
 
   const [showThemeMenu, setShowThemeMenu] =
@@ -1520,27 +1524,17 @@ function DashboardLayout() {
 
                   <div className="py-1">
 
-                    <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100">
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setShowProfileModal(true);
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                    >
 
                       <User className="h-4 w-4 text-slate-400" />
 
                       My Profile
-
-                    </button>
-
-                    <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100">
-
-                      <Settings className="h-4 w-4 text-slate-400" />
-
-                      Store Settings
-
-                    </button>
-
-                    <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100">
-
-                      <ShieldCheck className="h-4 w-4 text-slate-400" />
-
-                      Audit Logs
 
                     </button>
 
@@ -1551,7 +1545,10 @@ function DashboardLayout() {
                   <div className="pt-1 border-t border-slate-100">
 
                     <button
-                      onClick={logout}
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        logout();
+                      }}
                       className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50"
                     >
 
@@ -1583,6 +1580,14 @@ function DashboardLayout() {
         </main>
 
       </div>
+
+      {/* Profile Modal */}
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={user}
+        onLogout={logout}
+      />
 
     </div>
   );

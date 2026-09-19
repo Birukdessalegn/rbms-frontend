@@ -15,11 +15,13 @@ const api = async (endpoint, options = {}) => {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  console.log("API Request:", {
-    url: `${API_URL}${endpoint}`,
-    method: options.method || "GET",
-    hasToken: !!token,
-  });
+  if (import.meta.env.DEV) {
+    console.log("API Request:", {
+      url: `${API_URL}${endpoint}`,
+      method: options.method || "GET",
+      hasToken: !!token,
+    });
+  }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
@@ -34,7 +36,9 @@ const api = async (endpoint, options = {}) => {
     data = {};
   }
 
-  console.log("API Response:", response.status, data);
+  if (import.meta.env.DEV) {
+    console.log("API Response:", response.status, data);
+  }
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -46,9 +50,12 @@ const api = async (endpoint, options = {}) => {
       }
     }
 
-    throw new Error(
+    const error = new Error(
       data.message || `Request failed with status ${response.status}`
     );
+    error.status = response.status;
+    error.retryAfter = data.retryAfter;
+    throw error;
   }
 
   return data;

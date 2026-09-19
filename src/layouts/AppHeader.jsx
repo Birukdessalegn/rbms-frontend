@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import {
   User,
-  Settings,
   LogOut,
   ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import NotificationBell from "../components/NotificationBell";
+import UserProfileModal from "../components/UserProfileModal";
 
 function AppHeader({
   title = "Dashboard",
@@ -15,6 +15,7 @@ function AppHeader({
   const { user, logout } = useAuth();
 
   const [open, setOpen] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const dropdownRef = useRef(null);
 
@@ -137,27 +138,16 @@ function AppHeader({
               {/* Profile */}
 
               <button
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setOpen(false);
+                  setShowProfileModal(true);
+                }}
                 className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
               >
 
                 <User className="h-4 w-4" />
 
                 My Profile
-
-              </button>
-
-
-              {/* Settings */}
-
-              <button
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
-              >
-
-                <Settings className="h-4 w-4" />
-
-                Settings
 
               </button>
 
@@ -188,6 +178,14 @@ function AppHeader({
         </div>
 
       </div>
+
+      {/* Profile Modal */}
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={user}
+        onLogout={logout}
+      />
 
     </header>
   );

@@ -31,8 +31,15 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
         if (initialProduct) {
           setSelectedProductId(String(initialProduct.product_id || initialProduct.id));
         } else if (items.length > 0) {
-          const available = items.find((p) => Number(p.main_quantity || 0) > 0);
-          setSelectedProductId(available ? String(available.product_id) : String(items[0].product_id));
+          let preferred = null;
+          if (initialDepartment === 'fruit') {
+            preferred = items.find((p) => ((p.category_name || '').toLowerCase().includes('fruit') || (p.category_type || '').toLowerCase().includes('fruit')) && Number(p.main_quantity || 0) > 0)
+              || items.find((p) => (p.category_name || '').toLowerCase().includes('fruit') || (p.category_type || '').toLowerCase().includes('fruit'));
+          }
+          if (!preferred) {
+            preferred = items.find((p) => Number(p.main_quantity || 0) > 0) || items[0];
+          }
+          setSelectedProductId(String(preferred.product_id));
         }
       } catch (err) {
         console.error('Failed to load inventory for transfer:', err);
@@ -41,9 +48,28 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
         setLoadingProducts(false);
       }
     };
-
+  
     fetchCentralProducts();
-  }, [isOpen, initialProduct]);
+  }, [isOpen, initialProduct, initialDepartment]);
+
+  const handleDepartmentChange = (dept) => {
+    setDepartment(dept);
+    if (!initialProduct && productList.length > 0) {
+      if (dept === 'fruit') {
+        const fruitProd = productList.find((p) => ((p.category_name || '').toLowerCase().includes('fruit') || (p.category_type || '').toLowerCase().includes('fruit')) && Number(p.main_quantity || 0) > 0)
+          || productList.find((p) => (p.category_name || '').toLowerCase().includes('fruit') || (p.category_type || '').toLowerCase().includes('fruit'));
+        if (fruitProd) setSelectedProductId(String(fruitProd.product_id));
+      } else if (dept === 'bar') {
+        const barProd = productList.find((p) => (p.category_type === 'bar' || p.category_type === 'beverage') && Number(p.main_quantity || 0) > 0)
+          || productList.find((p) => p.category_type === 'bar' || p.category_type === 'beverage');
+        if (barProd) setSelectedProductId(String(barProd.product_id));
+      } else if (dept === 'kitchen') {
+        const kitProd = productList.find((p) => p.category_type === 'food' && !(p.category_name || '').toLowerCase().includes('fruit') && Number(p.main_quantity || 0) > 0)
+          || productList.find((p) => p.category_type === 'food');
+        if (kitProd) setSelectedProductId(String(kitProd.product_id));
+      }
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -164,7 +190,7 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
             <div className='grid grid-cols-3 gap-2 sm:gap-3'>
               <button
                 type='button'
-                onClick={() => setDepartment('bar')}
+                onClick={() => handleDepartmentChange('bar')}
                 className={'flex items-center justify-center gap-1.5 rounded-2xl border p-3 text-xs font-bold transition ' + (department === 'bar' ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-xs ring-2 ring-amber-500/20' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
               >
                 <Wine className='h-4 w-4 text-amber-600' />
@@ -172,7 +198,7 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
               </button>
               <button
                 type='button'
-                onClick={() => setDepartment('kitchen')}
+                onClick={() => handleDepartmentChange('kitchen')}
                 className={'flex items-center justify-center gap-1.5 rounded-2xl border p-3 text-xs font-bold transition ' + (department === 'kitchen' ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-xs ring-2 ring-amber-500/20' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
               >
                 <UtensilsCrossed className='h-4 w-4 text-amber-600' />
@@ -180,7 +206,7 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
               </button>
               <button
                 type='button'
-                onClick={() => setDepartment('fruit')}
+                onClick={() => handleDepartmentChange('fruit')}
                 className={'flex items-center justify-center gap-1.5 rounded-2xl border p-3 text-xs font-bold transition ' + (department === 'fruit' ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-xs ring-2 ring-amber-500/20' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
               >
                 <Apple className='h-4 w-4 text-amber-600' />

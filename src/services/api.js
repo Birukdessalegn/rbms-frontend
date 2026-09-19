@@ -61,4 +61,20 @@ const api = async (endpoint, options = {}) => {
   return data;
 };
 
+// Convenience HTTP methods
+api.get = (endpoint, options = {}) => api(endpoint, { ...options, method: "GET" });
+api.post = (endpoint, data, options = {}) =>
+  api(endpoint, {
+    ...options,
+    method: "POST",
+    body: data instanceof FormData ? data : JSON.stringify(data),
+  });
+api.put = (endpoint, data, options = {}) =>
+  api(endpoint, {
+    ...options,
+    method: "PUT",
+    body: data instanceof FormData ? data : JSON.stringify(data),
+  });
+api.delete = (endpoint, options = {}) => api(endpoint, { ...options, method: "DELETE" });
+
 export default api;

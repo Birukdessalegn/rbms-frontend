@@ -48,11 +48,11 @@ export default function UserProfileModal({ isOpen, onClose, user, onLogout }) {
   const displayName = user?.name || user?.username || "Authenticated User";
   const displayRole = (user?.role || "Staff").toUpperCase();
   const displayEmail = user?.email || "No email registered";
-  const identifier = user?.employee_id
-    ? `EMP-${String(user.employee_id).padStart(4, "0")}`
-    : user?.id
-    ? `USR-${String(user.id).padStart(4, "0")}`
-    : "STF-0001";
+  const identifier = user?.employee_code
+    ? user.employee_code
+    : user?.employee_id || user?.employeeId
+    ? `EMP-${String(user.employee_id || user.employeeId).padStart(4, "0")}`
+    : "";
 
   // Handle Password Submit
   const handlePasswordSubmit = async (e) => {
@@ -77,9 +77,12 @@ export default function UserProfileModal({ isOpen, onClose, user, onLogout }) {
 
     setIsSubmittingPass(true);
     try {
-      await api.put("/auth/change-password", {
-        currentPassword,
-        newPassword,
+      await api("/auth/change-password", {
+        method: "PUT",
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
       });
 
       setPassSuccess("Your password has been changed successfully.");
@@ -88,7 +91,6 @@ export default function UserProfileModal({ isOpen, onClose, user, onLogout }) {
       setConfirmPassword("");
     } catch (err) {
       const msg =
-        err?.response?.data?.message ||
         err?.message ||
         "Failed to update password. Please check your current password.";
       setPassError(msg);
@@ -259,9 +261,11 @@ export default function UserProfileModal({ isOpen, onClose, user, onLogout }) {
                       <p className="text-xs font-mono font-bold text-slate-800">{identifier}</p>
                     </div>
                   </div>
-                  <span className="rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
-                    ID VERIFIED
-                  </span>
+                  {identifier && (
+                    <span className="rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
+                      ID VERIFIED
+                    </span>
+                  )}
                 </div>
               </div>
 

@@ -13,6 +13,7 @@ import {
   Building2,
   CheckCircle2,
   SlidersHorizontal,
+  Apple,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../../../services/api";
@@ -154,6 +155,13 @@ function InventoryPage() {
       if (deptFilter === "kitchen") {
         return (item.category_type === "food" || Number(item.kitchen_quantity || 0) > 0);
       }
+      if (deptFilter === "fruit") {
+        return (
+          (item.category_type || "").toLowerCase().includes("fruit") ||
+          (item.category_name || "").toLowerCase().includes("fruit") ||
+          Number(item.fruit_quantity || 0) > 0
+        );
+      }
       return true;
     });
   }, [multiLocationList, searchQuery, deptFilter]);
@@ -173,7 +181,7 @@ function InventoryPage() {
             Inventory & Multi-Store Stock
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Monitor real-time stock levels across Central Warehouse, Bar, and Kitchen.
+            Monitor real-time stock levels across Central Warehouse, Bar, Kitchen, and Fruit Sub-Store.
           </p>
         </div>
 
@@ -245,7 +253,7 @@ function InventoryPage() {
               </h2>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Live balances across Central Store, Bar, and Kitchen with POS portion consumption
+              Live balances across Central Store, Bar, Kitchen, and Fruit Sub-Store with POS portion consumption
             </p>
           </div>
 
@@ -278,6 +286,15 @@ function InventoryPage() {
                 <UtensilsCrossed className="h-3.5 w-3.5 text-amber-600" />
                 Kitchen
               </button>
+              <button
+                onClick={() => setDeptFilter("fruit")}
+                className={`flex items-center gap-1 rounded-lg px-3 py-1.5 transition ${
+                  deptFilter === "fruit" ? "bg-white text-amber-900 shadow-xs" : "hover:text-slate-900"
+                }`}
+              >
+                <Apple className="h-3.5 w-3.5 text-rose-600" />
+                Fruit
+              </button>
             </div>
 
             {/* Search Input */}
@@ -304,6 +321,7 @@ function InventoryPage() {
                 <th className="py-3 px-4 text-center">Central Store</th>
                 <th className="py-3 px-4 text-center">Bar Stock</th>
                 <th className="py-3 px-4 text-center">Kitchen Stock</th>
+                <th className="py-3 px-4 text-center">Fruit Stock</th>
                 <th className="py-3 px-4 text-center">Alert Limit</th>
                 <th className="py-3 px-4 text-center">Total On-Hand</th>
                 <th className="py-3 px-4 text-center">Sold Today</th>
@@ -313,13 +331,13 @@ function InventoryPage() {
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="py-8 text-center text-xs text-slate-400">
+                  <td colSpan="10" className="py-8 text-center text-xs text-slate-400">
                     Loading multi-location stock...
                   </td>
                 </tr>
               ) : filteredMultiStock.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="py-8 text-center text-xs text-slate-400">
+                  <td colSpan="10" className="py-8 text-center text-xs text-slate-400">
                     No products found matching your filter criteria.
                   </td>
                 </tr>
@@ -328,18 +346,28 @@ function InventoryPage() {
                   const mainQty = Number(prod.main_quantity || 0);
                   const barQty = Number(prod.bar_quantity || 0);
                   const kitchenQty = Number(prod.kitchen_quantity || 0);
+                  const fruitQty = Number(prod.fruit_quantity || 0);
                   const totalQty = Number(prod.total_quantity || 0);
                   const soldToday = Number(prod.sold_today || 0);
                   const unit = prod.unit || "pcs";
                   const isBarItem = prod.category_type === "bar" || prod.category_type === "beverage";
+                  const isFruitItem =
+                    (prod.category_type || "").toLowerCase().includes("fruit") ||
+                    (prod.category_name || "").toLowerCase().includes("fruit");
+
+                  const defaultDept = isFruitItem ? "fruit" : isBarItem ? "bar" : "kitchen";
 
                   const lowThreshold = Number(
-                    isBarItem
+                    isFruitItem
+                      ? prod.fruit_minimum_stock ?? prod.low_stock_threshold ?? 5
+                      : isBarItem
                       ? prod.bar_minimum_stock ?? prod.low_stock_threshold ?? 5
                       : prod.kitchen_minimum_stock ?? prod.low_stock_threshold ?? 5
                   );
                   const outThreshold = Number(
-                    isBarItem
+                    isFruitItem
+                      ? prod.fruit_out_of_stock_threshold ?? prod.out_of_stock_threshold ?? 0
+                      : isBarItem
                       ? prod.bar_out_of_stock_threshold ?? prod.out_of_stock_threshold ?? 0
                       : prod.kitchen_out_of_stock_threshold ?? prod.out_of_stock_threshold ?? 0
                   );
@@ -375,8 +403,15 @@ function InventoryPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center">
+                        <span className={`font-bold rounded-lg px-2 py-0.5 ${
+                          fruitQty > 0 ? "bg-rose-50 text-rose-900 border border-rose-200/60" : "text-slate-400"
+                        }`}>
+                          {fruitQty > 0 ? `${fruitQty} ${unit}` : "0"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
                         <button
-                          onClick={() => openThresholdModal(prod, isBarItem ? "bar" : "kitchen")}
+                          onClick={() => openThresholdModal(prod, defaultDept)}
                           title="Click to customize Low Stock & Out-of-Stock alert thresholds"
                           className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200/80 bg-amber-50/60 px-2.5 py-1 text-[11px] font-bold text-amber-900 hover:bg-amber-100 hover:border-amber-400 transition active:scale-95 shadow-2xs"
                         >
@@ -398,14 +433,14 @@ function InventoryPage() {
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => openThresholdModal(prod, isBarItem ? "bar" : "kitchen")}
+                            onClick={() => openThresholdModal(prod, defaultDept)}
                             title="Set Alert Thresholds"
                             className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-600 hover:border-amber-500 hover:bg-amber-50 hover:text-amber-900 transition shadow-2xs"
                           >
                             <SlidersHorizontal className="h-3.5 w-3.5" />
                           </button>
                           <button
-                            onClick={() => openTransferModal(prod, isBarItem ? "bar" : "kitchen")}
+                            onClick={() => openTransferModal(prod, defaultDept)}
                             className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-amber-500 hover:bg-amber-50 hover:text-amber-900 transition shadow-2xs"
                           >
                             Transfer

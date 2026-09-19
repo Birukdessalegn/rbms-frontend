@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, ArrowRight, Package, AlertCircle, CheckCircle2, Wine, UtensilsCrossed } from 'lucide-react';
+import { X, ArrowRight, Package, AlertCircle, CheckCircle2, Wine, UtensilsCrossed, Apple } from 'lucide-react';
 import api from '../../../services/api';
 
 export default function StockTransferModal({ isOpen, onClose, onSuccess, initialProduct = null, initialDepartment = 'bar' }) {
@@ -50,7 +50,12 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
   const selectedProduct = productList.find((p) => String(p.product_id) === String(selectedProductId));
   const availableCentralStock = Number(selectedProduct?.main_quantity || 0);
   const unit = selectedProduct?.unit || 'pcs';
-  const currentOutletStock = department === 'bar' ? Number(selectedProduct?.bar_quantity || 0) : Number(selectedProduct?.kitchen_quantity || 0);
+  const currentOutletStock =
+    department === 'bar'
+      ? Number(selectedProduct?.bar_quantity || 0)
+      : department === 'fruit'
+      ? Number(selectedProduct?.fruit_quantity || 0)
+      : Number(selectedProduct?.kitchen_quantity || 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -121,7 +126,7 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
             </div>
             <div>
               <h2 className='text-base font-bold text-slate-900'>Transfer Stock to Outlet</h2>
-              <p className='text-xs text-slate-500'>Dispatch items from Central Warehouse to Bar or Kitchen</p>
+              <p className='text-xs text-slate-500'>Dispatch items from Central Warehouse to Bar, Kitchen, or Fruit</p>
             </div>
           </div>
           <button
@@ -156,11 +161,11 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
             <label className='block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2'>
               Destination Department
             </label>
-            <div className='grid grid-cols-2 gap-3'>
+            <div className='grid grid-cols-3 gap-2 sm:gap-3'>
               <button
                 type='button'
                 onClick={() => setDepartment('bar')}
-                className={'flex items-center justify-center gap-2 rounded-2xl border p-3.5 text-xs font-bold transition ' + (department === 'bar' ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-xs ring-2 ring-amber-500/20' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
+                className={'flex items-center justify-center gap-1.5 rounded-2xl border p-3 text-xs font-bold transition ' + (department === 'bar' ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-xs ring-2 ring-amber-500/20' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
               >
                 <Wine className='h-4 w-4 text-amber-600' />
                 Bar Sub-Store
@@ -168,10 +173,18 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
               <button
                 type='button'
                 onClick={() => setDepartment('kitchen')}
-                className={'flex items-center justify-center gap-2 rounded-2xl border p-3.5 text-xs font-bold transition ' + (department === 'kitchen' ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-xs ring-2 ring-amber-500/20' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
+                className={'flex items-center justify-center gap-1.5 rounded-2xl border p-3 text-xs font-bold transition ' + (department === 'kitchen' ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-xs ring-2 ring-amber-500/20' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
               >
                 <UtensilsCrossed className='h-4 w-4 text-amber-600' />
                 Kitchen Sub-Store
+              </button>
+              <button
+                type='button'
+                onClick={() => setDepartment('fruit')}
+                className={'flex items-center justify-center gap-1.5 rounded-2xl border p-3 text-xs font-bold transition ' + (department === 'fruit' ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-xs ring-2 ring-amber-500/20' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
+              >
+                <Apple className='h-4 w-4 text-amber-600' />
+                Fruit Sub-Store
               </button>
             </div>
           </div>
@@ -186,11 +199,21 @@ export default function StockTransferModal({ isOpen, onClose, onSuccess, initial
               disabled={loadingProducts || submitting}
               className='w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-amber-500 focus:ring-3 focus:ring-amber-500/15'
             >
-              {productList.map((p) => (
-                <option key={p.product_id} value={p.product_id}>
-                  {p.product_name} — Central: {p.main_quantity} {p.unit} ({p.category_name || 'General'})
-                </option>
-              ))}
+              {productList
+                .slice()
+                .sort((a, b) => {
+                  if (department === 'fruit') {
+                    const aIsFruit = (a.category_name || '').toLowerCase().includes('fruit') ? 1 : 0;
+                    const bIsFruit = (b.category_name || '').toLowerCase().includes('fruit') ? 1 : 0;
+                    return bIsFruit - aIsFruit;
+                  }
+                  return 0;
+                })
+                .map((p) => (
+                  <option key={p.product_id} value={p.product_id}>
+                    {p.product_name} — Central: {p.main_quantity} {p.unit} ({p.category_name || 'General'})
+                  </option>
+                ))}
             </select>
           </div>
 

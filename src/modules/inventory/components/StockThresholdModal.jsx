@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, SlidersHorizontal, AlertTriangle, CheckCircle2, ShieldAlert, Sparkles, Store, Wine, UtensilsCrossed } from 'lucide-react';
+import { X, SlidersHorizontal, AlertTriangle, CheckCircle2, ShieldAlert, Sparkles, Store, Wine, UtensilsCrossed, Apple } from 'lucide-react';
 import api from '../../../services/api';
 
 export default function StockThresholdModal({
@@ -32,6 +32,9 @@ export default function StockThresholdModal({
     } else if (initialDepartment === 'kitchen') {
       initialMin = product.kitchen_minimum_stock ?? product.low_stock_threshold ?? 5;
       initialOut = product.kitchen_out_of_stock_threshold ?? product.out_of_stock_threshold ?? 0;
+    } else if (initialDepartment === 'fruit') {
+      initialMin = product.fruit_minimum_stock ?? product.low_stock_threshold ?? 5;
+      initialOut = product.fruit_out_of_stock_threshold ?? product.out_of_stock_threshold ?? 0;
     } else if (initialDepartment === 'main') {
       initialMin = product.main_minimum_stock ?? product.low_stock_threshold ?? 10;
       initialOut = product.main_out_of_stock_threshold ?? product.out_of_stock_threshold ?? 0;
@@ -56,6 +59,9 @@ export default function StockThresholdModal({
     } else if (newDept === 'kitchen') {
       min = product.kitchen_minimum_stock ?? product.low_stock_threshold ?? 5;
       out = product.kitchen_out_of_stock_threshold ?? product.out_of_stock_threshold ?? 0;
+    } else if (newDept === 'fruit') {
+      min = product.fruit_minimum_stock ?? product.low_stock_threshold ?? 5;
+      out = product.fruit_out_of_stock_threshold ?? product.out_of_stock_threshold ?? 0;
     } else if (newDept === 'main') {
       min = product.main_minimum_stock ?? product.low_stock_threshold ?? 10;
       out = product.main_out_of_stock_threshold ?? product.out_of_stock_threshold ?? 0;
@@ -153,6 +159,7 @@ export default function StockThresholdModal({
               <p className="text-[11px] font-bold text-slate-700">
                 Bar: <span className="text-amber-700">{product.bar_quantity || 0}</span> | 
                 Kit: <span className="text-emerald-700">{product.kitchen_quantity || 0}</span> | 
+                Fruit: <span className="text-rose-700">{product.fruit_quantity || 0}</span> | 
                 Wh: <span className="text-slate-900">{product.main_quantity || 0}</span>
               </p>
             </div>
@@ -180,11 +187,12 @@ export default function StockThresholdModal({
             <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
               Apply Thresholds To
             </label>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-5 gap-1">
               {[
                 { id: 'all', label: 'All', icon: Sparkles },
                 { id: 'bar', label: 'Bar', icon: Wine },
                 { id: 'kitchen', label: 'Kitchen', icon: UtensilsCrossed },
+                { id: 'fruit', label: 'Fruit', icon: Apple },
                 { id: 'main', label: 'Store', icon: Store },
               ].map((tab) => {
                 const Icon = tab.icon;

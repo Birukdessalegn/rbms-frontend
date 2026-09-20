@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   User,
@@ -25,6 +25,36 @@ export default function UserProfileModal({ isOpen, onClose, user, onLogout }) {
   if (!isOpen) return null;
 
   const [activeTab, setActiveTab] = useState("profile");
+  const [profileData, setProfileData] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  // Fetch freshest profile with linked employee details on open
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    setLoadingProfile(true);
+
+    api("/auth/me")
+      .then((res) => {
+        if (isMounted && res?.user) {
+          setProfileData(res.user);
+          try {
+            const stored = JSON.parse(localStorage.getItem("user") || "{}");
+            localStorage.setItem("user", JSON.stringify({ ...stored, ...res.user }));
+          } catch (_) {}
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch user profile details:", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingProfile(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -44,9 +74,17 @@ export default function UserProfileModal({ isOpen, onClose, user, onLogout }) {
   // Theme context
   const { currentTheme, setCurrentTheme, THEME_PRESETS } = useTheme();
 
-  const displayName = user?.name || user?.username || "Authenticated User";
-  const displayRole = (user?.role || "Staff").toUpperCase();
-  const displayEmail = user?.email || "No email registered";
+  const currentUser = profileData || user;
+  const employeeFullName =
+    currentUser?.employee_name ||
+    (currentUser?.first_name || currentUser?.last_name
+      ? `${currentUser?.first_name || ""} ${currentUser?.last_name || ""}`.trim()
+      : null);
+
+  const displayName = employeeFullName || currentUser?.name || currentUser?.username || "Authenticated User";
+  const displayUsername = currentUser?.username || "user";
+  const displayRole = (currentUser?.role || "Staff").toUpperCase();
+  const displayEmail = currentUser?.email || "No email registered";
 
   // Handle Password Submit
   const handlePasswordSubmit = async (e) => {
@@ -222,6 +260,26 @@ export default function UserProfileModal({ isOpen, onClose, user, onLogout }) {
 
               {/* Details List */}
               <div className="space-y-2.5">
+                {/* Employee Name */}
+                <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3 border border-slate-100">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-800">
+                      <User className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Employee Name</p>
+                      <p className="text-xs font-bold text-slate-800 truncate">
+                        {employeeFullName || displayName}
+                      </p>
+                    </div>
+                  </div>
+                  {employeeFullName && (
+                    <span className="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                      Verified Staff
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3 border border-slate-100">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-600">

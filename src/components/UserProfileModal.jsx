@@ -4,7 +4,6 @@ import {
   User,
   Mail,
   Shield,
-  Hash,
   CheckCircle2,
   LogOut,
   Lock,
@@ -48,11 +47,6 @@ export default function UserProfileModal({ isOpen, onClose, user, onLogout }) {
   const displayName = user?.name || user?.username || "Authenticated User";
   const displayRole = (user?.role || "Staff").toUpperCase();
   const displayEmail = user?.email || "No email registered";
-  const identifier = user?.employee_code
-    ? user.employee_code
-    : user?.employee_id || user?.employeeId
-    ? `EMP-${String(user.employee_id || user.employeeId).padStart(4, "0")}`
-    : "";
 
   // Handle Password Submit
   const handlePasswordSubmit = async (e) => {
@@ -249,23 +243,6 @@ export default function UserProfileModal({ isOpen, onClose, user, onLogout }) {
                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Email Address</p>
                     <p className="text-xs font-semibold text-slate-800 truncate">{displayEmail}</p>
                   </div>
-                </div>
-
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3 border border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
-                      <Hash className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Staff Identifier</p>
-                      <p className="text-xs font-mono font-bold text-slate-800">{identifier}</p>
-                    </div>
-                  </div>
-                  {identifier && (
-                    <span className="rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
-                      ID VERIFIED
-                    </span>
-                  )}
                 </div>
               </div>
 

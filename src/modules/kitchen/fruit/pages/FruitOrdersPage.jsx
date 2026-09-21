@@ -41,42 +41,61 @@ function formatImageUrl(url) {
   return `${cleanBase}${cleanPath}`;
 }
 
-// Helper: Check if an item belongs to Fruit station
+// Helper: Check if an item belongs strictly to Fruit station / category
 function isFruitItem(item) {
   if (!item) return false;
-  const name = String(item.product_name || item.name || item.description || "").toLowerCase();
-  const cat = String(item.category_name || item.category || "").toLowerCase();
-  const catType = String(item.category_type || "").toLowerCase();
-  const tags = String(item.tags || item.tag || "").toLowerCase();
+  const name = String(item.product_name || item.name || item.description || "").toLowerCase().trim();
+  const cat = String(item.category_name || item.category || "").toLowerCase().trim();
+  const catType = String(item.category_type || "").toLowerCase().trim();
+  const tags = String(item.tags || item.tag || "").toLowerCase().trim();
 
+  // 1. Strict Exclusions: Exclude standard kitchen food and bar categories
+  const nonFruitExclusions = [
+    "burger", "pizza", "fast food", "main dish", "pasta", "meat", "steak",
+    "chicken", "beef", "pork", "soup", "sandwich", "bakery", "bread",
+    "hot dish", "side dish", "breakfast", "appetizer", "beer", "wine",
+    "whiskey", "vodka", "gin", "spirit", "liquor", "cocktail"
+  ];
+  if (nonFruitExclusions.some((ex) => cat.includes(ex) || catType.includes(ex))) {
+    // If categorized under a non-fruit food or bar category, reject unless specifically containing "fruit"
+    if (!name.includes("fruit") && !tags.includes("fruit")) {
+      return false;
+    }
+  }
+
+  // 2. Direct Fruit category / category_type / tag match
   if (
     cat === "fruit" ||
     catType === "fruit" ||
-    cat.includes("fruit")
+    cat.includes("fruit") ||
+    tags.includes("fruit")
   ) {
     return true;
   }
 
-  const keywords = [
+  // 3. Specifically fruit items / juices / smoothies (avoid generic words like "salad" or "platter")
+  const fruitKeywords = [
     "fruit",
-    "apple",
-    "mint",
-    "grape",
     "watermelon",
-    "juice",
-    "smoothie",
-    "platter",
-    "lemon",
+    "apple",
     "orange",
     "banana",
     "mango",
     "pineapple",
     "strawberry",
+    "grape",
     "kiwi",
-    "salad",
+    "avocado",
+    "lemon",
+    "fruit platter",
+    "fruit salad",
+    "fruit juice",
+    "smoothie",
+    "shisha",
+    "hookah"
   ];
 
-  return keywords.some((kw) => name.includes(kw) || cat.includes(kw) || tags.includes(kw));
+  return fruitKeywords.some((kw) => name.includes(kw) || tags.includes(kw));
 }
 
 // Helper: Parse items from an order
@@ -302,22 +321,7 @@ export default function FruitOrdersPage() {
       .filter((p) => {
         if (p.applicable_for === "inventory") return false;
         if (p.menu_type === "employee") return false;
-
-        const cat = String(p.category_name || p.category || "").toLowerCase();
-        const catType = String(p.category_type || "").toLowerCase();
-        const tags = String(p.tags || p.tag || "").toLowerCase();
-        const name = String(p.name || p.product_name || "").toLowerCase();
-
-        if (cat === "fruit" || catType === "fruit" || cat.includes("fruit") || tags.includes("fruit")) {
-          return true;
-        }
-
-        const keywords = [
-          "fruit", "apple", "mint", "grape", "watermelon", "juice",
-          "smoothie", "platter", "lemon", "orange", "banana", "mango",
-          "pineapple", "strawberry", "kiwi", "shisha", "hookah"
-        ];
-        return keywords.some((kw) => name.includes(kw) || cat.includes(kw) || tags.includes(kw));
+        return isFruitItem(p);
       })
       .map((p) => {
         const stockInfo = stockMap.get(Number(p.id)) || stockMap.get((p.name || "").toLowerCase().trim());
@@ -841,9 +845,9 @@ export default function FruitOrdersPage() {
                         </div>
                       </div>
 
-                      {/* ITEMS LIST */}
+                      {/* ITEMS LIST (ONLY FRUIT ITEMS) */}
                       <div className="p-4 space-y-2.5 flex-1 overflow-y-auto max-h-64">
-                        {items.map((item, idx) => {
+                        {(onlyFruit ? items.filter(isFruitItem) : items).map((item, idx) => {
                           const isSpecialFruit = isFruitItem(item);
                           const itemName = item.product_name || item.name || "Item";
 

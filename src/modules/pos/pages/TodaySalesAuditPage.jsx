@@ -48,6 +48,10 @@ function TodaySalesAuditPage() {
   const canManageShift = (isCashier || isAdminOrManager) && !isWaiter;
 
   const [orders, setOrders] = useState([]);
+  const [shiftsHistory, setShiftsHistory] = useState([]);
+  const [activeViewTab, setActiveViewTab] = useState("audits"); // 'audits' (Closed Audits) or 'orders' (Order Tickets)
+  const [shiftSearchTerm, setShiftSearchTerm] = useState("");
+  const [shiftStatusFilter, setShiftStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -166,17 +170,21 @@ function TodaySalesAuditPage() {
       setLoading(true);
       setError("");
 
-      const [posRes, kitchenRes, barRes, tablesRes, empRes, shiftRes] = await Promise.all([
+      const [posRes, kitchenRes, barRes, tablesRes, empRes, shiftRes, historyRes] = await Promise.all([
         api("/pos/orders").catch(() => ({ orders: [] })),
         api("/kitchen").catch(() => api("/kitchen/orders").catch(() => [])),
         api("/bar/orders").catch(() => []),
         api("/tables").catch(() => api("/pos/tables").catch(() => [])),
         api("/employees").catch(() => []),
         api("/pos/shifts/current").catch(() => ({ shift: null })),
+        api("/pos/shifts/history").catch(() => api("/finance/cashier-shifts").catch(() => ({ shifts: [] }))),
       ]);
 
       const shift = shiftRes?.shift || shiftRes?.data || null;
       setCurrentShift(shift);
+
+      const rawHistory = historyRes?.shifts || historyRes?.data || (Array.isArray(historyRes) ? historyRes : []);
+      setShiftsHistory(Array.isArray(rawHistory) ? rawHistory : []);
 
       const posList = posRes.orders || posRes.data || (Array.isArray(posRes) ? posRes : []);
       const kitchenList = Array.isArray(kitchenRes) ? kitchenRes : (kitchenRes.orders || []);
@@ -340,6 +348,26 @@ function TodaySalesAuditPage() {
     });
     return Array.from(set);
   }, [orders]);
+
+  /* Filtered shifts / closed audits */
+  const filteredShifts = useMemo(() => {
+    return shiftsHistory.filter((s) => {
+      if (shiftStatusFilter !== "all" && s.status !== shiftStatusFilter) {
+        return false;
+      }
+      if (shiftSearchTerm.trim()) {
+        const q = shiftSearchTerm.toLowerCase();
+        const matchId = String(s.id || "").includes(q);
+        const matchCashier = (s.cashier_name || "").toLowerCase().includes(q);
+        const matchVerifier = (s.verified_by_name || "").toLowerCase().includes(q);
+        const matchNotes =
+          (s.cashier_notes || "").toLowerCase().includes(q) ||
+          (s.verification_notes || "").toLowerCase().includes(q);
+        return matchId || matchCashier || matchVerifier || matchNotes;
+      }
+      return true;
+    });
+  }, [shiftsHistory, shiftStatusFilter, shiftSearchTerm]);
 
   /* Helper to check if an order belongs to VIP Credit / VIP Customer */
   const isVipCreditOrder = (o) => {
@@ -645,7 +673,7 @@ function TodaySalesAuditPage() {
           {canManageShift && (
             <>
               {/* Start Shift Button if no active shift */}
-              {(!currentShift || currentShift.status !== "open") && currentShift?.status !== "closed_pending_approval" && (
+              {!currentShift && (
                 <button
                   type="button"
                   onClick={() => {
@@ -705,7 +733,7 @@ function TodaySalesAuditPage() {
       {/* SHIFT STATUS & RECONCILIATION LIFECYCLE BANNER - Strictly for Cashiers & Admins/Managers, NOT Waiters */}
       {canManageShift && (
         <div className="print-hide">
-        {(!currentShift || currentShift.status !== "open") && currentShift?.status !== "closed_pending_approval" && (
+        {!currentShift && (
           <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white font-bold shrink-0">
@@ -969,272 +997,606 @@ function TodaySalesAuditPage() {
           </div>
         </div>
 
-        {/* Filter and Search Toolbar */}
-        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between print-hide">
-          {/* Category Pills & Waiter Filter */}
-          <div className="flex flex-wrap items-center gap-2">
+        {/* VIEW SELECTOR TABS */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-3 print-hide">
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setStatusFilter("all")}
-              className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
-                statusFilter === "all"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              onClick={() => setActiveViewTab("audits")}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black transition cursor-pointer ${
+                activeViewTab === "audits"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
               }`}
             >
-              All Today's ({orders.length})
+              <ShieldCheck size={15} className={activeViewTab === "audits" ? "text-emerald-400" : "text-slate-400"} />
+              <span>Closed Audits &amp; Shifts History ({shiftsHistory.length})</span>
             </button>
             <button
               type="button"
-              onClick={() => setStatusFilter("paid")}
-              className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
-                statusFilter === "paid"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              onClick={() => setActiveViewTab("orders")}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black transition cursor-pointer ${
+                activeViewTab === "orders"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
               }`}
             >
-              Paid ({paidOrders.length})
+              <Receipt size={15} className={activeViewTab === "orders" ? "text-emerald-400" : "text-slate-400"} />
+              <span>Audited Order Tickets ({orders.length})</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter("unpaid")}
-              className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
-                statusFilter === "unpaid"
-                  ? "bg-amber-600 text-white shadow-xs"
-                  : "bg-amber-50 text-amber-700 hover:bg-amber-100"
-              }`}
-            >
-              Unpaid ({unpaidOrders.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter("credit")}
-              className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
-                statusFilter === "credit"
-                  ? "bg-purple-600 text-white shadow-xs"
-                  : "bg-purple-50 text-purple-700 hover:bg-purple-100"
-              }`}
-            >
-              VIP Credit ({creditOrders.length})
-            </button>
-
-            {/* Waiter Filter Selector */}
-            {uniqueWaiters.length > 0 && (
-              <select
-                value={selectedWaiter}
-                onChange={(e) => setSelectedWaiter(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-extrabold text-slate-700 outline-hidden focus:border-blue-500"
-              >
-                <option value="all">👤 All Waiters</option>
-                {uniqueWaiters.map((w) => (
-                  <option key={w} value={w}>👤 {w}</option>
-                ))}
-              </select>
-            )}
           </div>
-
-          {/* Search Input */}
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search Order #, Table, Waiter..."
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 left-9 pl-9 pr-3 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:outline-hidden"
-            />
-          </div>
+          <span className="text-xs text-slate-500 font-bold">
+            {activeViewTab === "audits"
+              ? "Official shift handovers & cashier audit approval records"
+              : "Detailed order breakdown & server waiter attribution"}
+          </span>
         </div>
 
-        {/* Main Table View */}
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-          {loading ? (
-            <div className="flex h-48 items-center justify-center text-sm font-semibold text-slate-500">
-              <RefreshCw className="mr-2 h-5 w-5 animate-spin text-blue-600" />
-              Loading sales audit records...
+        {/* ======================================================== */}
+        {/* VIEW 1: CLOSED AUDITS & SHIFTS RECONCILIATION TABLE       */}
+        {/* ======================================================== */}
+        {activeViewTab === "audits" && (
+          <>
+            {/* Shifts Filter Toolbar */}
+            <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between print-hide">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShiftStatusFilter("all")}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
+                    shiftStatusFilter === "all"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  All Audits ({shiftsHistory.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShiftStatusFilter("verified")}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
+                    shiftStatusFilter === "verified"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  }`}
+                >
+                  Approved ({shiftsHistory.filter((s) => s.status === "verified").length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShiftStatusFilter("closed_pending_approval")}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
+                    shiftStatusFilter === "closed_pending_approval"
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                  }`}
+                >
+                  Pending Finance ({shiftsHistory.filter((s) => s.status === "closed_pending_approval").length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShiftStatusFilter("discrepancy")}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
+                    shiftStatusFilter === "discrepancy"
+                      ? "bg-rose-600 text-white shadow-xs"
+                      : "bg-rose-50 text-rose-700 hover:bg-rose-100"
+                  }`}
+                >
+                  Discrepancy ({shiftsHistory.filter((s) => s.status === "discrepancy").length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShiftStatusFilter("open")}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
+                    shiftStatusFilter === "open"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  }`}
+                >
+                  Live Active ({shiftsHistory.filter((s) => s.status === "open").length})
+                </button>
+              </div>
+
+              {/* Search Shift Input */}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={shiftSearchTerm}
+                  onChange={(e) => setShiftSearchTerm(e.target.value)}
+                  placeholder="Search Shift #, Cashier..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:outline-hidden"
+                />
+              </div>
             </div>
-          ) : error ? (
-            <div className="p-8 text-center text-sm font-semibold text-rose-600">
-              <AlertCircle className="mx-auto mb-2 h-8 w-8 text-rose-500" />
-              {error}
-            </div>
-          ) : filteredOrders.length === 0 ? (
-            <div className="p-12 text-center">
-              <Receipt className="mx-auto h-10 w-10 text-slate-300" />
-              <p className="mt-2 text-sm font-extrabold text-slate-700">No orders found matching filters.</p>
-              <p className="mt-0.5 text-xs text-slate-400">Try adjusting your search criteria or filter tabs.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto -mx-1 sm:mx-0">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
-                  <tr>
-                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">Table & Ticket</th>
-                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">Server / Waiter</th>
-                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 min-w-[200px]">Items & Portions Served (In Detail)</th>
-                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">Total Amount</th>
-                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">Status</th>
-                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 min-w-[150px]">Payment Method & Audit</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {filteredOrders.map((order) => {
-                    const orderTotal = getOrderTotal(order);
-                    const payments = order.payments || [];
-                    const isCancelled = order.status === "cancelled";
-                    const isPaid = !isCancelled && (order.payment_status === "paid" || order.status === "completed");
-                    const waiterName = order.waiter_name || order.waiterName || order.user_name || "Staff Waiter";
-                    const orderItems = parseItems(order.items || order.order_items);
 
-                    const vipCustomerName =
-                      order.vip_customer_name ||
-                      order.vipCustomerName ||
-                      order.vip_customer?.name ||
-                      (Array.isArray(payments)
-                        ? payments.find((p) => p.vip_customer_name)?.vip_customer_name
-                        : null) ||
-                      (order.notes && order.notes.includes("VIP:")
-                        ? order.notes.split("VIP:")[1]?.split(/[\n,]/)[0]?.trim()
-                        : null) ||
-                      (Array.isArray(payments)
-                        ? (() => {
-                            const pVip = payments.find(
-                              (p) => p.reference && String(p.reference).startsWith("VIP_CREDIT:")
-                            );
-                            return pVip ? String(pVip.reference).replace("VIP_CREDIT:", "").trim() : null;
-                          })()
-                        : null);
+            {/* Closed Audits Table */}
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+              {loading ? (
+                <div className="flex h-48 items-center justify-center text-sm font-semibold text-slate-500">
+                  <RefreshCw className="mr-2 h-5 w-5 animate-spin text-blue-600" />
+                  Loading shifts audit records...
+                </div>
+              ) : filteredShifts.length === 0 ? (
+                <div className="p-12 text-center">
+                  <ShieldCheck className="mx-auto h-10 w-10 text-slate-300" />
+                  <p className="mt-2 text-sm font-extrabold text-slate-700">No shift audit records found.</p>
+                  <p className="mt-0.5 text-xs text-slate-400">Shifts closed by cashiers will appear here with Finance verification status.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+                      <tr>
+                        <th className="px-4 py-3 whitespace-nowrap">Audit / Shift #</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Cashier</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Shift Period</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Float</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Expected Cash</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Counted Cash</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Variance</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Finance Approval Status</th>
+                        <th className="px-4 py-3 min-w-[160px]">Audit Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {filteredShifts.map((s) => {
+                        const variance = Number(s.shortage_overage || 0);
+                        const isVerified = s.status === "verified";
+                        const isPending = s.status === "closed_pending_approval";
+                        const isDiscrepancy = s.status === "discrepancy";
+                        const isOpen = s.status === "open";
 
-                    return (
-                      <tr key={order.id || order.order_number} className="hover:bg-slate-50/80 transition">
-                        {/* Table & Ticket */}
-                        <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
-                          <div className="flex flex-col">
-                            <span className="text-xs sm:text-sm font-black text-slate-900">
-                              {order.table_number || order.table_id
-                                ? `Table #${order.table_number || order.table_id}`
-                                : "Takeaway"}
-                            </span>
-                            <span className="font-mono text-[11px] font-bold text-slate-500">
-                              #{order.order_number || order.id}
-                            </span>
-                            <span className="mt-0.5 text-[10px] text-slate-400">
-                              {order.created_at ? new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Today"}
-                            </span>
+                        return (
+                          <tr key={s.id} className="hover:bg-slate-50/80 transition">
+                            {/* Shift # */}
+                            <td className="px-4 py-3 align-top whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-black text-white shadow-2xs">
+                                  <ShieldCheck size={13} className="text-emerald-400" />
+                                  Shift #{s.id}
+                                </span>
+                                {s.terminal_id && (
+                                  <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                                    T{s.terminal_id}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
 
-                            {vipCustomerName && (
-                              <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-black text-amber-950 bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 border border-amber-300 px-2 py-0.5 rounded-md shadow-2xs w-fit">
-                                <Crown size={11} className="text-amber-700 shrink-0" />
-                                <span>VIP: {vipCustomerName}</span>
-                              </span>
-                            )}
-                          </div>
-                        </td>
+                            {/* Cashier */}
+                            <td className="px-4 py-3 align-top whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-extrabold text-indigo-900 border border-indigo-100">
+                                <User size={12} className="text-indigo-600" />
+                                <span>{s.cashier_name || "Staff Cashier"}</span>
+                              </div>
+                            </td>
 
-                        {/* Server / Waiter */}
-                        <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
-                          <div className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-extrabold text-indigo-900 border border-indigo-100 shadow-2xs">
-                            <User size={12} className="text-indigo-600 print-hide" />
-                            <span>{waiterName}</span>
-                          </div>
-                        </td>
-
-                        {/* Items & Portions Served (In Detail) */}
-                        <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
-                          {orderItems.length > 0 ? (
-                            <div className="space-y-1">
-                              {orderItems.map((it, idx) => {
-                                const portion = parseItemPortion(it);
-                                return (
-                                  <div key={idx} className="flex items-center justify-between text-xs gap-3 py-0.5">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-black border ${portion.badgeClass}`}>
-                                        {portion.displayServing}
-                                      </span>
-                                      <span className="font-bold text-slate-800">
-                                        {it.product_name || it.name || "Item"}
-                                      </span>
-                                      {it.notes && !it.notes.includes(portion.portionName) && (
-                                        <span className="text-[10px] text-slate-400 italic">({it.notes})</span>
-                                      )}
-                                    </div>
-                                    <span className="font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                                      {(Number(it.total || (it.unit_price * it.quantity) || 0)).toFixed(2)} ETB
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                              <div className="text-[10px] font-bold text-slate-500 pt-1 border-t border-slate-100 flex justify-between">
-                                <span>Order Items Total:</span>
-                                <span className="text-slate-800 font-extrabold">
-                                  {orderItems.reduce((s, i) => s + Number(i.quantity || 1), 0)} items
+                            {/* Shift Period */}
+                            <td className="px-4 py-3 align-top whitespace-nowrap text-slate-600">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-800">
+                                  {s.start_time ? new Date(s.start_time).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : "Today"}
+                                </span>
+                                <span className="text-[11px] text-slate-500">
+                                  {s.start_time ? new Date(s.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "—"}
+                                  {" → "}
+                                  {s.end_time ? new Date(s.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (
+                                    <span className="text-emerald-700 font-extrabold">● Active</span>
+                                  )}
                                 </span>
                               </div>
-                            </div>
-                          ) : (
-                            <span className="text-slate-400 italic text-xs">No items detailed</span>
-                          )}
-                        </td>
+                            </td>
 
-                        {/* Total Amount */}
-                        <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top whitespace-nowrap">
-                          <div className="flex flex-col">
-                            <span className="text-xs sm:text-sm font-black text-slate-900">
-                              {orderTotal.toFixed(2)} ETB
-                            </span>
-                            {order.paid_amount > 0 && (
-                              <span className="text-[10px] font-bold text-emerald-600">
-                                Paid: {Number(order.paid_amount).toFixed(2)} ETB
+                            {/* Float */}
+                            <td className="px-4 py-3 align-top whitespace-nowrap text-slate-600 font-semibold">
+                              {Number(s.opening_cash || 0).toLocaleString()} ETB
+                            </td>
+
+                            {/* Expected Cash */}
+                            <td className="px-4 py-3 align-top whitespace-nowrap font-bold text-slate-900">
+                              {Number(s.expected_cash || 0).toLocaleString()} ETB
+                            </td>
+
+                            {/* Counted Cash */}
+                            <td className="px-4 py-3 align-top whitespace-nowrap font-black text-slate-900">
+                              {Number(s.actual_cash || 0).toLocaleString()} ETB
+                            </td>
+
+                            {/* Variance */}
+                            <td className="px-4 py-3 align-top whitespace-nowrap">
+                              {variance === 0 ? (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200">
+                                  0.00 ETB (Exact ✓)
+                                </span>
+                              ) : variance < 0 ? (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-800 border border-rose-200">
+                                  {variance.toLocaleString()} ETB (Shortage)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800 border border-amber-200">
+                                  +{variance.toLocaleString()} ETB (Overage)
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Status / Approval */}
+                            <td className="px-4 py-3 align-top whitespace-nowrap">
+                              {isVerified ? (
+                                <div className="flex flex-col">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-900 px-2.5 py-0.5 text-[11px] font-black border border-emerald-300 w-fit">
+                                    <CheckCircle2 size={12} className="text-emerald-700" />
+                                    <span>Approved by Finance</span>
+                                  </span>
+                                  {s.verified_by_name && (
+                                    <span className="text-[10px] font-semibold text-slate-500 mt-0.5">
+                                      By: {s.verified_by_name}
+                                    </span>
+                                  )}
+                                  {s.verified_at && (
+                                    <span className="text-[9px] text-slate-400">
+                                      {new Date(s.verified_at).toLocaleDateString()} {new Date(s.verified_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : isPending ? (
+                                <div className="flex flex-col">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 px-2.5 py-0.5 text-[11px] font-black border border-amber-300 w-fit">
+                                    <Clock size={12} className="text-amber-700" />
+                                    <span>Awaiting Finance</span>
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 mt-0.5">Under verification</span>
+                                </div>
+                              ) : isDiscrepancy ? (
+                                <div className="flex flex-col">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-900 px-2.5 py-0.5 text-[11px] font-black border border-rose-300 w-fit">
+                                    <AlertTriangle size={12} className="text-rose-700" />
+                                    <span>Discrepancy Flagged</span>
+                                  </span>
+                                  {s.verified_by_name && (
+                                    <span className="text-[10px] font-semibold text-rose-800 mt-0.5">
+                                      Flagged by {s.verified_by_name}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : isOpen ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-900 px-2.5 py-0.5 text-[11px] font-black border border-blue-300 animate-pulse w-fit">
+                                  ● Live Active Shift
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-800 px-2.5 py-0.5 text-[11px] font-bold border border-slate-200 w-fit">
+                                  {s.status}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Notes */}
+                            <td className="px-4 py-3 align-top text-xs text-slate-600">
+                              {s.cashier_notes && (
+                                <p className="italic text-slate-700">
+                                  <strong className="text-slate-900 font-bold">Cashier:</strong> "{s.cashier_notes}"
+                                </p>
+                              )}
+                              {s.verification_notes && (
+                                <p className="italic text-indigo-700 mt-0.5">
+                                  <strong className="text-indigo-900 font-bold">Finance:</strong> "{s.verification_notes}"
+                                </p>
+                              )}
+                              {!s.cashier_notes && !s.verification_notes && (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ======================================================== */}
+        {/* VIEW 2: AUDITED ORDER TICKETS BREAKDOWN TABLE            */}
+        {/* ======================================================== */}
+        {activeViewTab === "orders" && (
+          <>
+            {/* Filter and Search Toolbar */}
+            <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between print-hide">
+              {/* Category Pills & Waiter Filter */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter("all")}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
+                    statusFilter === "all"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  All Today's ({orders.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter("paid")}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
+                    statusFilter === "paid"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  }`}
+                >
+                  Paid ({paidOrders.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter("unpaid")}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
+                    statusFilter === "unpaid"
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                  }`}
+                >
+                  Unpaid ({unpaidOrders.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter("credit")}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${
+                    statusFilter === "credit"
+                      ? "bg-purple-600 text-white shadow-xs"
+                      : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+                  }`}
+                >
+                  VIP Credit ({creditOrders.length})
+                </button>
+
+                {/* Waiter Filter Selector */}
+                {uniqueWaiters.length > 0 && (
+                  <select
+                    value={selectedWaiter}
+                    onChange={(e) => setSelectedWaiter(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-extrabold text-slate-700 outline-hidden focus:border-blue-500"
+                  >
+                    <option value="all">👤 All Waiters</option>
+                    {uniqueWaiters.map((w) => (
+                      <option key={w} value={w}>👤 {w}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Search Input */}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search Order #, Table, Waiter..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:outline-hidden"
+                />
+              </div>
+            </div>
+
+            {/* Main Table View */}
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+              {loading ? (
+                <div className="flex h-48 items-center justify-center text-sm font-semibold text-slate-500">
+                  <RefreshCw className="mr-2 h-5 w-5 animate-spin text-blue-600" />
+                  Loading sales audit records...
+                </div>
+              ) : error ? (
+                <div className="p-8 text-center text-sm font-semibold text-rose-600">
+                  <AlertCircle className="mx-auto mb-2 h-8 w-8 text-rose-500" />
+                  {error}
+                </div>
+              ) : filteredOrders.length === 0 ? (
+                <div className="p-12 text-center">
+                  <Receipt className="mx-auto h-10 w-10 text-slate-300" />
+                  <p className="mt-2 text-sm font-extrabold text-slate-700">No orders found matching filters.</p>
+                  <p className="mt-0.5 text-xs text-slate-400">Try adjusting your search criteria or filter tabs.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto -mx-1 sm:mx-0">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+                      <tr>
+                        <th className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">Table & Ticket</th>
+                        <th className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">Server / Waiter</th>
+                        <th className="px-3 py-2.5 sm:px-4 sm:py-3 min-w-[200px]">Items & Portions Served (In Detail)</th>
+                        <th className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">Total Amount</th>
+                        <th className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">Status</th>
+                        <th className="px-3 py-2.5 sm:px-4 sm:py-3 min-w-[150px]">Payment Method & Audit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {filteredOrders.map((order) => {
+                        const orderTotal = getOrderTotal(order);
+                        const payments = order.payments || [];
+                        const isCancelled = order.status === "cancelled";
+                        const isPaid = !isCancelled && (order.payment_status === "paid" || order.status === "completed");
+                        const waiterName = order.waiter_name || order.waiterName || order.user_name || "Staff Waiter";
+                        const orderItems = parseItems(order.items || order.order_items);
+
+                        const vipCustomerName =
+                          order.vip_customer_name ||
+                          order.vipCustomerName ||
+                          order.vip_customer?.name ||
+                          (Array.isArray(payments)
+                            ? payments.find((p) => p.vip_customer_name)?.vip_customer_name
+                            : null) ||
+                          (order.notes && order.notes.includes("VIP:")
+                            ? order.notes.split("VIP:")[1]?.split(/[\n,]/)[0]?.trim()
+                            : null) ||
+                          (Array.isArray(payments)
+                            ? (() => {
+                                const pVip = payments.find(
+                                  (p) => p.reference && String(p.reference).startsWith("VIP_CREDIT:")
+                                );
+                                return pVip ? String(pVip.reference).replace("VIP_CREDIT:", "").trim() : null;
+                              })()
+                            : null);
+
+                        return (
+                          <tr key={order.id || order.order_number} className="hover:bg-slate-50/80 transition">
+                            {/* Table & Ticket */}
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
+                              <div className="flex flex-col">
+                                <span className="text-xs sm:text-sm font-black text-slate-900">
+                                  {order.table_number || order.table_id
+                                    ? `Table #${order.table_number || order.table_id}`
+                                    : "Takeaway"}
+                                </span>
+                                <span className="font-mono text-[11px] font-bold text-slate-500">
+                                  #{order.order_number || order.id}
+                                </span>
+                                <span className="mt-0.5 text-[10px] text-slate-400">
+                                  {order.created_at ? new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Today"}
+                                </span>
+
+                                {vipCustomerName && (
+                                  <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-black text-amber-950 bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 border border-amber-300 px-2 py-0.5 rounded-md shadow-2xs w-fit">
+                                    <Crown size={11} className="text-amber-700 shrink-0" />
+                                    <span>VIP: {vipCustomerName}</span>
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Server / Waiter */}
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
+                              <div className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-extrabold text-indigo-900 border border-indigo-100 shadow-2xs">
+                                <User size={12} className="text-indigo-600 print-hide" />
+                                <span>{waiterName}</span>
+                              </div>
+                            </td>
+
+                            {/* Items & Portions Served (In Detail) */}
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
+                              {orderItems.length > 0 ? (
+                                <div className="space-y-1">
+                                  {orderItems.map((it, idx) => {
+                                    const portion = parseItemPortion(it);
+                                    return (
+                                      <div key={idx} className="flex items-center justify-between text-xs gap-3 py-0.5">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-black border ${portion.badgeClass}`}>
+                                            {portion.displayServing}
+                                          </span>
+                                          <span className="font-bold text-slate-800">
+                                            {it.product_name || it.name || "Item"}
+                                          </span>
+                                          {it.notes && !it.notes.includes(portion.portionName) && (
+                                            <span className="text-[10px] text-slate-400 italic">({it.notes})</span>
+                                          )}
+                                        </div>
+                                        <span className="font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                                          {(Number(it.total || (it.unit_price * it.quantity) || 0)).toFixed(2)} ETB
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                  <div className="text-[10px] font-bold text-slate-500 pt-1 border-t border-slate-100 flex justify-between">
+                                    <span>Order Items Total:</span>
+                                    <span className="text-slate-800 font-extrabold">
+                                      {orderItems.reduce((s, i) => s + Number(i.quantity || 1), 0)} items
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic text-xs">No items detailed</span>
+                              )}
+                            </td>
+
+                            {/* Total Amount */}
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top whitespace-nowrap">
+                              <div className="flex flex-col">
+                                <span className="text-xs sm:text-sm font-black text-slate-900">
+                                  {orderTotal.toFixed(2)} ETB
+                                </span>
+                                {order.paid_amount > 0 && (
+                                  <span className="text-[10px] font-bold text-emerald-600">
+                                    Paid: {Number(order.paid_amount).toFixed(2)} ETB
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Kitchen / Table Status */}
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
+                              <span
+                                className={`badge ${
+                                  order.status === "cancelled"
+                                    ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                    : order.status === "completed"
+                                    ? "badge-paid"
+                                    : order.status === "ready"
+                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                    : order.status === "preparing"
+                                    ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                    : "badge-pending"
+                                }`}
+                              >
+                                {order.status || "pending"}
                               </span>
-                            )}
-                          </div>
-                        </td>
+                            </td>
 
-                        {/* Kitchen / Table Status */}
-                        <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
-                          <span
-                            className={`badge ${
-                              order.status === "cancelled"
-                                ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                : order.status === "completed"
-                                ? "badge-paid"
-                                : order.status === "ready"
-                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                                : order.status === "preparing"
-                                ? "bg-blue-100 text-blue-800 border border-blue-200"
-                                : "badge-pending"
-                            }`}
-                          >
-                            {order.status || "pending"}
-                          </span>
-                        </td>
+                            {/* Payment Method & Audit Details */}
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
+                              <div className="space-y-1.5">
+                                {payments.length > 0 ? (
+                                  payments.map((p, pIdx) => {
+                                    const pVipName =
+                                      p.vip_customer_name ||
+                                      (p.reference && String(p.reference).startsWith("VIP_CREDIT:")
+                                        ? String(p.reference).replace("VIP_CREDIT:", "").trim()
+                                        : null);
 
-                        {/* Payment Method & Audit Details */}
-                        <td className="px-3 py-2.5 sm:px-4 sm:py-3 align-top">
-                          <div className="space-y-1.5">
-                            {payments.length > 0 ? (
-                              payments.map((p, pIdx) => {
-                                const pVipName =
-                                  p.vip_customer_name ||
-                                  (p.reference && String(p.reference).startsWith("VIP_CREDIT:")
-                                    ? String(p.reference).replace("VIP_CREDIT:", "").trim()
-                                    : null);
-
-                                return (
-                                  <div key={pIdx} className="flex flex-wrap items-center gap-2">
-                                    {getMethodBadge(p.payment_method)}
-                                    {pVipName && (
-                                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-900">
-                                        <Crown size={10} className="text-amber-700" />
-                                        VIP: {pVipName}
+                                    return (
+                                      <div key={pIdx} className="flex flex-wrap items-center gap-2">
+                                        {getMethodBadge(p.payment_method)}
+                                        {pVipName && (
+                                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-900">
+                                            <Crown size={10} className="text-amber-700" />
+                                            VIP: {pVipName}
+                                          </span>
+                                        )}
+                                        {p.reference && !String(p.reference).startsWith("VIP_CREDIT:") && (
+                                          <span className="font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                                            Ref: {p.reference}
+                                          </span>
+                                        )}
+                                        {(p.receipt_image || p.receiptImage) && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setSelectedProofOrder(order)}
+                                            className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-extrabold text-blue-700 hover:bg-blue-100 border border-blue-200 print-hide"
+                                          >
+                                            <Eye size={10} />
+                                            <span>View Proof</span>
+                                          </button>
+                                        )}
+                                      </div>
+                                    );
+                                  })
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    {isCancelled ? (
+                                      <span className="text-[11px] font-extrabold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                        Cancelled / Voided
                                       </span>
+                                    ) : (
+                                      <>
+                                        {getMethodBadge(order.payment_method || (isPaid ? "cash" : "unpaid"))}
+                                        {!isPaid && (
+                                          <span className="text-[11px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                            Unpaid / Pending
+                                          </span>
+                                        )}
+                                      </>
                                     )}
-                                    {p.reference && !String(p.reference).startsWith("VIP_CREDIT:") && (
-                                      <span className="font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
-                                        Ref: {p.reference}
-                                      </span>
-                                    )}
-                                    {(p.receipt_image || p.receiptImage) && (
+                                    {(order.receipt_image || order.receiptImage) && (
                                       <button
                                         type="button"
                                         onClick={() => setSelectedProofOrder(order)}
@@ -1245,61 +1607,34 @@ function TodaySalesAuditPage() {
                                       </button>
                                     )}
                                   </div>
-                                );
-                              })
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                {isCancelled ? (
-                                  <span className="text-[11px] font-extrabold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                                    Cancelled / Voided
-                                  </span>
-                                ) : (
-                                  <>
-                                    {getMethodBadge(order.payment_method || (isPaid ? "cash" : "unpaid"))}
-                                    {!isPaid && (
-                                      <span className="text-[11px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                        Unpaid / Pending
-                                      </span>
-                                    )}
-                                  </>
-                                )}
-                                {(order.receipt_image || order.receiptImage) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setSelectedProofOrder(order)}
-                                    className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-extrabold text-blue-700 hover:bg-blue-100 border border-blue-200 print-hide"
-                                  >
-                                    <Eye size={10} />
-                                    <span>View Proof</span>
-                                  </button>
                                 )}
                               </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                {filteredOrders.length > 0 && (
-                  <tfoot>
-                    <tr className="border-t-2 border-slate-400 bg-slate-100 font-black text-slate-900">
-                      <td colSpan="2" className="px-3 py-2.5 text-right text-xs uppercase tracking-wider">
-                        Total Items Served:
-                      </td>
-                      <td className="px-3 py-2.5 font-black text-xs text-blue-900">
-                        {totalItemsServedCount} items across {filteredOrders.length} orders
-                      </td>
-                      <td colSpan="3" className="px-3 py-2.5 text-right font-black text-xs text-emerald-800 whitespace-nowrap">
-                        Verified Sales: {activeReportRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
-                      </td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    {filteredOrders.length > 0 && (
+                      <tfoot>
+                        <tr className="border-t-2 border-slate-400 bg-slate-100 font-black text-slate-900">
+                          <td colSpan="2" className="px-3 py-2.5 text-right text-xs uppercase tracking-wider">
+                            Total Items Served:
+                          </td>
+                          <td className="px-3 py-2.5 font-black text-xs text-blue-900">
+                            {totalItemsServedCount} items across {filteredOrders.length} orders
+                          </td>
+                          <td colSpan="3" className="px-3 py-2.5 text-right font-black text-xs text-emerald-800 whitespace-nowrap">
+                            Verified Sales: {activeReportRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
 
         {/* OFFICIAL FINANCIAL & REVENUE AUDIT SUMMARY (THE LAST PART) */}
         <div className="print-summary-box rounded-2xl border-2 border-slate-900 bg-slate-50/70 p-4 sm:p-5 shadow-xs">

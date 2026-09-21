@@ -22,6 +22,7 @@ import {
   Tag,
   ArrowUpRight,
   X,
+  Ban,
 } from "lucide-react";
 import api from "../../../../services/api";
 import audioService from "../../../../services/audioService";
@@ -151,6 +152,12 @@ export default function FruitOrdersPage() {
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [restockProduct, setRestockProduct] = useState(null);
 
+  // Order Rejection / Customer Refusal Modal State
+  const [rejectModalOrder, setRejectModalOrder] = useState(null);
+  const [rejectReasonPreset, setRejectReasonPreset] = useState("Customer refused order at table");
+  const [customRejectReason, setCustomRejectReason] = useState("");
+  const [rejectLoading, setRejectLoading] = useState(false);
+
   const prevOrdersRef = useRef(null);
 
   const fetchOrders = async (isManual = false) => {
@@ -239,6 +246,38 @@ export default function FruitOrdersPage() {
     }
   };
 
+  // Handle customer rejection of the order
+  const handleConfirmReject = async () => {
+    if (!rejectModalOrder) return;
+    try {
+      setRejectLoading(true);
+      setError("");
+
+      const finalReason =
+        rejectReasonPreset === "Other reason" && customRejectReason.trim()
+          ? customRejectReason.trim()
+          : rejectReasonPreset || customRejectReason.trim() || "Customer refused order at table";
+
+      await api(`/kitchen/${rejectModalOrder.id}/status`, {
+        method: "PUT",
+        body: JSON.stringify({
+          status: "cancelled",
+          reason: finalReason,
+        }),
+      });
+
+      setRejectModalOrder(null);
+      setCustomRejectReason("");
+      setRejectReasonPreset("Customer refused order at table");
+      await fetchOrders(false);
+    } catch (err) {
+      console.error("Failed to reject order:", err);
+      setError(err.message || "Failed to reject order");
+    } finally {
+      setRejectLoading(false);
+    }
+  };
+
   // Filtered Orders Calculation
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
@@ -253,7 +292,7 @@ export default function FruitOrdersPage() {
       // 2. Status filter
       const st = String(o.status || "").toLowerCase();
       if (statusFilter === "active") {
-        if (st === "completed" || st === "served" || st === "cancelled") return false;
+        if (st === "completed" || st === "served" || st === "cancelled" || st === "rejected") return false;
       } else if (statusFilter === "pending") {
         if (st !== "pending" && st !== "new" && st !== "confirmed") return false;
       } else if (statusFilter === "preparing") {
@@ -261,7 +300,7 @@ export default function FruitOrdersPage() {
       } else if (statusFilter === "ready") {
         if (st !== "ready") return false;
       } else if (statusFilter === "completed") {
-        if (st !== "completed" && st !== "served") return false;
+        if (st !== "completed" && st !== "served" && st !== "cancelled" && st !== "rejected") return false;
       }
 
       // 3. Text search
@@ -690,7 +729,7 @@ export default function FruitOrdersPage() {
                   { id: "pending", label: "New Orders" },
                   { id: "preparing", label: "Preparing" },
                   { id: "ready", label: "Ready" },
-                  { id: "completed", label: "History" },
+                  { id: "completed", label: "History & Refused" },
                   { id: "all", label: "All" },
                 ].map((tab) => (
                   <button
@@ -774,13 +813,16 @@ export default function FruitOrdersPage() {
                   const isPreparing = status === "preparing";
                   const isReady = status === "ready";
                   const isCompleted = status === "completed" || status === "served";
+                  const isCancelled = status === "cancelled" || status === "rejected";
                   const isUpdating = actionLoadingId === order.id;
 
                   return (
                     <div
                       key={order.id}
                       className={`flex flex-col justify-between rounded-2xl border transition shadow-xl ${
-                        isPending
+                        isCancelled
+                          ? "border-rose-900/50 bg-slate-900/60 opacity-80"
+                          : isPending
                           ? "border-amber-500/40 bg-slate-900/90 hover:border-amber-500/70"
                           : isPreparing
                           ? "border-blue-500/40 bg-slate-900/90 hover:border-blue-500/70"
@@ -795,7 +837,9 @@ export default function FruitOrdersPage() {
                           <div className="flex items-center gap-2.5">
                             <div
                               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black text-sm shadow-md ${
-                                isPending
+                                isCancelled
+                                  ? "bg-rose-950 text-rose-300 border border-rose-800/60 shadow-rose-950/40"
+                                  : isPending
                                   ? "bg-amber-500 text-slate-950 shadow-amber-500/20"
                                   : isPreparing
                                   ? "bg-blue-500 text-white shadow-blue-500/20"
@@ -819,7 +863,9 @@ export default function FruitOrdersPage() {
                           {/* STATUS BADGE */}
                           <span
                             className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider ${
-                              isPending
+                              isCancelled
+                                ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                                : isPending
                                 ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
                                 : isPreparing
                                 ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
@@ -828,7 +874,7 @@ export default function FruitOrdersPage() {
                                 : "bg-slate-800 text-slate-400"
                             }`}
                           >
-                            {status}
+                            {isCancelled ? "REFUSED / REJECTED" : status}
                           </span>
                         </div>
 
@@ -886,57 +932,120 @@ export default function FruitOrdersPage() {
                         })}
                       </div>
 
+                      {/* ORDER / REFUSAL NOTES */}
+                      {order.notes && (
+                        <div className="mx-4 mb-3 rounded-xl bg-rose-950/30 border border-rose-800/40 p-2.5 text-xs text-rose-200 flex items-start gap-2">
+                          <AlertTriangle size={14} className="shrink-0 mt-0.5 text-rose-400" />
+                          <span className="font-medium leading-relaxed">{order.notes}</span>
+                        </div>
+                      )}
+
                       {/* ACTION CONTROLS */}
                       <div className="border-t border-slate-800/80 p-4 bg-slate-900/60 rounded-b-2xl">
                         {isPending && (
-                          <button
-                            onClick={() => handleUpdateStatus(order, "preparing")}
-                            disabled={isUpdating}
-                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition disabled:opacity-60"
-                          >
-                            {isUpdating ? (
-                              <RefreshCw size={16} className="animate-spin" />
-                            ) : (
-                              <Flame size={16} />
-                            )}
-                            <span>Start Preparing</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleUpdateStatus(order, "preparing")}
+                              disabled={isUpdating}
+                              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-3 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition disabled:opacity-60"
+                            >
+                              {isUpdating ? (
+                                <RefreshCw size={16} className="animate-spin" />
+                              ) : (
+                                <Flame size={16} />
+                              )}
+                              <span>Start Preparing</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRejectModalOrder(order);
+                                setRejectReasonPreset("Customer refused order at table");
+                                setCustomRejectReason("");
+                              }}
+                              disabled={isUpdating}
+                              title="Customer refused or reject order"
+                              className="px-3.5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 transition text-xs font-black flex items-center gap-1.5 disabled:opacity-50 shrink-0"
+                            >
+                              <Ban size={15} />
+                              <span>Reject</span>
+                            </button>
+                          </div>
                         )}
 
                         {isPreparing && (
-                          <button
-                            onClick={() => handleUpdateStatus(order, "ready")}
-                            disabled={isUpdating}
-                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/25 transition disabled:opacity-60"
-                          >
-                            {isUpdating ? (
-                              <RefreshCw size={16} className="animate-spin" />
-                            ) : (
-                              <CheckCircle2 size={16} />
-                            )}
-                            <span>Mark Ready (Notify Waiter)</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleUpdateStatus(order, "ready")}
+                              disabled={isUpdating}
+                              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-3 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/25 transition disabled:opacity-60"
+                            >
+                              {isUpdating ? (
+                                <RefreshCw size={16} className="animate-spin" />
+                              ) : (
+                                <CheckCircle2 size={16} />
+                              )}
+                              <span>Mark Ready</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRejectModalOrder(order);
+                                setRejectReasonPreset("Customer refused order at table");
+                                setCustomRejectReason("");
+                              }}
+                              disabled={isUpdating}
+                              title="Customer refused or reject order"
+                              className="px-3.5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 transition text-xs font-black flex items-center gap-1.5 disabled:opacity-50 shrink-0"
+                            >
+                              <Ban size={15} />
+                              <span>Reject</span>
+                            </button>
+                          </div>
                         )}
 
                         {isReady && (
-                          <button
-                            onClick={() => handleUpdateStatus(order, "completed")}
-                            disabled={isUpdating}
-                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2.5 text-sm font-bold text-emerald-400 transition disabled:opacity-60"
-                          >
-                            {isUpdating ? (
-                              <RefreshCw size={16} className="animate-spin" />
-                            ) : (
-                              <Check size={16} />
-                            )}
-                            <span>Complete / Served</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleUpdateStatus(order, "completed")}
+                              disabled={isUpdating}
+                              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2.5 text-sm font-bold text-emerald-400 transition disabled:opacity-60"
+                            >
+                              {isUpdating ? (
+                                <RefreshCw size={16} className="animate-spin" />
+                              ) : (
+                                <Check size={16} />
+                              )}
+                              <span>Complete / Served</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRejectModalOrder(order);
+                                setRejectReasonPreset("Customer refused order upon delivery");
+                                setCustomRejectReason("");
+                              }}
+                              disabled={isUpdating}
+                              title="Customer refused or reject order"
+                              className="px-3.5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 transition text-xs font-black flex items-center gap-1.5 disabled:opacity-50 shrink-0"
+                            >
+                              <Ban size={15} />
+                              <span>Reject</span>
+                            </button>
+                          </div>
                         )}
 
                         {isCompleted && (
                           <div className="text-center py-1 text-xs font-semibold text-slate-500 flex items-center justify-center gap-1.5">
                             <CheckCircle2 size={14} className="text-emerald-500" />
                             <span>Order Fulfilled</span>
+                          </div>
+                        )}
+
+                        {isCancelled && (
+                          <div className="text-center py-1.5 text-xs font-bold text-rose-400 flex items-center justify-center gap-1.5 bg-rose-950/40 rounded-xl border border-rose-900/50">
+                            <Ban size={14} className="text-rose-500 shrink-0" />
+                            <span>Order Refused & Cancelled (Stock Restored)</span>
                           </div>
                         )}
                       </div>
@@ -1161,6 +1270,167 @@ export default function FruitOrdersPage() {
             </div>
           )}
         </main>
+      )}
+
+      {/* REJECT / CUSTOMER REFUSAL MODAL */}
+      {rejectModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl border border-rose-500/30 bg-slate-900 p-6 shadow-2xl shadow-rose-950/40 text-slate-100">
+            {/* CLOSE BUTTON */}
+            <button
+              type="button"
+              onClick={() => {
+                if (!rejectLoading) {
+                  setRejectModalOrder(null);
+                  setCustomRejectReason("");
+                }
+              }}
+              className="absolute right-4 top-4 rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+            >
+              <X size={20} />
+            </button>
+
+            {/* HEADER */}
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-lg shadow-rose-500/10">
+                <Ban size={24} />
+              </div>
+              <div className="flex-1 pr-6">
+                <h2 className="text-lg font-black text-white">
+                  Reject / Refused Order
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Customer refused order or fruit items cannot be served.
+                </p>
+              </div>
+            </div>
+
+            {/* ORDER DETAILS SUMMARY */}
+            <div className="mt-5 rounded-2xl bg-slate-950/60 border border-slate-800 p-3.5 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">Order:</span>
+                <span className="font-extrabold text-white">
+                  #{rejectModalOrder.order_number || rejectModalOrder.id}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">Location:</span>
+                <span className="font-bold text-amber-400">
+                  {rejectModalOrder.table_number ? `Table ${rejectModalOrder.table_number}` : "Walk-in / Bar"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">Waiter:</span>
+                <span className="font-medium text-slate-300">
+                  {rejectModalOrder.waiter_name || "Staff"}
+                </span>
+              </div>
+
+              {/* ITEMS PREVIEW */}
+              <div className="pt-2 border-t border-slate-800/80">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                  Items to Cancel & Restore:
+                </span>
+                <div className="space-y-1 max-h-24 overflow-y-auto">
+                  {parseOrderItems(rejectModalOrder).map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs text-slate-300">
+                      <span>• {item.quantity || 1}x {item.product_name || item.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* SELECT REFUSAL REASON */}
+            <div className="mt-4 space-y-2">
+              <label className="text-xs font-bold text-slate-300">
+                Select Refusal / Rejection Reason:
+              </label>
+              <div className="grid grid-cols-1 gap-2">
+                {[
+                  "Customer refused order at table",
+                  "Customer changed mind / Left",
+                  "Customer waited too long",
+                  "Fruit ingredients unavailable / Damaged",
+                  "Other reason",
+                ].map((reason) => (
+                  <label
+                    key={reason}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer transition ${
+                      rejectReasonPreset === reason
+                        ? "bg-rose-500/15 border-rose-500/40 text-rose-200 font-bold"
+                        : "bg-slate-950/40 border-slate-800 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="refusal_reason"
+                      value={reason}
+                      checked={rejectReasonPreset === reason}
+                      onChange={() => setRejectReasonPreset(reason)}
+                      className="text-rose-500 focus:ring-rose-500 bg-slate-900 border-slate-700"
+                    />
+                    <span>{reason}</span>
+                  </label>
+                ))}
+              </div>
+
+              {/* CUSTOM REASON INPUT */}
+              {rejectReasonPreset === "Other reason" && (
+                <div className="mt-2">
+                  <textarea
+                    rows={2}
+                    value={customRejectReason}
+                    onChange={(e) => setCustomRejectReason(e.target.value)}
+                    placeholder="Type custom refusal reason..."
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs text-white placeholder-slate-500 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* NOTICE */}
+            <div className="mt-4 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 flex items-start gap-2 text-[11px] text-amber-300">
+              <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-400" />
+              <span>
+                Rejecting removes this ticket from the active queue, restores inventory stock, and marks the order as refused in history.
+              </span>
+            </div>
+
+            {/* ACTION BUTTONS */}
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectModalOrder(null);
+                  setCustomRejectReason("");
+                }}
+                disabled={rejectLoading}
+                className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition disabled:opacity-50"
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={rejectLoading}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 px-5 py-2.5 text-xs font-black text-white shadow-lg shadow-rose-600/30 transition active:scale-98 disabled:opacity-60"
+              >
+                {rejectLoading ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Rejecting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Ban size={14} />
+                    <span>Confirm Order Rejection</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* RESTOCK MODAL FOR FRUIT SUB-STORE */}

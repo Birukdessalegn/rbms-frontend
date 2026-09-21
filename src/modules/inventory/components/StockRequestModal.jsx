@@ -8,7 +8,8 @@ import {
   Plus,
   Minus,
   Wine,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Apple
 } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -19,7 +20,7 @@ export default function StockRequestModal({
   initialProduct = null,
   initialDepartment = 'bar'
 }) {
-  const department = initialDepartment || 'bar'; // Strictly locked to calling department
+  const department = (initialDepartment || 'bar').toLowerCase(); // Strictly locked to calling department
   const [productList, setProductList] = useState([]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState(1);
@@ -50,6 +51,17 @@ export default function StockRequestModal({
                 (k) => (item.category || '').toLowerCase().includes(k)
               ) ||
               item.bar_quantity !== undefined
+            );
+          }
+          if (department === 'fruit') {
+            const cat = (item.category || '').toLowerCase();
+            const name = (item.name || item.product_name || '').toLowerCase();
+            return (
+              item.department === 'fruit' ||
+              item.fruit_quantity !== undefined ||
+              ['fruit', 'juice', 'smoothie', 'shisha', 'apple', 'orange', 'banana', 'mango', 'salad', 'platter'].some(
+                (k) => cat.includes(k) || name.includes(k)
+              )
             );
           }
           return (
@@ -151,6 +163,7 @@ export default function StockRequestModal({
   };
 
   const isBar = department === 'bar';
+  const isFruit = department === 'fruit';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
@@ -160,14 +173,14 @@ export default function StockRequestModal({
           <div className="flex items-center gap-2.5">
             <div
               className={`flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-xs ${
-                isBar ? 'bg-purple-600' : 'bg-amber-600'
+                isFruit ? 'bg-orange-500' : isBar ? 'bg-purple-600' : 'bg-amber-600'
               }`}
             >
-              {isBar ? <Wine className="h-4 w-4" /> : <UtensilsCrossed className="h-4 w-4" />}
+              {isFruit ? <Apple className="h-4 w-4" /> : isBar ? <Wine className="h-4 w-4" /> : <UtensilsCrossed className="h-4 w-4" />}
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-900 leading-tight">
-                {isBar ? 'Bar Stock Request' : 'Kitchen Stock Request'}
+                {isFruit ? 'Fruit Station Stock Request' : isBar ? 'Bar Stock Request' : 'Kitchen Stock Request'}
               </h3>
               <p className="text-[11px] font-semibold text-slate-500">
                 Send request to Central Warehouse

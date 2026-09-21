@@ -307,6 +307,8 @@ function TodaySalesAuditPage() {
         method: "POST",
         body: JSON.stringify({
           actual_cash: Number(countedCash),
+          expected_cash: expectedPhysicalCash,
+          total_cash_sales: cashTotal,
           closing_notes: cashierNotes,
         }),
       });
@@ -604,9 +606,9 @@ function TodaySalesAuditPage() {
   };
 
   const openingCashAmount = Number(currentShift?.opening_cash || 0);
-  const expectedPhysicalCash = Number(
-    currentShift?.expected_cash ?? (openingCashAmount + cashTotal)
-  );
+  const shiftExpected = Number(currentShift?.expected_cash || 0);
+  const calculatedExpected = openingCashAmount + Number(cashTotal || 0);
+  const expectedPhysicalCash = shiftExpected > 0 ? shiftExpected : calculatedExpected;
   const actualCountedAmount = countedCash !== "" ? Number(countedCash) : null;
   const liveVariance = actualCountedAmount !== null ? actualCountedAmount - expectedPhysicalCash : 0;
 

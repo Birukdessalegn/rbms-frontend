@@ -12,6 +12,7 @@ import WaiterServedOrdersPage from "../modules/pos/pages/WaiterServedOrdersPage"
 
 
 import ExpensesPage from "../modules/expense/pages/ExpensesPage";
+import CostAnalysisPage from "../modules/finance/pages/CostAnalysisPage";
 
 import EmployeesPage from "../modules/employees/pages/EmployeesPage";
 import BarReportsPage from "../modules/bar/pages/BarReportsPage";
@@ -493,6 +494,10 @@ function AppRoutes() {
               <Route
                 path="/finance/reports"
                 element={<FinanceReportsPage />}
+              />
+              <Route
+                path="/finance/cost-analysis"
+                element={<CostAnalysisPage />}
               />
             </Route>
 

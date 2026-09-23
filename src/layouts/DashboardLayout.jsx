@@ -51,6 +51,7 @@ import {
   FileText,
   DollarSign,
   Sparkles,
+  Percent,
 } from "lucide-react";
 
 /* =========================================================
@@ -223,6 +224,11 @@ const navigationGroups = [
             name: "Cashier Reconciliation",
             path: "/finance/cashier-reconciliation",
             icon: CreditCard,
+          },
+          {
+            name: "Cost Analysis",
+            path: "/finance/cost-analysis",
+            icon: Percent,
           },
           {
             name: "Purchases Audit",

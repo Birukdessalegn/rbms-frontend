@@ -7,6 +7,7 @@ import {
   CreditCard,
   ArrowLeftRight,
   BarChart3,
+  Percent,
   LogOut,
   ChevronDown,
 } from "lucide-react";
@@ -23,6 +24,11 @@ const menuItems = [
     name: "Cashier Reconciliation",
     path: "/finance/cashier-reconciliation",
     icon: CreditCard,
+  },
+  {
+    name: "Cost Analysis",
+    path: "/finance/cost-analysis",
+    icon: Percent,
   },
   {
     name: "Sales",

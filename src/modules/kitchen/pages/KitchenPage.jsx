@@ -495,11 +495,6 @@ function KitchenPage({ filterStatus = "all", pageTitle = null }) {
             </span>
             {[
               { id: "all", label: "All Stations" },
-              { id: "hot meals", label: "Hot Meals / Main" },
-              { id: "fruit", label: "Fruit Station" },
-              { id: "salad", label: "Salads / Cold" },
-              { id: "fast food", label: "Fast Food / Grill" },
-              { id: "dessert", label: "Dessert" },
             ].map((station) => {
               const active = kitchenTagFilter === station.id;
               return (

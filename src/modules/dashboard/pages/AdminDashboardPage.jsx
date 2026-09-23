@@ -28,6 +28,7 @@ import {
   X,
   Phone,
   Landmark,
+  Flame,
 } from "lucide-react";
 import api from "../../../services/api";
 import PaymentAccountsModal from "../components/PaymentAccountsModal";
@@ -79,6 +80,7 @@ export default function AdminDashboardPage() {
         api("/pos/orders").catch(() => api("/orders").catch(() => ({}))),
         api("/kitchen").catch(() => api("/kitchen/orders").catch(() => [])),
         api("/bar/orders").catch(() => api("/bar").catch(() => [])),
+        api("/fruit").catch(() => api("/fruit/orders").catch(() => [])),
         api("/expenses").catch(() => []),
         api("/payments").catch(() => ([])),
       ];
@@ -98,7 +100,7 @@ export default function AdminDashboardPage() {
         Promise.all(refPromises),
       ]);
 
-      const [dashRes, tablesRes, ordersRes, kitchenRes, barRes, expRes, pmtsRes] = liveResults;
+      const [dashRes, tablesRes, ordersRes, kitchenRes, barRes, fruitRes, expRes, pmtsRes] = liveResults;
 
       if (dashRes && (dashRes.success || dashRes.stats || dashRes.data)) {
         setDashboardStats(dashRes.stats || dashRes.data || dashRes);
@@ -109,10 +111,11 @@ export default function AdminDashboardPage() {
       const rawPosOrders = ordersRes.orders || ordersRes.data || (Array.isArray(ordersRes) ? ordersRes : []);
       const rawKitchenOrders = Array.isArray(kitchenRes) ? kitchenRes : kitchenRes.orders || [];
       const rawBarOrders = Array.isArray(barRes) ? barRes : barRes.orders || [];
+      const rawFruitOrders = Array.isArray(fruitRes) ? fruitRes : fruitRes?.orders || [];
       
-      // Combine POS, Bar, and Kitchen orders with deduplication so identical tickets are not counted twice
+      // Combine POS, Bar, Kitchen, and Fruit orders with deduplication
       const combinedOrdersMap = new Map();
-      [...rawPosOrders, ...rawBarOrders, ...rawKitchenOrders].forEach((ord) => {
+      [...rawPosOrders, ...rawBarOrders, ...rawKitchenOrders, ...rawFruitOrders].forEach((ord) => {
         if (!ord) return;
         const key = String(ord.order_number || ord.orderNumber || ord.id || ord.order_id || "");
         if (key && !combinedOrdersMap.has(key)) {
@@ -444,9 +447,19 @@ export default function AdminDashboardPage() {
       const dateVal = ord.created_at || ord.createdAt || ord.order_date || ord.date || ord.paid_at;
       if (!dateVal) return true; // Include recent active session orders without explicit timestamp
       try {
-        const ordDate = new Date(dateVal).toISOString().split("T")[0];
-        const todayStr = new Date().toISOString().split("T")[0];
-        return ordDate === todayStr;
+        const ordTime = new Date(dateVal);
+        const ordDate = ordTime.toISOString().split("T")[0];
+        const now = new Date();
+        const currentHour = now.getHours();
+        const businessDate = new Date(now);
+        if (currentHour < 7) {
+          businessDate.setDate(businessDate.getDate() - 1);
+        }
+        const businessDateStr = businessDate.toISOString().split("T")[0];
+        const shiftCutoffTime = new Date(businessDate);
+        shiftCutoffTime.setHours(17, 0, 0, 0);
+
+        return ordDate === businessDateStr || ordTime >= shiftCutoffTime;
       } catch {
         return true;
       }
@@ -521,35 +534,48 @@ export default function AdminDashboardPage() {
             productByName.get(baseName.toLowerCase()) ||
             productByName.get(rawName.toLowerCase());
 
-          // Category identification
+          // Category identification (Fruit vs Bar vs Kitchen Food)
           const rawCatName = matchedProd?.category_name || item.category_name || item.category || "";
           const rawCatType = matchedProd?.category_type || item.category_type || "";
 
-          const isBar =
-            rawCatType === "bar" ||
-            rawCatName.toLowerCase().includes("bar") ||
-            rawCatName.toLowerCase().includes("drink") ||
-            rawCatName.toLowerCase().includes("beverage") ||
-            rawCatName.toLowerCase().includes("liquor") ||
-            rawCatName.toLowerCase().includes("wine") ||
-            rawCatName.toLowerCase().includes("beer") ||
-            rawCatName.toLowerCase().includes("cocktail") ||
-            rawCatName.toLowerCase().includes("spirit") ||
-            baseName.toLowerCase().includes("shot") ||
-            baseName.toLowerCase().includes("beer") ||
-            baseName.toLowerCase().includes("whiskey") ||
-            baseName.toLowerCase().includes("vodka") ||
-            baseName.toLowerCase().includes("gin") ||
-            baseName.toLowerCase().includes("wine");
+          const isFruit =
+            rawCatType === "fruit" ||
+            rawCatName.toLowerCase().includes("fruit") ||
+            baseName.toLowerCase().includes("fruit") ||
+            baseName.toLowerCase().includes("head") ||
+            rawName.toLowerCase().includes("fruit") ||
+            rawName.toLowerCase().includes("head");
 
-          const categoryType = isBar ? "bar" : "food";
-          const categoryName = rawCatName || (isBar ? "Bar & Drinks" : "Kitchen Food");
+          const isBar =
+            !isFruit && (
+              rawCatType === "bar" ||
+              rawCatName.toLowerCase().includes("bar") ||
+              rawCatName.toLowerCase().includes("drink") ||
+              rawCatName.toLowerCase().includes("beverage") ||
+              rawCatName.toLowerCase().includes("liquor") ||
+              rawCatName.toLowerCase().includes("wine") ||
+              rawCatName.toLowerCase().includes("beer") ||
+              rawCatName.toLowerCase().includes("cocktail") ||
+              rawCatName.toLowerCase().includes("spirit") ||
+              baseName.toLowerCase().includes("shot") ||
+              baseName.toLowerCase().includes("beer") ||
+              baseName.toLowerCase().includes("whiskey") ||
+              baseName.toLowerCase().includes("vodka") ||
+              baseName.toLowerCase().includes("gin") ||
+              baseName.toLowerCase().includes("wine")
+            );
+
+          const categoryType = isFruit ? "fruit" : isBar ? "bar" : "food";
+          const categoryName = rawCatName || (isFruit ? "Fruit Department" : isBar ? "Bar & Drinks" : "Kitchen Food");
 
           // Standardize portion name and unit label
           let displayPortion = portionTitle;
           let unitLabel = "pcs";
 
-          if (isBar) {
+          if (isFruit) {
+            displayPortion = portionTitle || "Fruit Head";
+            unitLabel = "Heads";
+          } else if (isBar) {
             const pLower = (portionTitle || "").toLowerCase();
             if (pLower.includes("single") || pLower.includes("1x") || pLower.includes("shot")) {
               displayPortion = portionTitle || "Single Shot";
@@ -667,6 +693,7 @@ export default function AdminDashboardPage() {
       // Category filter
       if (categoryFilter === "food" && item.categoryType !== "food") return false;
       if (categoryFilter === "bar" && item.categoryType !== "bar") return false;
+      if (categoryFilter === "fruit" && item.categoryType !== "fruit") return false;
 
       // Search query filter
       if (leaderboardSearch.trim()) {
@@ -696,20 +723,24 @@ export default function AdminDashboardPage() {
     const totalRevenue = filteredProducts.reduce((sum, item) => sum + item.revenue, 0);
     const foodPortions = itemizedPortionSales.filter((i) => i.categoryType === "food").reduce((sum, i) => sum + i.quantity, 0);
     const barPortions = itemizedPortionSales.filter((i) => i.categoryType === "bar").reduce((sum, i) => sum + i.quantity, 0);
+    const fruitPortions = itemizedPortionSales.filter((i) => i.categoryType === "fruit").reduce((sum, i) => sum + i.quantity, 0);
     const maxQty = Math.max(...filteredProducts.map((i) => i.quantity), 1);
     const allCount = itemizedPortionSales.length;
     const foodCount = itemizedPortionSales.filter((i) => i.categoryType === "food").length;
     const barCount = itemizedPortionSales.filter((i) => i.categoryType === "bar").length;
+    const fruitCount = itemizedPortionSales.filter((i) => i.categoryType === "fruit").length;
 
     return {
       totalItems,
       totalRevenue,
       foodPortions,
       barPortions,
+      fruitPortions,
       maxQty,
       allCount,
       foodCount,
       barCount,
+      fruitCount,
     };
   }, [filteredProducts, itemizedPortionSales]);
 
@@ -1222,6 +1253,10 @@ export default function AdminDashboardPage() {
               <Wine className="h-3 w-3 text-purple-600" />
               <span>{leaderboardMetrics.barPortions.toLocaleString()} Drinks</span>
             </div>
+            <div className="hidden sm:flex items-center gap-1.5 rounded-xl bg-slate-100 px-2.5 py-1.5 font-bold text-slate-600">
+              <Flame className="h-3 w-3 text-emerald-600" />
+              <span>{leaderboardMetrics.fruitPortions.toLocaleString()} Fruit</span>
+            </div>
             {Number(dashboardStats?.bar_low_stock_products || 0) > 0 && (
               <div className="flex items-center gap-1.5 rounded-xl bg-rose-50 px-2.5 py-1.5 font-extrabold text-rose-700 border border-rose-200 animate-pulse">
                 <AlertTriangle className="h-3.5 w-3.5" />
@@ -1246,7 +1281,7 @@ export default function AdminDashboardPage() {
               type="text"
               value={leaderboardSearch}
               onChange={(e) => setLeaderboardSearch(e.target.value)}
-              placeholder="Search dish, drink, or portion (e.g. Single Shot, Burger)..."
+              placeholder="Search dish, drink, or portion (e.g. Single Shot, Burger, Mint Fruit)..."
               className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-8 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:border-amber-400 focus:bg-white focus:outline-none transition"
             />
             {leaderboardSearch && (
@@ -1279,7 +1314,7 @@ export default function AdminDashboardPage() {
                 onClick={() => setCategoryFilter("food")}
                 className={`flex items-center gap-1 rounded-lg px-3 py-1.5 transition ${
                   categoryFilter === "food"
-                    ? "bg-emerald-600 text-white shadow-xs"
+                    ? "bg-amber-600 text-white shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -1297,6 +1332,18 @@ export default function AdminDashboardPage() {
               >
                 <Wine className="h-3 w-3" />
                 Bar & Drinks ({leaderboardMetrics.barCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("fruit")}
+                className={`flex items-center gap-1 rounded-lg px-3 py-1.5 transition ${
+                  categoryFilter === "fruit"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Flame className="h-3 w-3" />
+                Fruit Department ({leaderboardMetrics.fruitCount})
               </button>
             </div>
 
@@ -1406,6 +1453,8 @@ export default function AdminDashboardPage() {
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 font-bold border border-slate-200 group-hover:scale-105 transition-transform">
                         {prod.categoryType === "bar" ? (
                           <Wine className="h-6 w-6 text-purple-600" />
+                        ) : prod.categoryType === "fruit" ? (
+                          <Flame className="h-6 w-6 text-emerald-600" />
                         ) : (
                           <Utensils className="h-6 w-6 text-amber-600" />
                         )}
@@ -1438,7 +1487,9 @@ export default function AdminDashboardPage() {
                               ? "bg-gradient-to-r from-amber-400 to-amber-500"
                               : prod.categoryType === "bar"
                               ? "bg-purple-500"
-                              : "bg-emerald-500"
+                              : prod.categoryType === "fruit"
+                              ? "bg-emerald-500"
+                              : "bg-amber-500"
                           }`}
                           style={{ width: `${relativePercent}%` }}
                         />
@@ -1452,15 +1503,24 @@ export default function AdminDashboardPage() {
                       if (!stockInfo) return null;
 
                       const isBar = prod.categoryType === "bar";
-                      const onHand = isBar ? Number(stockInfo.bar_quantity || 0) : Number(stockInfo.kitchen_quantity || 0);
-                      const minStock = isBar ? Number(stockInfo.bar_minimum_stock || 1) : Number(stockInfo.kitchen_minimum_stock || 5);
-                      const unitName = stockInfo.unit || (isBar ? "btl" : "pcs");
+                      const isFruit = prod.categoryType === "fruit";
+                      const onHand = isBar
+                        ? Number(stockInfo.bar_quantity || 0)
+                        : isFruit
+                        ? Number(stockInfo.fruit_quantity || stockInfo.quantity || 0)
+                        : Number(stockInfo.kitchen_quantity || 0);
+                      const minStock = isBar
+                        ? Number(stockInfo.bar_minimum_stock || 1)
+                        : isFruit
+                        ? Number(stockInfo.fruit_minimum_stock || 1)
+                        : Number(stockInfo.kitchen_minimum_stock || 5);
+                      const unitName = stockInfo.unit || (isBar ? "btl" : isFruit ? "heads" : "pcs");
                       const isLow = onHand <= minStock;
 
                       return (
                         <div className="mt-3 flex items-center justify-between rounded-xl bg-slate-50 px-2.5 py-1.5 text-[11px] border border-slate-100">
                           <span className="text-slate-500 font-medium">
-                            {isBar ? "Bar Stock:" : "Kitchen Stock:"}
+                            {isBar ? "Bar Stock:" : isFruit ? "Fruit Stock:" : "Kitchen Stock:"}
                           </span>
                           {isLow ? (
                             <span className="font-extrabold text-rose-600 flex items-center gap-1">

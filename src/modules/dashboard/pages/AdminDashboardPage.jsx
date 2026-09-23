@@ -72,23 +72,33 @@ export default function AdminDashboardPage() {
       else setIsRefreshing(true);
       setError("");
 
-      const [dashRes, tablesRes, ordersRes, empRes, prodRes, kitchenRes, barRes, expRes, vipRes, pmtsRes, multiStockRes] = await Promise.all([
+      // 1. Lightweight live telemetry polled every 10 seconds:
+      const livePromises = [
         api("/dashboard").catch(() => ({})),
         api("/tables").catch(() => api("/pos/tables").catch(() => ({}))),
         api("/pos/orders").catch(() => api("/orders").catch(() => ({}))),
-        api("/employees").catch(() => ({})),
-        api("/products").catch(() => ({})),
         api("/kitchen").catch(() => api("/kitchen/orders").catch(() => [])),
         api("/bar/orders").catch(() => api("/bar").catch(() => [])),
         api("/expenses").catch(() => []),
-        api("/vip-customers").catch(() => api("/customers/vip").catch(() => ([]))),
         api("/payments").catch(() => ([])),
-        api("/inventory/multi-location").catch(() => ({})),
+      ];
+
+      // 2. Heavy static/catalog data only fetched on initial load or manual "Sync Now":
+      const refPromises = isInitial
+        ? [
+            api("/employees").catch(() => ({})),
+            api("/products").catch(() => ({})),
+            api("/vip-customers").catch(() => api("/customers/vip").catch(() => ([]))),
+            api("/inventory/multi-location").catch(() => ({})),
+          ]
+        : [];
+
+      const [liveResults, refResults] = await Promise.all([
+        Promise.all(livePromises),
+        Promise.all(refPromises),
       ]);
 
-      if (multiStockRes) {
-        setMultiLocationStock(multiStockRes.inventory || multiStockRes.data || (Array.isArray(multiStockRes) ? multiStockRes : []));
-      }
+      const [dashRes, tablesRes, ordersRes, kitchenRes, barRes, expRes, pmtsRes] = liveResults;
 
       if (dashRes && (dashRes.success || dashRes.stats || dashRes.data)) {
         setDashboardStats(dashRes.stats || dashRes.data || dashRes);
@@ -119,62 +129,68 @@ export default function AdminDashboardPage() {
         }
       });
       setOrders(Array.from(combinedOrdersMap.values()));
-      setEmployees(empRes.employees || empRes.data || (Array.isArray(empRes) ? empRes : []));
-      setProducts(prodRes.products || prodRes.data || (Array.isArray(prodRes) ? prodRes : []));
       setKitchenOrders(rawKitchenOrders);
       setBarOrders(rawBarOrders);
       setExpenses(Array.isArray(expRes) ? expRes : expRes.expenses || expRes.data || []);
-      
-      const fetchedVips = vipRes.customers || vipRes.data || (Array.isArray(vipRes) ? vipRes : []);
-      setVipCustomers(fetchedVips);
+      setPayments(pmtsRes.payments || pmtsRes.data || (Array.isArray(pmtsRes) ? pmtsRes : []));
 
-      // Fetch dedicated VIP customer payments from backend service endpoints
-      if (Array.isArray(fetchedVips) && fetchedVips.length > 0) {
-        try {
-          const vipPaymentResults = await Promise.allSettled(
-            fetchedVips.map((vc) =>
-              api(`/vip-customers/${vc.id}/payments`)
-                .catch(() => api(`/vip-customers/${vc.id}/transactions`))
-                .catch(() => api(`/customers/vip/${vc.id}/payments`))
-                .catch(() => ({ data: [] }))
-            )
-          );
+      // Update static catalogs when fetched
+      if (isInitial && refResults.length > 0) {
+        const [empRes, prodRes, vipRes, multiStockRes] = refResults;
+        if (empRes) setEmployees(empRes.employees || empRes.data || (Array.isArray(empRes) ? empRes : []));
+        if (prodRes) setProducts(prodRes.products || prodRes.data || (Array.isArray(prodRes) ? prodRes : []));
+        if (multiStockRes) setMultiLocationStock(multiStockRes.inventory || multiStockRes.data || (Array.isArray(multiStockRes) ? multiStockRes : []));
 
-          const allVipPayments = [];
-          vipPaymentResults.forEach((res, idx) => {
-            if (res.status === "fulfilled" && res.value) {
-              const vc = fetchedVips[idx];
-              const pList = res.value.data || res.value.payments || res.value.transactions || (Array.isArray(res.value) ? res.value : []);
-              if (Array.isArray(pList)) {
-                pList.forEach((p) => {
-                  allVipPayments.push({
-                    ...p,
-                    id: p.payment_id || p.id,
-                    amount: Number(p.payment_amount || p.amount || 0),
-                    payment_method: p.payment_method || "VIP Credit",
-                    reference: p.payment_reference || p.reference || "",
-                    status: p.payment_status || p.status || "paid",
-                    paid_at: p.paid_at || p.order_created_at || p.created_at || p.date,
-                    created_at: p.paid_at || p.order_created_at || p.created_at || p.date,
-                    vip_customer_id: vc.id,
-                    customer_name: vc.name,
-                    customer_phone: vc.phone,
-                    tier: vc.tier,
+        const fetchedVips = vipRes?.customers || vipRes?.data || (Array.isArray(vipRes) ? vipRes : []);
+        setVipCustomers(fetchedVips);
+
+        // Fetch dedicated VIP customer payments only on initial load
+        if (Array.isArray(fetchedVips) && fetchedVips.length > 0) {
+          try {
+            const vipPaymentResults = await Promise.allSettled(
+              fetchedVips.map((vc) =>
+                api(`/vip-customers/${vc.id}/payments`)
+                  .catch(() => api(`/vip-customers/${vc.id}/transactions`))
+                  .catch(() => api(`/customers/vip/${vc.id}/payments`))
+                  .catch(() => ({ data: [] }))
+              )
+            );
+
+            const allVipPayments = [];
+            vipPaymentResults.forEach((res, idx) => {
+              if (res.status === "fulfilled" && res.value) {
+                const vc = fetchedVips[idx];
+                const pList = res.value.data || res.value.payments || res.value.transactions || (Array.isArray(res.value) ? res.value : []);
+                if (Array.isArray(pList)) {
+                  pList.forEach((p) => {
+                    allVipPayments.push({
+                      ...p,
+                      id: p.payment_id || p.id,
+                      amount: Number(p.payment_amount || p.amount || 0),
+                      payment_method: p.payment_method || "VIP Credit",
+                      reference: p.payment_reference || p.reference || "",
+                      status: p.payment_status || p.status || "paid",
+                      paid_at: p.paid_at || p.order_created_at || p.created_at || p.date,
+                      created_at: p.paid_at || p.order_created_at || p.created_at || p.date,
+                      vip_customer_id: vc.id,
+                      customer_name: vc.name,
+                      customer_phone: vc.phone,
+                      tier: vc.tier,
+                    });
                   });
-                });
+                }
               }
-            }
-          });
+            });
 
-          if (allVipPayments.length > 0) {
-            setVipPaymentsList(allVipPayments);
+            if (allVipPayments.length > 0) {
+              setVipPaymentsList(allVipPayments);
+            }
+          } catch (vpErr) {
+            console.log("VIP customer payments fetch notice:", vpErr);
           }
-        } catch (vpErr) {
-          console.log("VIP customer payments fetch notice:", vpErr);
         }
       }
 
-      setPayments(pmtsRes.payments || pmtsRes.data || (Array.isArray(pmtsRes) ? pmtsRes : []));
       setLastUpdated(new Date());
     } catch (err) {
       console.error("Failed to fetch admin live data:", err);
@@ -285,7 +301,17 @@ export default function AdminDashboardPage() {
       .filter((t) => t.isUnpaid)
       .reduce((sum, t) => sum + t.totalAmount, 0);
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    // Venue night shift boundary: Shifts operate across midnight up to 7:00 AM.
+    // If the local hour is between 00:00 and 06:59 AM, the shift belongs to yesterday!
+    const now = new Date();
+    const currentHour = now.getHours();
+    const businessDate = new Date(now);
+    if (currentHour < 7) {
+      businessDate.setDate(businessDate.getDate() - 1);
+    }
+    const businessDateStr = businessDate.toISOString().split("T")[0];
+    const shiftCutoffTime = new Date(businessDate);
+    shiftCutoffTime.setHours(17, 0, 0, 0); // 5:00 PM shift start cutoff
 
     // Helper: Check if an order is paid
     const isOrderPaid = (ord) => {
@@ -299,7 +325,7 @@ export default function AdminDashboardPage() {
       );
     };
 
-    // Calculate real revenue from today's orders
+    // Calculate real revenue from today's orders (night-shift aware)
     const todayOrdersGross = (orders || []).reduce((sum, ord) => {
       if (!isOrderPaid(ord)) return sum;
       const dateVal = ord.created_at || ord.createdAt || ord.order_date || ord.date || ord.paid_at;
@@ -308,8 +334,9 @@ export default function AdminDashboardPage() {
         isToday = true;
       } else {
         try {
-          const ordDate = new Date(dateVal).toISOString().split("T")[0];
-          isToday = ordDate === todayStr;
+          const ordTime = new Date(dateVal);
+          const ordDate = ordTime.toISOString().split("T")[0];
+          isToday = ordDate === businessDateStr || ordTime >= shiftCutoffTime;
         } catch {
           isToday = true;
         }
@@ -335,13 +362,15 @@ export default function AdminDashboardPage() {
     );
     const lifetimeGrossRevenue = statsLifetimeSales > 0 ? statsLifetimeSales : (lifetimeOrdersGross || todayGrossRevenue);
 
-    // Operating expenses: strictly filtered for today vs lifetime
+    // Operating expenses: strictly filtered for today's active shift vs lifetime
     const todayExpenses = (expenses || []).reduce((sum, e) => {
       const dateVal = e.date || e.created_at || e.createdAt || e.expense_date;
       if (!dateVal) return sum;
       try {
+        const expTime = new Date(dateVal);
         const dStr = String(dateVal).split(/[T ]/)[0];
-        return dStr === todayStr ? sum + Number(e.amount || e.total || 0) : sum;
+        const isTodayExp = dStr === businessDateStr || expTime >= shiftCutoffTime;
+        return isTodayExp ? sum + Number(e.amount || e.total || 0) : sum;
       } catch {
         return sum;
       }

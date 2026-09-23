@@ -302,46 +302,20 @@ export default function VipCustomersPage() {
 
     try {
       if (editingCustomer) {
-        try {
-          await api(`/vip-customers/${editingCustomer.id}`, {
-            method: "PUT",
-            body: JSON.stringify(payload),
-          });
-        } catch (apiErr) {
-          console.log("VIP API update notice:", apiErr?.message);
-        }
-
-        const updated = customers.map((c) =>
-          c.id === editingCustomer.id
-            ? { ...c, ...payload, credit_limit: limit }
-            : c
-        );
-        saveToStorage(updated);
+        await api(`/vip-customers/${editingCustomer.id}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
         setSuccess("VIP Customer updated successfully");
       } else {
-        let createdCust = null;
-        try {
-          const res = await api("/vip-customers", {
-            method: "POST",
-            body: JSON.stringify(payload),
-          });
-          createdCust = res?.data || res;
-        } catch (apiErr) {
-          console.log("VIP API create notice:", apiErr?.message);
-        }
-
-        const newCust = createdCust?.id ? createdCust : {
-          id: Date.now(),
-          ...payload,
-          current_debt: 0,
-          created_at: new Date().toISOString().split("T")[0],
-        };
-
-        const updated = [newCust, ...customers];
-        saveToStorage(updated);
+        await api("/vip-customers", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
         setSuccess("New VIP Customer registered successfully");
       }
 
+      await loadCustomers();
       setShowModal(false);
       setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
@@ -363,28 +337,17 @@ export default function VipCustomersPage() {
     if (repayAmt > currentDebt) return setError("Repayment amount cannot exceed current debt");
 
     try {
-      try {
-        await api(`/vip-customers/${selectedRepayCustomer.id}/repay`, {
-          method: "POST",
-          body: JSON.stringify({
-            amount: repayAmt,
-            method: repayForm.method,
-            reference: repayForm.reference,
-            notes: repayForm.notes,
-          }),
-        });
-      } catch (apiErr) {
-        console.log("VIP Repay API notice:", apiErr?.message);
-      }
+      await api(`/vip-customers/${selectedRepayCustomer.id}/repay`, {
+        method: "POST",
+        body: JSON.stringify({
+          amount: repayAmt,
+          method: repayForm.method,
+          reference: repayForm.reference,
+          notes: repayForm.notes,
+        }),
+      });
 
-      const newDebt = Math.max(currentDebt - repayAmt, 0);
-      const updated = customers.map((c) =>
-        c.id === selectedRepayCustomer.id
-          ? { ...c, current_debt: newDebt }
-          : c
-      );
-
-      saveToStorage(updated);
+      await loadCustomers();
       setShowRepayModal(false);
       setSuccess(`Successfully recorded repayment of ${repayAmt.toLocaleString()} ETB for ${selectedRepayCustomer.name}`);
       setTimeout(() => setSuccess(""), 4000);
@@ -402,13 +365,12 @@ export default function VipCustomersPage() {
     if (window.confirm("Are you sure you want to delete this VIP Customer profile?")) {
       try {
         await api(`/vip-customers/${id}`, { method: "DELETE" });
-      } catch (apiErr) {
-        console.log("VIP Delete API notice:", apiErr?.message);
+        await loadCustomers();
+        setSuccess("VIP customer deleted");
+        setTimeout(() => setSuccess(""), 3000);
+      } catch (err) {
+        setError(err?.message || "Failed to delete VIP customer");
       }
-      const updated = customers.filter((c) => c.id !== id);
-      saveToStorage(updated);
-      setSuccess("VIP customer deleted");
-      setTimeout(() => setSuccess(""), 3000);
     }
   };
 

@@ -306,9 +306,13 @@ export default function CostAnalysisPage() {
                 Target: {benchmarks.food?.targetRange || "28% - 35%"}
               </span>
             </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2">
-              <span>Cost: {formatMoney(benchmarks.food?.cost || 0)}</span>
-              <span>Sales: {formatMoney(benchmarks.food?.revenue || 0)}</span>
+            <div className="flex items-center justify-between text-xs mt-3 pt-2.5 border-t border-slate-100">
+              <span className="text-slate-600 font-semibold">
+                Cost: <strong className="font-black text-slate-900">{formatMoney(benchmarks.food?.cost || 0)}</strong>
+              </span>
+              <span className="text-slate-600 font-semibold">
+                Sales: <strong className="font-black text-slate-900">{formatMoney(benchmarks.food?.revenue || 0)}</strong>
+              </span>
             </div>
           </div>
         </div>
@@ -336,9 +340,13 @@ export default function CostAnalysisPage() {
                 Target: {benchmarks.bar?.targetRange || "18% - 25%"}
               </span>
             </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2">
-              <span>Cost: {formatMoney(benchmarks.bar?.cost || 0)}</span>
-              <span>Sales: {formatMoney(benchmarks.bar?.revenue || 0)}</span>
+            <div className="flex items-center justify-between text-xs mt-3 pt-2.5 border-t border-slate-100">
+              <span className="text-slate-600 font-semibold">
+                Cost: <strong className="font-black text-slate-900">{formatMoney(benchmarks.bar?.cost || 0)}</strong>
+              </span>
+              <span className="text-slate-600 font-semibold">
+                Sales: <strong className="font-black text-slate-900">{formatMoney(benchmarks.bar?.revenue || 0)}</strong>
+              </span>
             </div>
           </div>
         </div>
@@ -366,9 +374,13 @@ export default function CostAnalysisPage() {
                 Target: {benchmarks.fruit?.targetRange || "15% - 20%"}
               </span>
             </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2">
-              <span>Cost: {formatMoney(benchmarks.fruit?.cost || 0)}</span>
-              <span>Sales: {formatMoney(benchmarks.fruit?.revenue || 0)}</span>
+            <div className="flex items-center justify-between text-xs mt-3 pt-2.5 border-t border-slate-100">
+              <span className="text-slate-600 font-semibold">
+                Cost: <strong className="font-black text-slate-900">{formatMoney(benchmarks.fruit?.cost || 0)}</strong>
+              </span>
+              <span className="text-slate-600 font-semibold">
+                Sales: <strong className="font-black text-slate-900">{formatMoney(benchmarks.fruit?.revenue || 0)}</strong>
+              </span>
             </div>
           </div>
         </div>

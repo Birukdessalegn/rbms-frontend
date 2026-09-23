@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Users,
   UserCheck,
@@ -24,6 +25,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+import { useAuth } from "../../../context/AuthContext";
 import api from "../../../services/api";
 import {
   checkInEmployee,
@@ -71,6 +73,13 @@ function getActiveDuration(checkInString) {
 }
 
 function AttendancePage() {
+  const { user } = useAuth();
+  const normalizedRole = String(user?.role || "").toUpperCase();
+  const canManageAttendance = normalizedRole === "ADMIN" || normalizedRole === "HR";
+
+  const [searchParams] = useSearchParams();
+  const paramEmpId = searchParams.get("employeeId") || "";
+
   // Data States
   const [todayAttendance, setTodayAttendance] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -80,7 +89,7 @@ function AttendancePage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   // Tab State: "today" | "history"
-  const [activeTab, setActiveTab] = useState("today");
+  const [activeTab, setActiveTab] = useState(paramEmpId ? "history" : "today");
 
   // Terminal Quick Check-In / Search State
   const [terminalSearch, setTerminalSearch] = useState("");
@@ -92,11 +101,18 @@ function AttendancePage() {
   const [filters, setFilters] = useState({
     startDate: "",
     endDate: "",
-    employeeId: "",
+    employeeId: paramEmpId,
     status: "all",
     page: 1,
     limit: 20,
   });
+
+  useEffect(() => {
+    if (paramEmpId) {
+      setFilters((prev) => ({ ...prev, employeeId: paramEmpId, page: 1 }));
+      setActiveTab("history");
+    }
+  }, [paramEmpId]);
 
   // Employee History Modal
   const [historyModalEmployee, setHistoryModalEmployee] = useState(null);
@@ -363,15 +379,17 @@ function AttendancePage() {
             </div>
           </div>
 
-          <button
-            onClick={handleTriggerAutoMark}
-            disabled={actionLoading}
-            title="Automatically mark staff without check-ins as absent for the concluded night shift"
-            className="flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-700 disabled:opacity-50 transition cursor-pointer"
-          >
-            <Clock size={16} className={actionLoading ? "animate-spin text-amber-400" : "text-amber-400"} />
-            {actionLoading ? "Marking..." : "Run 7 AM Auto-Marker"}
-          </button>
+          {canManageAttendance && (
+            <button
+              onClick={handleTriggerAutoMark}
+              disabled={actionLoading}
+              title="Automatically mark staff without check-ins as absent for the concluded night shift"
+              className="flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-700 disabled:opacity-50 transition cursor-pointer"
+            >
+              <Clock size={16} className={actionLoading ? "animate-spin text-amber-400" : "text-amber-400"} />
+              {actionLoading ? "Marking..." : "Run 7 AM Auto-Marker"}
+            </button>
+          )}
 
           <button
             onClick={() => {

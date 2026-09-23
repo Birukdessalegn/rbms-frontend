@@ -407,19 +407,23 @@ function AppRoutes() {
               element={<AttendancePage />}
             />
 
-            <Route
-              path="/employees/leave"
-              element={<LeaveManagementPage />}
-            />
+            <Route element={<PermissionRoute permission="leave" />}>
+              <Route
+                path="/employees/leave"
+                element={<LeaveManagementPage />}
+              />
+            </Route>
 
-            <Route
-              path="/employees/payroll"
-              element={<PayrollPage />}
-            />
-            <Route
-              path="/payroll"
-              element={<PayrollPage />}
-            />
+            <Route element={<PermissionRoute permission="payroll" />}>
+              <Route
+                path="/employees/payroll"
+                element={<PayrollPage />}
+              />
+              <Route
+                path="/payroll"
+                element={<PayrollPage />}
+              />
+            </Route>
 
 
             {/* -------------------------

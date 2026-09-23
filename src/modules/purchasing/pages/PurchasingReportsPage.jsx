@@ -112,9 +112,24 @@ export default function PurchasingReportsPage() {
     return purchases.filter((p) => {
       const d = p.purchase_date || p.created_at || p.createdAt || p.date;
       if (d) {
-        const itemDate = new Date(d).toISOString().split("T")[0];
-        if (fromDate && itemDate < fromDate) return false;
-        if (toDate && itemDate > toDate) return false;
+        let itemDate = "";
+        try {
+          if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d)) {
+            itemDate = d.slice(0, 10);
+          } else {
+            const parsed = new Date(d);
+            if (!isNaN(parsed.getTime())) {
+              itemDate = parsed.toISOString().split("T")[0];
+            }
+          }
+        } catch {
+          itemDate = "";
+        }
+
+        if (itemDate) {
+          if (fromDate && itemDate < fromDate) return false;
+          if (toDate && itemDate > toDate) return false;
+        }
       }
 
       if (statusFilter !== "All") {

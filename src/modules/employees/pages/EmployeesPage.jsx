@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "../../../context/AuthContext";
 import api from "../../../services/api";
 
 // =====================================================
@@ -58,7 +60,7 @@ const departments = [
   { id: 3775, name: "Security", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
   { id: 3776, name: "Parking", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
   { id: 3777, name: "Lift Man", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
-  { id: 3778, name: "Host", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
+  { id: 3778, name: "Host", defaultRoleId: 3207, allowedRoleNames: ["host"] },
 ];
 
 const statusStyles = {
@@ -227,6 +229,10 @@ function getEmployeeUsername(employee) {
 // =====================================================
 
 function EmployeesPage() {
+  const { user } = useAuth();
+  const normalizedRole = String(user?.role || "").toUpperCase();
+  const canManageEmployees = normalizedRole === "ADMIN" || normalizedRole === "HR";
+
   const [employeeList, setEmployeeList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -839,13 +845,15 @@ function EmployeesPage() {
           </p>
         </div>
 
-        <button
-          onClick={openCreateForm}
-          className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-        >
-          <Plus size={18} />
-          Add Employee
-        </button>
+        {canManageEmployees && (
+          <button
+            onClick={openCreateForm}
+            className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+          >
+            <Plus size={18} />
+            Add Employee
+          </button>
+        )}
       </div>
 
       {/* ERROR */}
@@ -945,7 +953,7 @@ function EmployeesPage() {
                   Status
                 </th>
                 <th className="px-5 py-3 text-right text-xs font-semibold uppercase text-gray-500">
-                  Actions
+                  {canManageEmployees ? "Actions" : "Attendance"}
                 </th>
               </tr>
             </thead>
@@ -1064,46 +1072,59 @@ function EmployeesPage() {
                       className="px-5 py-4 text-right"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex justify-end gap-2">
-                        {/* Remove Login Account Only (preserves sales/work history) */}
-                        {employee.user_id && (
+                      {canManageEmployees ? (
+                        <div className="flex justify-end gap-2">
+                          {/* Remove Login Account Only (preserves sales/work history) */}
+                          {employee.user_id && (
+                            <button
+                              onClick={() => handleDeleteLoginAccount(employee)}
+                              disabled={deleting}
+                              className="rounded-lg p-2 text-gray-500 hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50"
+                              title="Remove Login Account (Keeps History)"
+                            >
+                              <KeyRound size={17} />
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleDeleteLoginAccount(employee)}
-                            disabled={deleting}
-                            className="rounded-lg p-2 text-gray-500 hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50"
-                            title="Remove Login Account (Keeps History)"
+                            onClick={() => openEditForm(employee)}
+                            className="rounded-lg p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600"
+                            title="Edit employee"
                           >
-                            <KeyRound size={17} />
+                            <Pencil size={17} />
                           </button>
-                        )}
-                        <button
-                          onClick={() => openEditForm(employee)}
-                          className="rounded-lg p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600"
-                          title="Edit employee"
-                        >
-                          <Pencil size={17} />
-                        </button>
 
-                        {String(employee.status).toLowerCase() === "inactive" ? (
-                          <button
-                            onClick={() => handleActivateEmployee(employee)}
-                            disabled={deleting}
-                            className="rounded-lg p-2 text-gray-500 hover:bg-green-50 hover:text-green-600 disabled:opacity-50"
-                            title="Activate employee"
+                          {String(employee.status).toLowerCase() === "inactive" ? (
+                            <button
+                              onClick={() => handleActivateEmployee(employee)}
+                              disabled={deleting}
+                              className="rounded-lg p-2 text-gray-500 hover:bg-green-50 hover:text-green-600 disabled:opacity-50"
+                              title="Activate employee"
+                            >
+                              <UserCheck size={17} />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleDeleteEmployee(employee)}
+                              disabled={deleting}
+                              className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                              title="Deactivate employee"
+                            >
+                              <Trash2 size={17} />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex justify-end gap-2">
+                          <Link
+                            to={`/employees/attendance?employeeId=${employee.id}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                            title="View attendance log"
                           >
-                            <UserCheck size={17} />
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleDeleteEmployee(employee)}
-                            disabled={deleting}
-                            className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                            title="Deactivate employee"
-                          >
-                            <Trash2 size={17} />
-                          </button>
-                        )}
-                      </div>
+                            <Clock size={14} className="text-slate-400" />
+                            Attendance
+                          </Link>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -1644,13 +1665,23 @@ function EmployeesPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => openEditForm(selectedEmployee)}
-                  className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  <Pencil size={16} />
-                  Edit
-                </button>
+                {canManageEmployees ? (
+                  <button
+                    onClick={() => openEditForm(selectedEmployee)}
+                    className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    <Pencil size={16} />
+                    Edit
+                  </button>
+                ) : (
+                  <Link
+                    to={`/employees/attendance?employeeId=${selectedEmployee.id}`}
+                    className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
+                  >
+                    <Clock size={16} />
+                    Attendance Log
+                  </Link>
+                )}
               </div>
 
               {/* LOGIN */}

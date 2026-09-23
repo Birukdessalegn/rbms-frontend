@@ -140,6 +140,8 @@ function FinanceReportsPage() {
       const isPaid = o.payment_status === "paid" || o.status === "completed" || o.status === "served";
       const isCredit = o.payment_method === "credit" || o.payment_status === "credit_pending";
 
+      const rawTimestamp = rawDate ? new Date(rawDate).getTime() : 0;
+
       stream.push({
         id: `REV-${o.id || o.order_id}`,
         type: "Revenue",
@@ -150,6 +152,7 @@ function FinanceReportsPage() {
         isIncome: true,
         date: dateStr,
         time: timeStr,
+        timestamp: isNaN(rawTimestamp) ? 0 : rawTimestamp,
         status: isPaid ? "Verified" : isCredit ? "Credit Pending" : "Pending",
         raw: o,
       });
@@ -161,6 +164,7 @@ function FinanceReportsPage() {
       const dateStr = rawDate ? String(rawDate).split(/[T ]/)[0] : "";
       const timeStr = rawDate ? new Date(rawDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-";
       const amt = Number(e.amount || e.total || 0);
+      const rawTimestamp = rawDate ? new Date(rawDate).getTime() : 0;
 
       stream.push({
         id: `EXP-${e.id}`,
@@ -172,6 +176,7 @@ function FinanceReportsPage() {
         isIncome: false,
         date: dateStr,
         time: timeStr,
+        timestamp: isNaN(rawTimestamp) ? 0 : rawTimestamp,
         status: e.status === "approved" || e.status === "paid" ? "Verified" : "Logged",
         raw: e,
       });
@@ -183,6 +188,7 @@ function FinanceReportsPage() {
       const dateStr = rawDate ? String(rawDate).split(/[T ]/)[0] : "";
       const timeStr = rawDate ? new Date(rawDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-";
       const amt = Number(p.total || p.amount || p.total_amount || 0);
+      const rawTimestamp = rawDate ? new Date(rawDate).getTime() : 0;
 
       stream.push({
         id: `PUR-${p.id}`,
@@ -194,12 +200,13 @@ function FinanceReportsPage() {
         isIncome: false,
         date: dateStr,
         time: timeStr,
+        timestamp: isNaN(rawTimestamp) ? 0 : rawTimestamp,
         status: p.status === "received" ? "Verified" : "Pending Supply",
         raw: p,
       });
     });
 
-    return stream.sort((a, b) => new Date(b.date + " " + b.time) - new Date(a.date + " " + a.time));
+    return stream.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   }, [orders, expenses, purchases]);
 
   // Filter transactions by date range, search & type

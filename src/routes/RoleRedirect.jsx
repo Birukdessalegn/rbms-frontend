@@ -31,7 +31,6 @@ function RoleRedirect() {
     case "PURCHASING":
       return <Navigate to="/purchasing" replace />;
 
-    case "ACCOUNTANT":
     case "FINANCE":
       return <Navigate to="/finance" replace />;
 
@@ -43,6 +42,9 @@ function RoleRedirect() {
 
     case "FRUIT_MANAGER":
       return <Navigate to="/fruit" replace />;
+
+    case "HOST":
+      return <Navigate to="/tables" replace />;
 
     default:
       return <Navigate to="/dashboard" replace />;

@@ -102,14 +102,9 @@ const navigationGroups = [
             icon: UserCheck,
           },
           {
-            name: "Daily Sales Audit",
+            name: "Cashier Sales Audit",
             path: "/pos/sales-audit",
             icon: Receipt,
-          },
-          {
-            name: "Cashier Reconciliation",
-            path: "/finance/cashier-reconciliation",
-            icon: CreditCard,
           },
           {
             name: "POS Reports",
@@ -730,6 +725,15 @@ function DashboardLayout() {
                     child.path?.startsWith("/finance") ||
                     child.path === "/pos/tables" ||
                     child.path === "/tables"
+                  ) {
+                    return false;
+                  }
+                }
+                // Manager is only allowed to see Employee Directory and Attendance Log (no Leave or Payroll)
+                if (normalizedRole === "MANAGER") {
+                  if (
+                    child.path === "/employees/leave" ||
+                    child.path === "/employees/payroll"
                   ) {
                     return false;
                   }

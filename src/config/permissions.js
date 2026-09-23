@@ -39,7 +39,6 @@ export const ROLE_PERMISSIONS = {
     "cashier.reconcile",
     "employees.view",
     "attendance.view",
-    "leave.view",
   ],
 
   [ROLES.FRUIT_MANAGER]: [

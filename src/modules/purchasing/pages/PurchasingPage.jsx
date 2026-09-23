@@ -30,6 +30,7 @@ function PurchasingPage() {
   const [orders, setOrders] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
@@ -87,6 +88,8 @@ function PurchasingPage() {
 
   const [productForm, setProductForm] = useState({
     name: "",
+    categoryId: "",
+    unit: "pcs",
   });
 
   const [savingSupplier, setSavingSupplier] = useState(false);
@@ -115,6 +118,7 @@ function PurchasingPage() {
         loadPurchases(),
         loadSuppliers(),
         loadProducts(),
+        loadCategories(),
       ]);
     } catch (error) {
       console.error("Failed to load purchasing data:", error);
@@ -185,6 +189,20 @@ function PurchasingPage() {
       setProducts([]);
     } finally {
       setLoadingProducts(false);
+    }
+  };
+
+  /* =====================================================
+     LOAD CATEGORIES
+  ===================================================== */
+
+  const loadCategories = async () => {
+    try {
+      const response = await api("/products/categories");
+      setCategories(response.categories || response.data || (Array.isArray(response) ? response : []));
+    } catch (error) {
+      console.error("Failed to load categories:", error);
+      setCategories([]);
     }
   };
 
@@ -387,6 +405,8 @@ function PurchasingPage() {
     setProductTargetItemIndex(itemIndex);
     setProductForm({
       name: "",
+      categoryId: "",
+      unit: "pcs",
     });
 
     setShowProductModal(true);
@@ -418,9 +438,10 @@ function PurchasingPage() {
         method: "POST",
         body: JSON.stringify({
           name: productForm.name.trim(),
+          categoryId: productForm.categoryId ? Number(productForm.categoryId) : undefined,
           price: 0,
           costPrice: 0,
-          unit: "pcs",
+          unit: productForm.unit || "pcs",
           isAvailable: true,
           isActive: true,
         }),
@@ -2036,15 +2057,76 @@ function PurchasingPage() {
                     type="text"
                     value={productForm.name}
                     onChange={(e) =>
-                      setProductForm({
+                      setProductForm((prev) => ({
+                        ...prev,
                         name: e.target.value,
-                      })
+                      }))
                     }
                     placeholder="Enter product name (e.g. Tomato, Coffee Beans)"
                     required
                     autoFocus
                     className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   />
+
+                </div>
+
+                {/* CATEGORY & UNIT */}
+
+                <div className="grid grid-cols-2 gap-3">
+
+                  <div>
+
+                    <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                      Category
+                    </label>
+
+                    <select
+                      value={productForm.categoryId}
+                      onChange={(e) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          categoryId: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 bg-white"
+                    >
+                      <option value="">Select category</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+
+                  </div>
+
+                  <div>
+
+                    <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                      Unit
+                    </label>
+
+                    <select
+                      value={productForm.unit}
+                      onChange={(e) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          unit: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 bg-white"
+                    >
+                      <option value="pcs">pcs</option>
+                      <option value="kg">kg</option>
+                      <option value="g">g</option>
+                      <option value="litre">litre</option>
+                      <option value="bottle">bottle</option>
+                      <option value="crate">crate</option>
+                      <option value="box">box</option>
+                      <option value="pack">pack</option>
+                    </select>
+
+                  </div>
 
                 </div>
 

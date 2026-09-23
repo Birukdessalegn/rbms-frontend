@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useRestaurant } from "../../../context/RestaurantContext";
 import { useAuth } from "../../../context/AuthContext";
 import TableSelector, { isBarSeatTable } from "../components/TableSelector";
@@ -9,6 +10,14 @@ import api from "../../../services/api";
 import ActiveOrders from "../components/ActiveOrders";
 import DrinkPortionModal from "../components/DrinkPortionModal";
 import { getCustomShotsMap } from "../../products/ProductsPage";
+import {
+  AlertTriangle,
+  PlayCircle,
+  ArrowRight,
+  Wallet,
+  X,
+  ShieldCheck,
+} from "lucide-react";
 
 
 function POSPage() {
@@ -22,12 +31,14 @@ function POSPage() {
 
   const userRole = (user?.role || "").toUpperCase();
   const isBartender = userRole === "BARTENDER" || user?.role_id === 8;
+  const isCashier = userRole === "CASHIER" || user?.role_id === 5;
   const isManagerOrAdmin =
     ["ADMIN", "MANAGER", "CASHIER"].includes(userRole) ||
     user?.role_id === 1 ||
     user?.role_id === 2 ||
     user?.role_id === 4;
   const isWaiter = !isBartender && !isManagerOrAdmin;
+  const canManageShift = (isCashier || isManagerOrAdmin) && !isWaiter;
 
   const [orderItems, setOrderItems] = useState([]);
   const orderType = "Dine In";
@@ -36,6 +47,54 @@ function POSPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [portionModalProduct, setPortionModalProduct] = useState(null);
 
+  /* Cashier Shift Verification & Quick Open State */
+  const [currentShift, setCurrentShift] = useState(null);
+  const [checkingShift, setCheckingShift] = useState(false);
+  const [showQuickStartModal, setShowQuickStartModal] = useState(false);
+  const [quickOpeningFloat, setQuickOpeningFloat] = useState("0");
+  const [startingQuickShift, setStartingQuickShift] = useState(false);
+
+  const checkCashierShift = async () => {
+    if (!canManageShift) return;
+    try {
+      setCheckingShift(true);
+      const res = await api("/pos/shifts/current");
+      const shift = res?.shift ?? res?.data ?? null;
+      setCurrentShift(shift && shift.status === "open" ? shift : null);
+    } catch (err) {
+      console.log("POS shift check note:", err);
+    } finally {
+      setCheckingShift(false);
+    }
+  };
+
+  useEffect(() => {
+    checkCashierShift();
+  }, [userRole, canManageShift]);
+
+  const handleQuickStartShift = async (e) => {
+    e.preventDefault();
+    try {
+      setStartingQuickShift(true);
+      const res = await api("/pos/shifts/start", {
+        method: "POST",
+        body: JSON.stringify({
+          opening_cash: Number(quickOpeningFloat) || 0,
+          terminal_id: 1,
+        }),
+      });
+      const shift = res?.shift || res?.data || null;
+      if (shift) {
+        setCurrentShift(shift);
+      }
+      setShowQuickStartModal(false);
+      alert("Cash drawer shift opened successfully! All today's sales will link to this shift.");
+    } catch (err) {
+      alert(err.message || "Failed to start shift");
+    } finally {
+      setStartingQuickShift(false);
+    }
+  };
 
   // Helper to identify spirit/liquor bottle products that should open the portion serving modal
   const isSpiritOrLiquorProduct = (product) => {
@@ -263,6 +322,71 @@ function POSPage() {
         </div>
       </div>
 
+      {/* POS Cash Drawer Open Shift Warning Banner for Cashier / Admin / Manager */}
+      {canManageShift && !checkingShift && !currentShift && (
+        <div className="rounded-2xl border border-amber-300 bg-linear-to-r from-amber-50 via-orange-50 to-amber-50 p-4 sm:p-5 shadow-xs transition-all duration-200">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3 sm:items-center">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-black text-amber-950 sm:text-base">
+                    Cash Drawer Shift is Closed
+                  </h3>
+                  <span className="rounded-full bg-amber-200/80 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-900 border border-amber-300">
+                    Shift Required
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-amber-800">
+                  You have not opened a cash till shift today. Open your shift to record starting cash float and accurately track your daily sales audit.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickOpeningFloat("0");
+                  setShowQuickStartModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-black text-white shadow-sm transition hover:bg-amber-700 active:scale-95"
+              >
+                <PlayCircle size={14} />
+                <span>Open Shift Now</span>
+              </button>
+              <Link
+                to="/pos/sales-audit"
+                className="inline-flex items-center gap-1 rounded-xl border border-amber-300 bg-white/90 px-3.5 py-2 text-xs font-bold text-amber-900 shadow-2xs transition hover:bg-white"
+              >
+                <span>Daily Audit</span>
+                <ArrowRight size={13} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Compact Active Shift Bar */}
+      {canManageShift && currentShift && (
+        <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-2 text-xs text-emerald-900 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-extrabold">Active Cashier Shift #{currentShift.id || currentShift.shift_id}</span>
+            <span className="text-emerald-700">
+              • Starting Float: {(Number(currentShift.opening_cash || 0)).toLocaleString()} ETB
+            </span>
+          </div>
+          <Link
+            to="/pos/sales-audit"
+            className="font-bold text-emerald-700 hover:text-emerald-900 underline inline-flex items-center gap-1"
+          >
+            Daily Sales Audit <ArrowRight size={12} />
+          </Link>
+        </div>
+      )}
+
       <ActiveOrders />
 
 
@@ -362,6 +486,80 @@ function POSPage() {
           onClose={() => setPortionModalProduct(null)}
           onSelectPortion={handleSelectPortion}
         />
+      )}
+
+      {/* QUICK CASH DRAWER OPEN MODAL */}
+      {showQuickStartModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <Wallet size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    Open Cash Drawer Shift
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Enter starting cash float to begin taking orders
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQuickStartModal(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickStartShift} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Starting Cash Float (ETB)
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-xs font-bold text-slate-400">
+                    ETB
+                  </span>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    required
+                    autoFocus
+                    value={quickOpeningFloat}
+                    onChange={(e) => setQuickOpeningFloat(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-13 pr-4 text-sm font-bold text-slate-900 focus:border-blue-500 focus:bg-white focus:outline-hidden transition"
+                  />
+                </div>
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Amount of physical cash placed into the till at the start of your shift.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickStartModal(false)}
+                  className="w-1/2 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={startingQuickShift}
+                  className="w-1/2 rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white shadow-md hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {startingQuickShift ? "Opening..." : "Confirm & Start"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
     </div>

@@ -23,10 +23,16 @@ const api = async (endpoint, options = {}) => {
     });
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (networkErr) {
+    console.error(`🚨 [NETWORK ERROR] Failed to connect to ${options.method || "GET"} ${API_URL}${endpoint}:`, networkErr);
+    throw networkErr;
+  }
 
   let data = {};
 
@@ -41,6 +47,13 @@ const api = async (endpoint, options = {}) => {
   }
 
   if (!response.ok) {
+    console.error(`🚨 [API ERROR ${response.status}] ${options.method || "GET"} ${API_URL}${endpoint}:`, {
+      status: response.status,
+      statusText: response.statusText,
+      errorResponse: data,
+      endpoint,
+    });
+
     if (response.status === 401) {
       console.warn("Session expired or invalid token. Redirecting to login...");
       localStorage.removeItem("token");
@@ -51,9 +64,10 @@ const api = async (endpoint, options = {}) => {
     }
 
     const error = new Error(
-      data.message || `Request failed with status ${response.status}`
+      data.error || data.message || `Request failed with status ${response.status}`
     );
     error.status = response.status;
+    error.data = data;
     error.retryAfter = data.retryAfter;
     throw error;
   }

@@ -90,7 +90,7 @@ function StaffMenuPage() {
       setLoadingMenu(true);
       const [prodRes, catRes] = await Promise.all([
         api("/products").catch(() => ({ products: [] })),
-        api("/product-categories").catch(() => ({ categories: [] })),
+        api("/products/categories").catch(() => ({ categories: [] })),
       ]);
 
       const allProds = prodRes.products || (Array.isArray(prodRes) ? prodRes : []);

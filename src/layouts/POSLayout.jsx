@@ -105,8 +105,9 @@ function POSLayout() {
   }, []);
 
   const userRole = (user?.role || "").toLowerCase();
-  const isWaiter = userRole === "waiter" || Number(user?.roleId || user?.role_id) === 5;
-  const isBartender = userRole === "bartender" || Number(user?.roleId || user?.role_id) === 8;
+  const userRoleId = Number(user?.roleId || user?.role_id || user?.role?.id || 0);
+  const isWaiter = userRole === "waiter" || userRoleId === 6;
+  const isBartender = userRole === "bartender" || userRoleId === 8;
 
   const accessibleMenuItems = menuItems.filter((item) => {
     if ((isWaiter || isBartender) && item.path === "/pos/staff-menu") {

@@ -29,8 +29,13 @@ function StaffMenuPage() {
   const { user } = useAuth();
 
   const userRole = (user?.role || "").toLowerCase();
-  const isWaiter = userRole === "waiter" || Number(user?.roleId || user?.role_id) === 5;
-  if (isWaiter) {
+  const userRoleId = Number(user?.roleId || user?.role_id || user?.role?.id || 0);
+  const isCashier = userRole === "cashier" || userRoleId === 5;
+  const isAdminOrManager = ["admin", "superadmin", "manager"].includes(userRole) || userRoleId === 1 || userRoleId === 2;
+  const canAccessStaffMenu = isCashier || isAdminOrManager;
+
+  // Waiters and other non-cashier staff cannot access the Staff Menu
+  if (!canAccessStaffMenu) {
     return <Navigate to="/pos" replace />;
   }
 

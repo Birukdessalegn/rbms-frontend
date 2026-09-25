@@ -433,14 +433,23 @@ function POSPage() {
               </div>
 
               {/* Search */}
-              <div className="w-full sm:w-72">
+              <div className="relative w-full sm:w-72">
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search products or tags (#fruit, #beer)..."
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-2xs font-semibold"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-2xs font-semibold pr-8"
                 />
+                {searchTerm.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             </div>
 

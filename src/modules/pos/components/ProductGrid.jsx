@@ -93,9 +93,15 @@ const filteredProducts = products.filter((product) => {
     !searchTerm.trim() ||
     pName.includes(searchTerm.toLowerCase()) ||
     pTags.includes(searchTerm.toLowerCase()) ||
-    pCatName.includes(searchTerm.toLowerCase());
+    pCatName.includes(searchTerm.toLowerCase()) ||
+    String(product.product_code || "").toLowerCase().includes(searchTerm.toLowerCase());
 
-  return matchesCategory && matchesSearch;
+  // Global search: when user types in search bar, search across the WHOLE catalog
+  if (searchTerm.trim()) {
+    return matchesSearch;
+  }
+
+  return matchesCategory;
 });
 
   if (loading) {

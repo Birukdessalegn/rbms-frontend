@@ -843,8 +843,12 @@ function ProductsPage() {
         (selTag === "wine" && ((product.category_name || "").toLowerCase().includes("wine") || product.name?.toLowerCase().includes("wine"))) ||
         (selTag === "whiskey" && ((product.category_name || "").toLowerCase().includes("whiskey") || (product.category_name || "").toLowerCase().includes("spirit") || product.name?.toLowerCase().includes("whiskey")));
 
+      // Global search: when typing in the search bar, search across the WHOLE catalog
+      if (search.trim()) {
+        return matchesSearch;
+      }
+
       return (
-        matchesSearch &&
         matchesCategory &&
         matchesApplicable &&
         matchesTag

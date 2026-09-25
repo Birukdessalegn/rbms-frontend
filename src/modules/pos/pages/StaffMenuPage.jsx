@@ -151,6 +151,16 @@ function StaffMenuPage() {
   // Filtered staff products
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
+      const matchesSearch =
+        !searchProduct.trim() ||
+        p.name?.toLowerCase().includes(searchProduct.toLowerCase()) ||
+        p.product_code?.toLowerCase().includes(searchProduct.toLowerCase());
+
+      // Global search: when user types in search bar, search across the WHOLE catalog
+      if (searchProduct.trim()) {
+        return matchesSearch;
+      }
+
       const selCat = String(activeCategory || "all").toLowerCase().trim();
       const pCatId = String(p.category_id || p.categoryId || "");
       const pCatName = String(p.category_name || p.category || "").toLowerCase();
@@ -163,12 +173,7 @@ function StaffMenuPage() {
         (selCat === "food" && (pCatType === "food" || pCatName.includes("food") || pCatName.includes("kitchen"))) ||
         (selCat === "drinks" && (pCatType === "beverage" || pCatType === "bar" || pCatName.includes("drink")));
 
-      const matchesSearch =
-        !searchProduct.trim() ||
-        p.name?.toLowerCase().includes(searchProduct.toLowerCase()) ||
-        p.product_code?.toLowerCase().includes(searchProduct.toLowerCase());
-
-      return matchesCat && matchesSearch;
+      return matchesCat;
     });
   }, [products, activeCategory, searchProduct]);
 
@@ -508,8 +513,17 @@ function StaffMenuPage() {
                     placeholder="Search staff item..."
                     value={searchProduct}
                     onChange={(e) => setSearchProduct(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs outline-none focus:border-purple-500 focus:bg-white"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-7 text-xs outline-none focus:border-purple-500 focus:bg-white"
                   />
+                  {searchProduct.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchProduct("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               </div>
 

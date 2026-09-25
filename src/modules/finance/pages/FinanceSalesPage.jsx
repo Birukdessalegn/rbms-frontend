@@ -43,6 +43,54 @@ function StatCard({ title, value, subtext, icon: Icon, color, bg }) {
   );
 }
 
+const resolvePaymentMethod = (o) => {
+  if (!o) return "cash";
+  const explicit = o.payment_method || o.paymentMethod;
+  if (explicit && String(explicit).trim() !== "") return String(explicit).toLowerCase();
+
+  if (Array.isArray(o.payments) && o.payments.length > 0) {
+    const valid = o.payments.find((p) => p.payment_method || p.method);
+    if (valid) return String(valid.payment_method || valid.method).toLowerCase();
+  }
+
+  if (
+    o.payment_status === "credit_approved" ||
+    o.payment_status === "credit_pending" ||
+    String(o.reference || "").includes("VIP_CREDIT")
+  ) {
+    return "credit";
+  }
+
+  return "cash";
+};
+
+const isMobilePayment = (method) => {
+  return (
+    method === "mobile_money" ||
+    method === "telebirr" ||
+    method === "mobile" ||
+    method === "bank_transfer" ||
+    method === "transfer" ||
+    method === "cbe" ||
+    method === "cbebirr"
+  );
+};
+
+const isCardPayment = (method) => {
+  return method === "card" || method === "pos" || method === "card_pos";
+};
+
+const isCreditPayment = (method, o) => {
+  return method === "credit" || method === "vip_credit" || o?.payment_status === "credit_approved";
+};
+
+const getPaymentLabel = (method, o) => {
+  if (isMobilePayment(method)) return "Mobile Banking";
+  if (isCardPayment(method)) return "Card POS";
+  if (isCreditPayment(method, o)) return "VIP Credit";
+  return "Cash";
+};
+
 function FinanceSalesPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -131,17 +179,11 @@ function FinanceSalesPage() {
       if (endDate && orderDate && orderDate > endDate) return false;
 
       // Payment Method Filter
-      const method = (o.payment_method || "cash").toLowerCase();
+      const method = resolvePaymentMethod(o);
       if (paymentFilter !== "all") {
-        if (paymentFilter === "cash" && method !== "cash") return false;
-        if (
-          paymentFilter === "digital" &&
-          method !== "card" &&
-          method !== "telebirr" &&
-          method !== "mobile_money"
-        )
-          return false;
-        if (paymentFilter === "credit" && method !== "credit") return false;
+        if (paymentFilter === "cash" && (isCardPayment(method) || isMobilePayment(method) || isCreditPayment(method, o))) return false;
+        if (paymentFilter === "digital" && !isCardPayment(method) && !isMobilePayment(method)) return false;
+        if (paymentFilter === "credit" && !isCreditPayment(method, o)) return false;
       }
 
       // Search Query
@@ -176,10 +218,10 @@ function FinanceSalesPage() {
       const amt = Number(o.total || o.total_amount || 0);
       totalRevenue += amt;
 
-      const method = (o.payment_method || "cash").toLowerCase();
-      if (method === "card") cardSales += amt;
-      else if (method === "mobile_money" || method === "telebirr") mobileSales += amt;
-      else if (method === "credit" || o.payment_status === "credit_approved") creditSales += amt;
+      const method = resolvePaymentMethod(o);
+      if (isCardPayment(method)) cardSales += amt;
+      else if (isMobilePayment(method)) mobileSales += amt;
+      else if (isCreditPayment(method, o)) creditSales += amt;
       else cashSales += amt;
     });
 
@@ -279,7 +321,7 @@ function FinanceSalesPage() {
         <StatCard
           title="Digital Sales (Mobile & POS)"
           value={`${(metrics.cardSales + metrics.mobileSales).toLocaleString()} ETB`}
-          subtext={`Telebirr: ${metrics.mobileSales.toLocaleString()} | Card: ${metrics.cardSales.toLocaleString()}`}
+          subtext={`Mobile Banking: ${metrics.mobileSales.toLocaleString()} | Card: ${metrics.cardSales.toLocaleString()}`}
           icon={Smartphone}
           color="text-blue-700"
           bg="bg-blue-50 border border-blue-100"
@@ -371,7 +413,7 @@ function FinanceSalesPage() {
             >
               <option value="all">All Payment Channels</option>
               <option value="cash">Cash Only</option>
-              <option value="digital">Digital (Card & Telebirr)</option>
+              <option value="digital">Digital (Card & Mobile Banking)</option>
               <option value="credit">VIP Credit Tabs</option>
             </select>
           </div>
@@ -424,7 +466,7 @@ function FinanceSalesPage() {
                     ? new Date(rawDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
                     : "—";
 
-                  const method = (order.payment_method || "cash").toLowerCase();
+                  const method = resolvePaymentMethod(order);
                   const totalAmt = Number(order.total || order.total_amount || 0);
 
                   return (
@@ -445,29 +487,25 @@ function FinanceSalesPage() {
                       <td className="px-5 py-4">
                         <span
                           className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${
-                            method === "card"
+                            isCardPayment(method)
                               ? "border-blue-200 bg-blue-50 text-blue-700"
-                              : method === "mobile_money" || method === "telebirr"
+                              : isMobilePayment(method)
                               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                              : method === "credit"
+                              : isCreditPayment(method, order)
                               ? "border-amber-200 bg-amber-50 text-amber-700"
                               : "border-green-200 bg-green-50 text-green-700"
                           }`}
                         >
-                          {method === "card" ? (
+                          {isCardPayment(method) ? (
                             <CreditCard className="h-3 w-3" />
-                          ) : method === "mobile_money" || method === "telebirr" ? (
+                          ) : isMobilePayment(method) ? (
                             <Smartphone className="h-3 w-3" />
+                          ) : isCreditPayment(method, order) ? (
+                            <Users className="h-3 w-3" />
                           ) : (
                             <DollarSign className="h-3 w-3" />
                           )}
-                          {method === "mobile_money" || method === "telebirr"
-                            ? "Telebirr"
-                            : method === "card"
-                            ? "Card POS"
-                            : method === "credit"
-                            ? "VIP Credit"
-                            : "Cash"}
+                          {getPaymentLabel(method, order)}
                         </span>
                       </td>
                       <td className="px-5 py-4 text-right font-black text-slate-900">
@@ -539,7 +577,7 @@ function FinanceSalesPage() {
                 <td className="p-2">{o.created_at ? new Date(o.created_at).toLocaleString() : "—"}</td>
                 <td className="p-2">{o.table_number || "Bar"}</td>
                 <td className="p-2">{o.cashier_name || "Cashier"}</td>
-                <td className="p-2 uppercase">{o.payment_method || "CASH"}</td>
+                <td className="p-2 uppercase">{getPaymentLabel(resolvePaymentMethod(o), o)}</td>
                 <td className="p-2 text-right font-bold">{Number(o.total || 0).toLocaleString()}</td>
               </tr>
             ))}
@@ -592,7 +630,7 @@ function FinanceSalesPage() {
                 <div>
                   <span className="text-slate-400 block">Payment Method:</span>
                   <span className="font-bold text-slate-800 uppercase">
-                    {selectedOrder.payment_method || "Cash"}
+                    {getPaymentLabel(resolvePaymentMethod(selectedOrder), selectedOrder)}
                   </span>
                 </div>
                 <div>

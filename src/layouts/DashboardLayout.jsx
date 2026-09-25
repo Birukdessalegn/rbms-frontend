@@ -452,8 +452,6 @@ function DashboardLayout() {
   const [showThemeMenu, setShowThemeMenu] =
     useState(false);
 
-  const [searchQuery, setSearchQuery] =
-    useState("");
 
   const [soundMuted, setSoundMuted] =
     useState(!audioService.isAudioEnabled());
@@ -1214,25 +1212,6 @@ function DashboardLayout() {
 
           <div className="flex items-center gap-2.5 md:gap-4">
 
-            {/* SEARCH */}
-
-            <div className="relative hidden md:block w-56 lg:w-72">
-
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-              <input
-                type="text"
-                placeholder="Search orders, items..."
-                value={searchQuery}
-                onChange={(e) =>
-                  setSearchQuery(
-                    e.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-9 pr-12 text-xs md:text-sm text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
-
-            </div>
 
             {/* =================================================
                 SOUND CHIME TOGGLE

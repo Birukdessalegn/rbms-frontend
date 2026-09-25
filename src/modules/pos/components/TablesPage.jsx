@@ -579,8 +579,53 @@ function TablesPage() {
             placeholder="Search table or seat..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white py-1.5 pl-9 pr-3 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-xl border border-slate-200 bg-white py-1.5 pl-9 pr-7 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
+          {searchQuery.trim() && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+            >
+              ✕
+            </button>
+          )}
+
+          {/* Floating Dropdown for Tables */}
+          {searchQuery.trim() && (
+            <div className="absolute left-0 top-full mt-1.5 w-full sm:w-72 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl z-50 p-1 divide-y divide-slate-100">
+              {filteredTables.length === 0 ? (
+                <div className="p-3 text-xs text-slate-400 text-center">No matching tables or seats</div>
+              ) : (
+                filteredTables.slice(0, 15).map((tbl) => (
+                  <button
+                    key={tbl.id}
+                    type="button"
+                    onClick={() => setSearchQuery(tbl.label || tbl.name)}
+                    className="w-full flex items-center justify-between p-2.5 text-left hover:bg-blue-50 rounded-lg transition group cursor-pointer"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="text-xs font-bold text-slate-800 group-hover:text-blue-700 truncate transition">
+                        {tbl.label || tbl.name}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        Capacity: {tbl.capacity || 4} guests • Section: {tbl.section || "Dining"}
+                      </div>
+                    </div>
+                    <span
+                      className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        tbl.status === "occupied"
+                          ? "bg-rose-100 text-rose-700"
+                          : "bg-emerald-100 text-emerald-800"
+                      }`}
+                    >
+                      {tbl.status === "occupied" ? "Occupied" : "Available"}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </div>
 

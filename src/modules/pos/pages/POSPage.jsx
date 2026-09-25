@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useRestaurant } from "../../../context/RestaurantContext";
 import { useAuth } from "../../../context/AuthContext";
@@ -30,7 +30,7 @@ function POSPage() {
   } = useRestaurant();
 
   const userRole = (user?.role || "").toUpperCase();
-  const isBartender = userRole === "BARTENDER" || user?.role_id === 8;
+  const isBartender = userRole === "BARTENDER" || user?.role_id === 7;
   const isCashier = userRole === "CASHIER" || user?.role_id === 5;
   const isManagerOrAdmin =
     ["ADMIN", "MANAGER", "CASHIER"].includes(userRole) ||
@@ -45,7 +45,40 @@ function POSPage() {
   const [selectedTable, setSelectedTable] = useState(null);
   const [activeCategory, setActiveCategory] = useState(isBartender ? "drinks" : "all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [allProducts, setAllProducts] = useState([]);
   const [portionModalProduct, setPortionModalProduct] = useState(null);
+
+  // Floating search dropdown products
+  const matchingSearchProducts = useMemo(() => {
+    if (!searchTerm.trim()) return [];
+    const term = searchTerm.toLowerCase();
+    return allProducts.filter((p) => {
+      if (p.is_active === false || p.menu_type === "employee") return false;
+      const applicable = (p.applicable_for || p.applicableFor || "both").toLowerCase();
+      if (applicable === "inventory") return false;
+
+      if (isBartender) {
+        const catType = (p.category_type || "").toLowerCase();
+        const catName = (p.category_name || "").toLowerCase();
+        const isFood =
+          catType === "food" ||
+          catName.includes("food") ||
+          catName.includes("kitchen") ||
+          catName.includes("burger") ||
+          catName.includes("pizza") ||
+          catName.includes("salad") ||
+          catName.includes("meal") ||
+          catName.includes("dessert");
+        if (isFood) return false;
+      }
+
+      const name = (p.name || "").toLowerCase();
+      const tags = (p.tags || p.tag || "").toLowerCase();
+      const cat = (p.category_name || "").toLowerCase();
+      const code = String(p.product_code || "").toLowerCase();
+      return name.includes(term) || tags.includes(term) || cat.includes(term) || code.includes(term);
+    });
+  }, [allProducts, searchTerm, isBartender]);
 
   /* Cashier Shift Verification & Quick Open State */
   const [currentShift, setCurrentShift] = useState(null);
@@ -450,6 +483,39 @@ function POSPage() {
                     ✕
                   </button>
                 )}
+
+                {/* Floating Dropdown for POS Products */}
+                {searchTerm.trim() && (
+                  <div className="absolute left-0 top-full mt-1.5 w-full sm:w-80 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl z-50 p-1 divide-y divide-slate-100">
+                    {matchingSearchProducts.length === 0 ? (
+                      <div className="p-3 text-xs text-slate-400 text-center">No matching products found</div>
+                    ) : (
+                      matchingSearchProducts.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            handleAddProduct(p);
+                            setSearchTerm("");
+                          }}
+                          className="w-full flex items-center justify-between p-2.5 text-left hover:bg-blue-50 rounded-lg transition group cursor-pointer"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="text-xs font-bold text-slate-800 group-hover:text-blue-700 truncate transition">
+                              {p.name}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {p.category_name || p.category || "Item"}
+                            </div>
+                          </div>
+                          <span className="shrink-0 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                            {Number(p.price || 0).toLocaleString()} ETB
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -468,6 +534,7 @@ function POSPage() {
               orderItems={orderItems}
               searchTerm={searchTerm}
               isBartender={isBartender}
+              onProductsLoaded={setAllProducts}
             />
           </div>
         </div>

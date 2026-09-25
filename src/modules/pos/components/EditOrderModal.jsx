@@ -307,11 +307,17 @@ function EditOrderModal({
         (selCat === 'drinks' && (pCatType === 'beverage' || pCatType === 'bar' || pCatName.includes('drink') || pCatName.includes('beer') || pCatName.includes('wine') || pCatName.includes('liquor')));
 
       const matchesSearch =
-        !searchTerm ||
+        !searchTerm.trim() ||
         p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.tags?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.category_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.product_code?.toLowerCase().includes(searchTerm.toLowerCase());
 
-      return matchesCategory && matchesSearch;
+      if (searchTerm.trim()) {
+        return matchesSearch;
+      }
+
+      return matchesCategory;
     });
   }, [products, activeCategory, searchTerm]);
 
@@ -581,6 +587,39 @@ function EditOrderModal({
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
+                )}
+
+                {/* Floating Dropdown */}
+                {searchTerm.trim() && (
+                  <div className="absolute left-0 top-full mt-1 w-full max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl z-50 p-1 divide-y divide-slate-100">
+                    {filteredProducts.length === 0 ? (
+                      <div className="p-3 text-xs text-slate-400 text-center">No matching products found</div>
+                    ) : (
+                      filteredProducts.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            handleAddProduct(p);
+                            setSearchTerm('');
+                          }}
+                          className="w-full flex items-center justify-between p-2 text-left hover:bg-blue-50 rounded-lg transition group cursor-pointer"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="text-xs font-bold text-slate-800 group-hover:text-blue-700 truncate transition">
+                              {p.name}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {p.category_name || p.category || 'Item'}
+                            </div>
+                          </div>
+                          <span className="shrink-0 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                            {Number(p.price || 0).toLocaleString()} ETB
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
                 )}
               </div>
 

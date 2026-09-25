@@ -1235,21 +1235,54 @@ function ProductsPage() {
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row md:items-center md:justify-between">
 
           {/* Search */}
-
           <div className="relative w-full md:max-w-sm">
-
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
             <input
               type="text"
               placeholder="Search products..."
               value={search}
-              onChange={(e) =>
-                setSearch(e.target.value)
-              }
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-4 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-8 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
             />
+            {search.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            )}
 
+            {/* Floating Dropdown for Products */}
+            {search.trim() && (
+              <div className="absolute left-0 top-full mt-1.5 w-full max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl z-50 p-1 divide-y divide-slate-100">
+                {filteredProducts.length === 0 ? (
+                  <div className="p-3 text-xs text-slate-400 text-center">No matching products found</div>
+                ) : (
+                  filteredProducts.slice(0, 15).map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSearch(p.name)}
+                      className="w-full flex items-center justify-between p-2.5 text-left hover:bg-blue-50 rounded-lg transition group cursor-pointer"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="text-xs font-bold text-slate-800 group-hover:text-blue-700 truncate transition">
+                          {p.name}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {p.category_name || "Product"} {p.product_code ? `• ${p.product_code}` : ""}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {Number(p.price || 0).toLocaleString()} ETB
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-3">

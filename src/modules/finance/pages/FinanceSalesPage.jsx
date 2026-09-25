@@ -400,8 +400,47 @@ function FinanceSalesPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by Order ID, Cashier, Table, or Customer..."
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-xs font-medium text-slate-900 outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100 transition"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-8 py-2 text-xs font-medium text-slate-900 outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100 transition"
             />
+            {searchQuery.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            )}
+
+            {/* Floating Dropdown for Sales Orders */}
+            {searchQuery.trim() && (
+              <div className="absolute left-0 top-full mt-1.5 w-full max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl z-50 p-1 divide-y divide-slate-100">
+                {filteredOrders.length === 0 ? (
+                  <div className="p-3 text-xs text-slate-400 text-center">No matching sales orders found</div>
+                ) : (
+                  filteredOrders.slice(0, 15).map((ord) => (
+                    <button
+                      key={ord.id}
+                      type="button"
+                      onClick={() => setSearchQuery(String(ord.order_number || ord.id))}
+                      className="w-full flex items-center justify-between p-2.5 text-left hover:bg-emerald-50 rounded-lg transition group cursor-pointer"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="text-xs font-bold text-slate-800 group-hover:text-emerald-700 truncate transition">
+                          Order #{ord.order_number || ord.id}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {ord.table_label ? `Table ${ord.table_label}` : "Quick Order"} • {ord.cashier_name || ord.waiter_name || "Staff"}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        {Number(ord.total_amount || ord.total || 0).toLocaleString()} ETB
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

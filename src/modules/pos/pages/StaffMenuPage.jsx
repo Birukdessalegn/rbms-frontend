@@ -453,8 +453,57 @@ function StaffMenuPage() {
                       placeholder="Search employee by name, department, or ID..."
                       value={employeeSearch}
                       onChange={(e) => setEmployeeSearch(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-9 pr-4 text-xs font-medium outline-none focus:border-purple-500 focus:bg-white focus:ring-2 focus:ring-purple-100 transition"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-9 pr-8 text-xs font-medium outline-none focus:border-purple-500 focus:bg-white focus:ring-2 focus:ring-purple-100 transition"
                     />
+                    {employeeSearch.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => setEmployeeSearch("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                      >
+                        ✕
+                      </button>
+                    )}
+
+                    {/* Floating Dropdown for Employee Search */}
+                    {employeeSearch.trim() && (
+                      <div className="absolute left-0 top-full mt-1.5 w-full max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl z-50 p-1 divide-y divide-slate-100">
+                        {filteredEmployees.length === 0 ? (
+                          <div className="p-3 text-xs text-slate-400 text-center">No active staff members found</div>
+                        ) : (
+                          filteredEmployees.map((emp) => (
+                            <button
+                              key={emp.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedEmployee(emp);
+                                setEmployeeSearch("");
+                              }}
+                              className="w-full flex items-center justify-between p-2.5 text-left hover:bg-purple-50 rounded-lg transition group cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-700 text-xs font-bold shrink-0 group-hover:bg-purple-600 group-hover:text-white transition">
+                                  {(emp.first_name || "E")[0]}
+                                </div>
+                                <div>
+                                  <div className="text-xs font-bold text-slate-800 group-hover:text-purple-700 transition">
+                                    {emp.first_name} {emp.last_name || ""}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400">
+                                    {emp.department || "Staff"} • {emp.role_name || emp.role || "Employee"}
+                                  </div>
+                                </div>
+                              </div>
+                              {emp.employee_code && (
+                                <span className="font-mono text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded">
+                                  ID: {emp.employee_code}
+                                </span>
+                              )}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Employees Quick Select List */}
@@ -506,7 +555,7 @@ function StaffMenuPage() {
                 </div>
 
                 {/* Search */}
-                <div className="relative w-full sm:w-64">
+                <div className="relative w-full sm:w-72">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                   <input
                     type="text"
@@ -523,6 +572,49 @@ function StaffMenuPage() {
                     >
                       ✕
                     </button>
+                  )}
+
+                  {/* Floating Dropdown for Staff Menu Items */}
+                  {searchProduct.trim() && (
+                    <div className="absolute left-0 top-full mt-1.5 w-full sm:w-80 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl z-50 p-1 divide-y divide-slate-100">
+                      {filteredProducts.length === 0 ? (
+                        <div className="p-3 text-xs text-slate-400 text-center">No matching staff items found</div>
+                      ) : (
+                        filteredProducts.map((prod) => {
+                          const sPrice = Number(prod.staff_price !== null && prod.staff_price !== undefined ? prod.staff_price : 0);
+                          const isFree = sPrice === 0;
+                          return (
+                            <button
+                              key={prod.id}
+                              type="button"
+                              onClick={() => {
+                                addToCart(prod);
+                                setSearchProduct("");
+                              }}
+                              className="w-full flex items-center justify-between p-2.5 text-left hover:bg-purple-50 rounded-lg transition group cursor-pointer"
+                            >
+                              <div className="min-w-0 pr-2">
+                                <div className="text-xs font-bold text-slate-800 group-hover:text-purple-700 truncate transition">
+                                  {prod.name}
+                                </div>
+                                <div className="text-[10px] text-slate-400">
+                                  {prod.category_name || "Staff Meal"}
+                                </div>
+                              </div>
+                              <span
+                                className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${
+                                  isFree
+                                    ? "bg-emerald-100 text-emerald-800 font-black"
+                                    : "bg-purple-100 text-purple-700"
+                                }`}
+                              >
+                                {isFree ? "FREE" : `${sPrice.toLocaleString()} ETB`}
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

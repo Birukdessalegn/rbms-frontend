@@ -924,8 +924,55 @@ function EmployeesPage() {
               placeholder="Search employees..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
+              className="w-full rounded-lg border border-gray-200 py-2.5 pl-10 pr-8 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
             />
+            {search.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            )}
+
+            {/* Floating Dropdown for Employees */}
+            {search.trim() && (
+              <div className="absolute left-0 top-full mt-1.5 w-full max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl z-50 p-1 divide-y divide-slate-100">
+                {filteredEmployees.length === 0 ? (
+                  <div className="p-3 text-xs text-slate-400 text-center">No matching employees found</div>
+                ) : (
+                  filteredEmployees.slice(0, 15).map((emp) => {
+                    const empName = getEmployeeName(emp);
+                    return (
+                      <button
+                        key={emp.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedEmployee(emp);
+                          setSearch(empName);
+                        }}
+                        className="w-full flex items-center justify-between p-2.5 text-left hover:bg-blue-50 rounded-lg transition group cursor-pointer"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="text-xs font-bold text-slate-800 group-hover:text-blue-700 truncate transition">
+                            {empName}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {emp.role_name || emp.role || "Employee"} • {emp.department || "General"}
+                          </div>
+                        </div>
+                        {emp.employee_code && (
+                          <span className="shrink-0 font-mono text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                            {emp.employee_code}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
         </div>
 

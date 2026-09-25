@@ -1112,6 +1112,38 @@ export default function FruitOrdersPage() {
                   <X size={14} />
                 </button>
               )}
+
+              {/* Floating Dropdown for Fruit Products */}
+              {productSearch.trim() && (
+                <div className="absolute left-0 top-full mt-1.5 w-full sm:w-80 max-h-60 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 shadow-2xl z-50 p-1 divide-y divide-slate-800">
+                  {filteredFruitProducts.length === 0 ? (
+                    <div className="p-3 text-xs text-slate-400 text-center">No matching fruit items</div>
+                  ) : (
+                    filteredFruitProducts.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setProductSearch(p.name);
+                        }}
+                        className="w-full flex items-center justify-between p-2 text-left hover:bg-slate-800 rounded-lg transition group cursor-pointer"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="text-xs font-bold text-white group-hover:text-orange-400 truncate transition">
+                            {p.name}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {p.category_name || "Fruit"} • {p.current_stock || 0} in stock
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-xs font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
+                          {Number(p.price || 0).toLocaleString()} ETB
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

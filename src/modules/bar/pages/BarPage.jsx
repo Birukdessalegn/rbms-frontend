@@ -987,6 +987,38 @@ function BarPage() {
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
+
+              {/* Floating Dropdown for Bar Drinks */}
+              {searchQuery.trim() && (
+                <div className="absolute left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl z-50 p-1 divide-y divide-slate-100">
+                  {filteredBarDrinks.length === 0 ? (
+                    <div className="p-3 text-xs text-slate-400 text-center">No matching drinks found</div>
+                  ) : (
+                    filteredBarDrinks.map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => {
+                          setSpotlightDrink(d);
+                          setSearchQuery("");
+                          const el = document.getElementById(`bar-drink-card-${d.id}`);
+                          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }}
+                        className="w-full flex items-center justify-between p-2 text-left hover:bg-purple-50 rounded-lg transition group cursor-pointer"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="text-xs font-bold text-slate-800 group-hover:text-purple-700 truncate transition">
+                            {d.name || d.product_name}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {d.category || "Drink"} • {d.isShotBased ? `${d.shotsRemaining} shots` : `${d.currentStock} in stock`}
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

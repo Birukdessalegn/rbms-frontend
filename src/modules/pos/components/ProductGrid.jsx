@@ -9,6 +9,7 @@ function ProductGrid({
   orderItems = [],
   searchTerm = "",
   isBartender = false,
+  onProductsLoaded,
 })  {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +23,11 @@ function ProductGrid({
 
         const response = await api("/products");
 
-        setProducts(response.products || []);
+        const prods = response.products || [];
+        setProducts(prods);
+        if (onProductsLoaded) {
+          onProductsLoaded(prods);
+        }
       } catch (error) {
         console.error("Failed to fetch products:", error);
         setError(

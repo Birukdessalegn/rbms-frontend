@@ -305,8 +305,47 @@ function InventoryPage() {
                 placeholder="Search stock..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-44 rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 outline-none focus:border-amber-500 focus:w-56 transition-all"
+                className="w-44 rounded-xl border border-slate-200 bg-white pl-8 pr-7 py-1.5 text-xs text-slate-800 outline-none focus:border-amber-500 focus:w-56 transition-all"
               />
+              {searchQuery.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
+
+              {/* Floating Dropdown for Inventory */}
+              {searchQuery.trim() && (
+                <div className="absolute right-0 top-full mt-1.5 w-64 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl z-50 p-1 divide-y divide-slate-100">
+                  {filteredInventory.length === 0 ? (
+                    <div className="p-3 text-xs text-slate-400 text-center">No matching inventory items</div>
+                  ) : (
+                    filteredInventory.slice(0, 15).map((item) => (
+                      <button
+                        key={item.id || item.product_id}
+                        type="button"
+                        onClick={() => setSearchQuery(item.name || item.product_name)}
+                        className="w-full flex items-center justify-between p-2 text-left hover:bg-amber-50 rounded-lg transition group cursor-pointer"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="text-xs font-bold text-slate-800 group-hover:text-amber-700 truncate transition">
+                            {item.name || item.product_name}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {item.category || item.category_name || "Stock"}
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
+                          {(item.total_stock ?? item.current_stock ?? 0)} {item.unit || "pcs"}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

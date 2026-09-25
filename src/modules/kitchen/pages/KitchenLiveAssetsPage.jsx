@@ -414,8 +414,47 @@ function KitchenLiveAssetsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search dishes, plates, salads, fruit, or code..."
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-10 pr-4 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/10"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-10 pr-8 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/10"
             />
+            {searchQuery.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            )}
+
+            {/* Floating Dropdown for Kitchen Dishes/Assets */}
+            {searchQuery.trim() && (
+              <div className="absolute left-0 top-full mt-1.5 w-full max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl z-50 p-1 divide-y divide-slate-100">
+                {filteredAssets.length === 0 ? (
+                  <div className="p-3 text-xs text-slate-400 text-center">No matching kitchen dishes found</div>
+                ) : (
+                  filteredAssets.slice(0, 15).map((dish) => (
+                    <button
+                      key={dish.id}
+                      type="button"
+                      onClick={() => setSearchQuery(dish.name || dish.product_name)}
+                      className="w-full flex items-center justify-between p-2.5 text-left hover:bg-amber-50 rounded-lg transition group cursor-pointer"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="text-xs font-bold text-slate-800 group-hover:text-amber-700 truncate transition">
+                          {dish.name || dish.product_name}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {dish.category || "Kitchen"} {dish.code ? `• ${dish.code}` : ""}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {dish.current_stock || 0} in stock
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
           {/* View Toggle */}

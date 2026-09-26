@@ -434,7 +434,7 @@ export default function FruitOrdersPage() {
   }, [fruitProducts]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-16 font-sans">
+    <div className="space-y-6 pb-16 font-sans">
       {/* NEW ORDER MODAL ALERT */}
       {alertOrder && (
         <NewOrderAlertModal
@@ -444,625 +444,594 @@ export default function FruitOrdersPage() {
         />
       )}
 
-      {/* TOP BAR */}
-      <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 sm:px-6 py-4">
-        <div className="mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-orange-500/20 text-white font-bold">
-              🍉
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                  Fruit Station
-                </h1>
-                <span className="rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-bold">
-                  LIVE KDS
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">
-                Fruit Manager Live Queue • Fresh Fruit Platters & Juices
-              </p>
-            </div>
+      {/* TOP HEADER CARD */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500 text-white font-black text-xl shadow-md shadow-amber-500/20">
+            🍉
           </div>
-
-          {/* QUICK CONTROLS */}
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {/* SOUND TOGGLE */}
-            <button
-              onClick={() => setSoundEnabled((prev) => !prev)}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition border ${
-                soundEnabled
-                  ? "bg-slate-800 text-amber-400 border-amber-500/30 hover:bg-slate-700"
-                  : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
-              }`}
-              title={soundEnabled ? "Mute alert sounds" : "Enable alert sounds"}
-            >
-              {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-              <span>{soundEnabled ? "Sound On" : "Muted"}</span>
-            </button>
-
-            {/* FRUIT ONLY FILTER TOGGLE */}
-            <button
-              onClick={() => setOnlyFruit((prev) => !prev)}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition border ${
-                onlyFruit
-                  ? "bg-orange-500/20 text-orange-300 border-orange-500/40"
-                  : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
-              }`}
-            >
-              <Filter size={15} />
-              <span>{onlyFruit ? "Fruit Only" : "All Orders"}</span>
-            </button>
-
-            {/* REFRESH */}
-            <button
-              onClick={() => fetchOrders(true)}
-              disabled={refreshing}
-              className="flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition disabled:opacity-50"
-            >
-              <RefreshCw size={15} className={refreshing ? "animate-spin text-orange-400" : ""} />
-              <span>Refresh</span>
-            </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black text-slate-900 tracking-tight">
+                Fruit Station
+              </h1>
+              <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-xs font-bold">
+                LIVE KDS
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Fruit Preparation Queue • Fresh Fruit Platters, Bowls & Juices
+            </p>
           </div>
         </div>
 
-        {/* DYNAMIC KPI STATS BAR (ORDERS vs FRUIT PRODUCTS) */}
+        {/* QUICK CONTROLS */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* SOUND TOGGLE */}
+          <button
+            onClick={() => setSoundEnabled((prev) => !prev)}
+            className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition border cursor-pointer ${
+              soundEnabled
+                ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+            }`}
+            title={soundEnabled ? "Mute alert sounds" : "Enable alert sounds"}
+          >
+            {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+            <span>{soundEnabled ? "Sound On" : "Muted"}</span>
+          </button>
+
+          {/* FRUIT ONLY FILTER TOGGLE */}
+          <button
+            onClick={() => setOnlyFruit((prev) => !prev)}
+            className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition border cursor-pointer ${
+              onlyFruit
+                ? "bg-amber-500 text-white border-amber-500 shadow-xs"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <Filter size={15} />
+            <span>{onlyFruit ? "Fruit Only" : "All Orders"}</span>
+          </button>
+
+          {/* REFRESH */}
+          <button
+            onClick={() => fetchOrders(true)}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs transition disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw size={15} className={refreshing ? "animate-spin text-amber-500" : ""} />
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      {/* DYNAMIC KPI STATS BAR (ORDERS vs FRUIT PRODUCTS) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {mainSectionTab === "orders" ? (
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <>
             <div
               onClick={() => setStatusFilter("pending")}
-              className={`cursor-pointer rounded-xl border p-3 transition ${
+              className={`cursor-pointer rounded-2xl border p-4 transition shadow-xs ${
                 statusFilter === "pending"
-                  ? "bg-amber-500/20 border-amber-500/50 shadow-md shadow-amber-500/10"
-                  : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                  ? "bg-amber-50 border-amber-400 ring-2 ring-amber-400/20"
+                  : "bg-white border-slate-200 hover:border-slate-300"
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-amber-400 flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
-                  New / Pending
-                </span>
-                <span className="text-xl font-black text-amber-300">
-                  {stats.pendingCount}
-                </span>
-              </div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+                New / Pending
+              </span>
+              <p className="mt-1 text-2xl font-black text-amber-600">{stats.pendingCount}</p>
             </div>
 
             <div
               onClick={() => setStatusFilter("preparing")}
-              className={`cursor-pointer rounded-xl border p-3 transition ${
+              className={`cursor-pointer rounded-2xl border p-4 transition shadow-xs ${
                 statusFilter === "preparing"
-                  ? "bg-blue-500/20 border-blue-500/50 shadow-md shadow-blue-500/10"
-                  : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                  ? "bg-blue-50 border-blue-400 ring-2 ring-blue-400/20"
+                  : "bg-white border-slate-200 hover:border-slate-300"
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-blue-400 flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-blue-400"></span>
-                  In Preparation
-                </span>
-                <span className="text-xl font-black text-blue-300">
-                  {stats.preparingCount}
-                </span>
-              </div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                In Preparation
+              </span>
+              <p className="mt-1 text-2xl font-black text-blue-600">{stats.preparingCount}</p>
             </div>
 
             <div
               onClick={() => setStatusFilter("ready")}
-              className={`cursor-pointer rounded-xl border p-3 transition ${
+              className={`cursor-pointer rounded-2xl border p-4 transition shadow-xs ${
                 statusFilter === "ready"
-                  ? "bg-emerald-500/20 border-emerald-500/50 shadow-md shadow-emerald-500/10"
-                  : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                  ? "bg-emerald-50 border-emerald-400 ring-2 ring-emerald-400/20"
+                  : "bg-white border-slate-200 hover:border-slate-300"
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-emerald-400 flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
-                  Ready for Pickup
-                </span>
-                <span className="text-xl font-black text-emerald-300">
-                  {stats.readyCount}
-                </span>
-              </div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                Ready for Pickup
+              </span>
+              <p className="mt-1 text-2xl font-black text-emerald-600">{stats.readyCount}</p>
             </div>
 
             <div
               onClick={() => setStatusFilter("active")}
-              className={`cursor-pointer rounded-xl border p-3 transition ${
+              className={`cursor-pointer rounded-2xl border p-4 transition shadow-xs ${
                 statusFilter === "active"
-                  ? "bg-orange-500/20 border-orange-500/50 shadow-md shadow-orange-500/10"
-                  : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                  ? "bg-orange-50 border-orange-400 ring-2 ring-orange-400/20"
+                  : "bg-white border-slate-200 hover:border-slate-300"
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
-                  <Layers size={14} className="text-orange-400" />
-                  Total Active
-                </span>
-                <span className="text-xl font-black text-white">
-                  {stats.pendingCount + stats.preparingCount + stats.readyCount}
-                </span>
-              </div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Layers size={14} className="text-orange-500" />
+                Total Active
+              </span>
+              <p className="mt-1 text-2xl font-black text-slate-900">
+                {stats.pendingCount + stats.preparingCount + stats.readyCount}
+              </p>
             </div>
-          </div>
+          </>
         ) : (
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <>
             <div
               onClick={() => setProductStockFilter("all")}
-              className={`cursor-pointer rounded-xl border p-3 transition ${
+              className={`cursor-pointer rounded-2xl border p-4 transition shadow-xs ${
                 productStockFilter === "all"
-                  ? "bg-orange-500/20 border-orange-500/50 shadow-md shadow-orange-500/10"
-                  : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                  ? "bg-amber-50 border-amber-400 ring-2 ring-amber-400/20"
+                  : "bg-white border-slate-200 hover:border-slate-300"
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-orange-400 flex items-center gap-1.5">
-                  <Apple size={14} />
-                  Fruit Catalog
-                </span>
-                <span className="text-xl font-black text-white">
-                  {productStats.total}
-                </span>
-              </div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Apple size={14} className="text-amber-500" />
+                Fruit Catalog
+              </span>
+              <p className="mt-1 text-2xl font-black text-slate-900">{productStats.total}</p>
             </div>
 
             <div
               onClick={() => setProductStockFilter("in_stock")}
-              className={`cursor-pointer rounded-xl border p-3 transition ${
+              className={`cursor-pointer rounded-2xl border p-4 transition shadow-xs ${
                 productStockFilter === "in_stock"
-                  ? "bg-emerald-500/20 border-emerald-500/50 shadow-md shadow-emerald-500/10"
-                  : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                  ? "bg-emerald-50 border-emerald-400 ring-2 ring-emerald-400/20"
+                  : "bg-white border-slate-200 hover:border-slate-300"
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-emerald-400 flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
-                  In Stock
-                </span>
-                <span className="text-xl font-black text-emerald-300">
-                  {productStats.inStock}
-                </span>
-              </div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                In Stock
+              </span>
+              <p className="mt-1 text-2xl font-black text-emerald-600">{productStats.inStock}</p>
             </div>
 
             <div
               onClick={() => setProductStockFilter("low_stock")}
-              className={`cursor-pointer rounded-xl border p-3 transition ${
+              className={`cursor-pointer rounded-2xl border p-4 transition shadow-xs ${
                 productStockFilter === "low_stock"
-                  ? "bg-amber-500/20 border-amber-500/50 shadow-md shadow-amber-500/10"
-                  : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                  ? "bg-amber-50 border-amber-400 ring-2 ring-amber-400/20"
+                  : "bg-white border-slate-200 hover:border-slate-300"
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-amber-400 flex items-center gap-1.5">
-                  <AlertCircle size={14} />
-                  Low Stock
-                </span>
-                <span className="text-xl font-black text-amber-300">
-                  {productStats.lowStock}
-                </span>
-              </div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <AlertCircle size={14} className="text-amber-500" />
+                Low Stock
+              </span>
+              <p className="mt-1 text-2xl font-black text-amber-600">{productStats.lowStock}</p>
             </div>
 
             <div
               onClick={() => setProductStockFilter("out_of_stock")}
-              className={`cursor-pointer rounded-xl border p-3 transition ${
+              className={`cursor-pointer rounded-2xl border p-4 transition shadow-xs ${
                 productStockFilter === "out_of_stock"
-                  ? "bg-rose-500/20 border-rose-500/50 shadow-md shadow-rose-500/10"
-                  : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                  ? "bg-rose-50 border-rose-400 ring-2 ring-rose-400/20"
+                  : "bg-white border-slate-200 hover:border-slate-300"
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-rose-400 flex items-center gap-1.5">
-                  <AlertTriangle size={14} />
-                  Out of Stock
-                </span>
-                <span className="text-xl font-black text-rose-300">
-                  {productStats.outOfStock}
-                </span>
-              </div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <AlertTriangle size={14} className="text-rose-500" />
+                Out of Stock
+              </span>
+              <p className="mt-1 text-2xl font-black text-rose-600">{productStats.outOfStock}</p>
             </div>
-          </div>
+          </>
         )}
-      </header>
+      </div>
 
       {/* SECTION TABS SWITCHER */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-5">
-        <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setMainSectionTab("orders")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-black transition cursor-pointer ${
-              mainSectionTab === "orders"
-                ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-orange-500/20"
-                : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-            }`}
-          >
-            <span>🍉</span>
-            <span>Active Fruit Orders</span>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
-              mainSectionTab === "orders" ? "bg-white/25 text-white" : "bg-slate-800 text-slate-400"
-            }`}>
-              {stats.totalFruitOrders}
-            </span>
-          </button>
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3 flex-wrap">
+        <button
+          type="button"
+          onClick={() => setMainSectionTab("orders")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer ${
+            mainSectionTab === "orders"
+              ? "bg-amber-500 text-white shadow-md shadow-amber-500/20"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+          }`}
+        >
+          <span>🍉</span>
+          <span>Active Fruit Orders</span>
+          <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
+            mainSectionTab === "orders" ? "bg-white/25 text-white" : "bg-slate-200 text-slate-700"
+          }`}>
+            {stats.totalFruitOrders}
+          </span>
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setMainSectionTab("products")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-black transition cursor-pointer ${
-              mainSectionTab === "products"
-                ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-orange-500/20"
-                : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-            }`}
-          >
-            <Apple size={16} className={mainSectionTab === "products" ? "text-white" : "text-amber-400"} />
-            <span>Fruit Products & Sub-Store Stock</span>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
-              mainSectionTab === "products" ? "bg-white/25 text-white" : "bg-slate-800 text-slate-400"
-            }`}>
-              {fruitProducts.length}
-            </span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setMainSectionTab("products")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer ${
+            mainSectionTab === "products"
+              ? "bg-amber-500 text-white shadow-md shadow-amber-500/20"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+          }`}
+        >
+          <Apple size={16} className={mainSectionTab === "products" ? "text-white" : "text-amber-500"} />
+          <span>Fruit Products & Sub-Store Stock</span>
+          <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
+            mainSectionTab === "products" ? "bg-white/25 text-white" : "bg-slate-200 text-slate-700"
+          }`}>
+            {fruitProducts.length}
+          </span>
+        </button>
       </div>
 
       {/* INCOMING STOCK DELIVERIES (CONFIRM RECEIPT) */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-3">
-        <IncomingDeliveryBanner
-          department="fruit"
-          onReceived={() => fetchOrders(false)}
-        />
-      </div>
+      <IncomingDeliveryBanner
+        department="fruit"
+        onReceived={() => fetchOrders(false)}
+      />
 
       {/* CONDITIONAL MAIN CONTENT: ORDERS vs REGISTERED PRODUCTS */}
       {mainSectionTab === "orders" ? (
-        <>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-5">
           {/* FILTER TABS & SEARCH FOR ORDERS */}
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-5 pb-2">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              {/* TAB BUTTONS */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                {[
-                  { id: "active", label: "Active Queue" },
-                  { id: "pending", label: "New Orders" },
-                  { id: "preparing", label: "Preparing" },
-                  { id: "ready", label: "Ready" },
-                  { id: "completed", label: "History & Refused" },
-                  { id: "all", label: "All" },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setStatusFilter(tab.id)}
-                    className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
-                      statusFilter === tab.id
-                        ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
-                        : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            {/* TAB BUTTONS */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {[
+                { id: "active", label: "Active Queue" },
+                { id: "pending", label: "New Orders" },
+                { id: "preparing", label: "Preparing" },
+                { id: "ready", label: "Ready" },
+                { id: "completed", label: "History & Refused" },
+                { id: "all", label: "All" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setStatusFilter(tab.id)}
+                  className={`whitespace-nowrap rounded-xl px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+                    statusFilter === tab.id
+                      ? "bg-amber-500 text-white shadow-xs font-black"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-              {/* SEARCH */}
-              <div className="relative w-full sm:w-64">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search table, item, waiter..."
-                  className="w-full rounded-lg border border-slate-800 bg-slate-900 pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
-                />
-              </div>
+            {/* SEARCH */}
+            <div className="relative w-full sm:w-64">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search table, item, waiter..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-7 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-amber-500 focus:bg-white focus:ring-1 focus:ring-amber-500/20"
+              />
+              {search.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           </div>
 
           {/* ERROR MESSAGE */}
           {error && (
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 my-3">
-              <div className="flex items-center gap-2 rounded-xl bg-red-950/70 border border-red-800 p-3 text-sm text-red-200">
-                <AlertCircle size={18} className="shrink-0 text-red-400" />
-                <span>{error}</span>
-              </div>
+            <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+              <AlertCircle size={18} className="shrink-0 text-red-500" />
+              <span>{error}</span>
             </div>
           )}
 
           {/* ORDERS GRID */}
-          <main className="mx-auto max-w-7xl px-4 sm:px-6 mt-4">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-                <RefreshCw size={32} className="animate-spin text-orange-500 mb-3" />
-                <p className="text-sm font-medium">Loading Fruit orders...</p>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+              <RefreshCw size={28} className="animate-spin text-amber-500 mb-2" />
+              <p className="text-xs font-semibold">Loading Fruit orders...</p>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-16 px-4 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-2xl mb-3 text-amber-600">
+                🍉
               </div>
-            ) : filteredOrders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-900/30 py-20 px-4 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800/80 text-3xl mb-4">
-                  🍉
-                </div>
-                <h3 className="text-lg font-bold text-white mb-1">
-                  No Orders in This View
-                </h3>
-                <p className="text-xs text-slate-400 max-w-sm">
-                  {search
-                    ? `No orders matching "${search}". Try clearing your search.`
-                    : statusFilter === "pending"
-                    ? "All caught up! No pending Fruit orders waiting to prepare."
-                    : "There are currently no orders under this status."}
-                </p>
-                {(search || statusFilter !== "active") && (
-                  <button
-                    onClick={() => {
-                      setSearch("");
-                      setStatusFilter("active");
-                    }}
-                    className="mt-4 rounded-lg bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition"
+              <h3 className="text-base font-extrabold text-slate-800 mb-1">
+                No Orders in This View
+              </h3>
+              <p className="text-xs text-slate-500 max-w-sm">
+                {search
+                  ? `No orders matching "${search}". Try clearing your search.`
+                  : statusFilter === "pending"
+                  ? "All caught up! No pending Fruit orders waiting to prepare."
+                  : "There are currently no orders under this status."}
+              </p>
+              {(search || statusFilter !== "active") && (
+                <button
+                  onClick={() => {
+                    setSearch("");
+                    setStatusFilter("active");
+                  }}
+                  className="mt-3 rounded-xl bg-white border border-slate-200 px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs transition cursor-pointer"
+                >
+                  Reset Filters
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredOrders.map((order) => {
+                const items = parseOrderItems(order);
+                const status = String(order.status || "pending").toLowerCase();
+                const isPending = status === "pending" || status === "new" || status === "confirmed";
+                const isPreparing = status === "preparing";
+                const isReady = status === "ready";
+                const isCompleted = status === "completed" || status === "served";
+                const isCancelled = status === "cancelled" || status === "rejected";
+                const isUpdating = actionLoadingId === order.id;
+
+                return (
+                  <div
+                    key={order.id}
+                    className={`flex flex-col justify-between rounded-2xl border transition shadow-xs hover:shadow-md ${
+                      isCancelled
+                        ? "border-rose-200 bg-rose-50/20 opacity-80"
+                        : isPending
+                        ? "border-amber-300 bg-white hover:border-amber-400"
+                        : isPreparing
+                        ? "border-blue-300 bg-white hover:border-blue-400"
+                        : isReady
+                        ? "border-emerald-300 bg-white hover:border-emerald-400"
+                        : "border-slate-200 bg-white"
+                    }`}
                   >
-                    Reset Filters
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {filteredOrders.map((order) => {
-                  const items = parseOrderItems(order);
-                  const status = String(order.status || "pending").toLowerCase();
-                  const isPending = status === "pending" || status === "new" || status === "confirmed";
-                  const isPreparing = status === "preparing";
-                  const isReady = status === "ready";
-                  const isCompleted = status === "completed" || status === "served";
-                  const isCancelled = status === "cancelled" || status === "rejected";
-                  const isUpdating = actionLoadingId === order.id;
-
-                  return (
-                    <div
-                      key={order.id}
-                      className={`flex flex-col justify-between rounded-2xl border transition shadow-xl ${
-                        isCancelled
-                          ? "border-rose-900/50 bg-slate-900/60 opacity-80"
-                          : isPending
-                          ? "border-amber-500/40 bg-slate-900/90 hover:border-amber-500/70"
-                          : isPreparing
-                          ? "border-blue-500/40 bg-slate-900/90 hover:border-blue-500/70"
-                          : isReady
-                          ? "border-emerald-500/40 bg-slate-900/90 hover:border-emerald-500/70"
-                          : "border-slate-800 bg-slate-900/50 opacity-70"
-                      }`}
-                    >
-                      {/* CARD HEADER */}
-                      <div className="border-b border-slate-800/80 p-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2.5">
-                            <div
-                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black text-sm shadow-md ${
-                                isCancelled
-                                  ? "bg-rose-950 text-rose-300 border border-rose-800/60 shadow-rose-950/40"
-                                  : isPending
-                                  ? "bg-amber-500 text-slate-950 shadow-amber-500/20"
-                                  : isPreparing
-                                  ? "bg-blue-500 text-white shadow-blue-500/20"
-                                  : isReady
-                                  ? "bg-emerald-500 text-white shadow-emerald-500/20"
-                                  : "bg-slate-800 text-slate-300"
-                              }`}
-                            >
-                              {order.table_number || (order.table_id ? `T-${order.table_id}` : "POS")}
-                            </div>
-                            <div>
-                              <h3 className="font-extrabold text-white text-base leading-tight">
-                                {order.table_number ? `Table ${order.table_number}` : "Walk-in / Bar"}
-                              </h3>
-                              <p className="text-xs text-slate-400">
-                                #{order.order_number || String(order.id).padStart(4, "0")} • {order.waiter_name || "Staff"}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* STATUS BADGE */}
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider ${
+                    {/* CARD HEADER */}
+                    <div className="border-b border-slate-100 p-4 bg-slate-50/50 rounded-t-2xl">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black text-sm shadow-xs ${
                               isCancelled
-                                ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                                ? "bg-rose-100 text-rose-800"
                                 : isPending
-                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                                ? "bg-amber-100 text-amber-800"
                                 : isPreparing
-                                ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                                ? "bg-blue-100 text-blue-800"
                                 : isReady
-                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                                : "bg-slate-800 text-slate-400"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-slate-100 text-slate-700"
                             }`}
                           >
-                            {isCancelled ? "REFUSED / REJECTED" : status}
-                          </span>
+                            {order.table_number || (order.table_id ? `T-${order.table_id}` : "POS")}
+                          </div>
+                          <div>
+                            <h3 className="font-extrabold text-slate-900 text-sm leading-tight">
+                              {order.table_number ? `Table ${order.table_number}` : "Walk-in / Bar"}
+                            </h3>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              #{order.order_number || String(order.id).padStart(4, "0")} • {order.waiter_name || "Staff"}
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
-                          <span className="flex items-center gap-1">
-                            <Clock size={12} />
-                            {getElapsedTime(order.created_at || order.started_at)}
-                          </span>
-                          {order.order_type && (
-                            <span className="capitalize bg-slate-800 px-2 py-0.5 rounded text-slate-300">
-                              {order.order_type}
-                            </span>
-                          )}
-                        </div>
+                        {/* STATUS BADGE */}
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${
+                            isCancelled
+                              ? "bg-rose-100 text-rose-700 border border-rose-200"
+                              : isPending
+                              ? "bg-amber-100 text-amber-800 border border-amber-200"
+                              : isPreparing
+                              ? "bg-blue-100 text-blue-800 border border-blue-200"
+                              : isReady
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {isCancelled ? "REFUSED" : status}
+                        </span>
                       </div>
 
-                      {/* ITEMS LIST (ONLY FRUIT ITEMS) */}
-                      <div className="p-4 space-y-2.5 flex-1 overflow-y-auto max-h-64">
-                        {(onlyFruit ? items.filter(isFruitItem) : items).map((item, idx) => {
-                          const isSpecialFruit = isFruitItem(item);
-                          const itemName = item.product_name || item.name || "Item";
-
-                          return (
-                            <div
-                              key={idx}
-                              className={`flex items-start justify-between gap-3 rounded-xl p-2.5 transition ${
-                                isSpecialFruit
-                                  ? "bg-slate-800/70 border border-orange-500/20"
-                                  : "bg-slate-800/30 border border-slate-800/60"
-                              }`}
-                            >
-                              <div className="flex items-start gap-2.5">
-                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-orange-500/20 text-orange-400 font-black text-xs border border-orange-500/30">
-                                  {item.quantity || 1}x
-                                </span>
-                                <div>
-                                  <p className="font-bold text-sm text-slate-100 leading-snug">
-                                    {itemName}
-                                  </p>
-                                  {item.item_notes && (
-                                    <p className="text-xs text-amber-400/90 font-medium italic mt-0.5">
-                                      Note: {item.item_notes}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-
-                              {isSpecialFruit && (
-                                <span className="shrink-0 rounded-md bg-orange-500/20 px-1.5 py-0.5 text-[10px] font-bold text-orange-400 border border-orange-500/30">
-                                  🍉 Fruit
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* ORDER / REFUSAL NOTES */}
-                      {order.notes && (
-                        <div className="mx-4 mb-3 rounded-xl bg-rose-950/30 border border-rose-800/40 p-2.5 text-xs text-rose-200 flex items-start gap-2">
-                          <AlertTriangle size={14} className="shrink-0 mt-0.5 text-rose-400" />
-                          <span className="font-medium leading-relaxed">{order.notes}</span>
-                        </div>
-                      )}
-
-                      {/* ACTION CONTROLS */}
-                      <div className="border-t border-slate-800/80 p-4 bg-slate-900/60 rounded-b-2xl">
-                        {isPending && (
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleUpdateStatus(order, "preparing")}
-                              disabled={isUpdating}
-                              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-3 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition disabled:opacity-60"
-                            >
-                              {isUpdating ? (
-                                <RefreshCw size={16} className="animate-spin" />
-                              ) : (
-                                <Flame size={16} />
-                              )}
-                              <span>Start Preparing</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setRejectModalOrder(order);
-                                setRejectReasonPreset("Customer refused order at table");
-                                setCustomRejectReason("");
-                              }}
-                              disabled={isUpdating}
-                              title="Customer refused or reject order"
-                              className="px-3.5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 transition text-xs font-black flex items-center gap-1.5 disabled:opacity-50 shrink-0"
-                            >
-                              <Ban size={15} />
-                              <span>Reject</span>
-                            </button>
-                          </div>
-                        )}
-
-                        {isPreparing && (
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleUpdateStatus(order, "ready")}
-                              disabled={isUpdating}
-                              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-3 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/25 transition disabled:opacity-60"
-                            >
-                              {isUpdating ? (
-                                <RefreshCw size={16} className="animate-spin" />
-                              ) : (
-                                <CheckCircle2 size={16} />
-                              )}
-                              <span>Mark Ready</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setRejectModalOrder(order);
-                                setRejectReasonPreset("Customer refused order at table");
-                                setCustomRejectReason("");
-                              }}
-                              disabled={isUpdating}
-                              title="Customer refused or reject order"
-                              className="px-3.5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 transition text-xs font-black flex items-center gap-1.5 disabled:opacity-50 shrink-0"
-                            >
-                              <Ban size={15} />
-                              <span>Reject</span>
-                            </button>
-                          </div>
-                        )}
-
-                        {isReady && (
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleUpdateStatus(order, "completed")}
-                              disabled={isUpdating}
-                              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2.5 text-sm font-bold text-emerald-400 transition disabled:opacity-60"
-                            >
-                              {isUpdating ? (
-                                <RefreshCw size={16} className="animate-spin" />
-                              ) : (
-                                <Check size={16} />
-                              )}
-                              <span>Complete / Served</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setRejectModalOrder(order);
-                                setRejectReasonPreset("Customer refused order upon delivery");
-                                setCustomRejectReason("");
-                              }}
-                              disabled={isUpdating}
-                              title="Customer refused or reject order"
-                              className="px-3.5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 transition text-xs font-black flex items-center gap-1.5 disabled:opacity-50 shrink-0"
-                            >
-                              <Ban size={15} />
-                              <span>Reject</span>
-                            </button>
-                          </div>
-                        )}
-
-                        {isCompleted && (
-                          <div className="text-center py-1 text-xs font-semibold text-slate-500 flex items-center justify-center gap-1.5">
-                            <CheckCircle2 size={14} className="text-emerald-500" />
-                            <span>Order Fulfilled</span>
-                          </div>
-                        )}
-
-                        {isCancelled && (
-                          <div className="text-center py-1.5 text-xs font-bold text-rose-400 flex items-center justify-center gap-1.5 bg-rose-950/40 rounded-xl border border-rose-900/50">
-                            <Ban size={14} className="text-rose-500 shrink-0" />
-                            <span>Order Refused & Cancelled (Stock Restored)</span>
-                          </div>
+                      <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-500">
+                        <span className="flex items-center gap-1 font-medium">
+                          <Clock size={12} className="text-slate-400" />
+                          {getElapsedTime(order.created_at || order.started_at)}
+                        </span>
+                        {order.order_type && (
+                          <span className="capitalize bg-white border border-slate-200 px-2 py-0.5 rounded-md text-[10px] font-bold text-slate-600">
+                            {order.order_type}
+                          </span>
                         )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </main>
-        </>
+
+                    {/* ITEMS LIST (ONLY FRUIT ITEMS) */}
+                    <div className="p-4 space-y-2 flex-1 overflow-y-auto max-h-60">
+                      {(onlyFruit ? items.filter(isFruitItem) : items).map((item, idx) => {
+                        const isSpecialFruit = isFruitItem(item);
+                        const itemName = item.product_name || item.name || "Item";
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`flex items-start justify-between gap-2.5 rounded-xl p-2.5 transition ${
+                              isSpecialFruit
+                                ? "bg-amber-50/50 border border-amber-200/70"
+                                : "bg-slate-50 border border-slate-100"
+                            }`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-800 font-black text-[11px]">
+                                {item.quantity || 1}x
+                              </span>
+                              <div>
+                                <p className="font-bold text-xs text-slate-800 leading-snug">
+                                  {itemName}
+                                </p>
+                                {item.item_notes && (
+                                  <p className="text-[11px] text-amber-800 font-medium italic mt-0.5">
+                                    Note: {item.item_notes}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {isSpecialFruit && (
+                              <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-800">
+                                🍉 Fruit
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* ORDER / REFUSAL NOTES */}
+                    {order.notes && (
+                      <div className="mx-4 mb-3 rounded-xl bg-amber-50 border border-amber-200 p-2.5 text-xs text-amber-900 flex items-start gap-2">
+                        <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                        <span className="font-medium leading-relaxed">{order.notes}</span>
+                      </div>
+                    )}
+
+                    {/* ACTION CONTROLS */}
+                    <div className="border-t border-slate-100 p-3.5 bg-slate-50/50 rounded-b-2xl">
+                      {isPending && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleUpdateStatus(order, "preparing")}
+                            disabled={isUpdating}
+                            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 px-3 py-2.5 text-xs font-black text-white shadow-xs transition disabled:opacity-60 cursor-pointer"
+                          >
+                            {isUpdating ? (
+                              <RefreshCw size={14} className="animate-spin" />
+                            ) : (
+                              <Flame size={14} />
+                            )}
+                            <span>Start Preparing</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRejectModalOrder(order);
+                              setRejectReasonPreset("Customer refused order at table");
+                              setCustomRejectReason("");
+                            }}
+                            disabled={isUpdating}
+                            title="Customer refused or reject order"
+                            className="px-3 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 transition text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 shrink-0 cursor-pointer"
+                          >
+                            <Ban size={14} />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {isPreparing && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleUpdateStatus(order, "ready")}
+                            disabled={isUpdating}
+                            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3 py-2.5 text-xs font-black text-white shadow-xs transition disabled:opacity-60 cursor-pointer"
+                          >
+                            {isUpdating ? (
+                              <RefreshCw size={14} className="animate-spin" />
+                            ) : (
+                              <CheckCircle2 size={14} />
+                            )}
+                            <span>Mark Ready</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRejectModalOrder(order);
+                              setRejectReasonPreset("Customer refused order at table");
+                              setCustomRejectReason("");
+                            }}
+                            disabled={isUpdating}
+                            title="Customer refused or reject order"
+                            className="px-3 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 transition text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 shrink-0 cursor-pointer"
+                          >
+                            <Ban size={14} />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {isReady && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleUpdateStatus(order, "completed")}
+                            disabled={isUpdating}
+                            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 px-3 py-2.5 text-xs font-black text-white shadow-xs transition disabled:opacity-60 cursor-pointer"
+                          >
+                            {isUpdating ? (
+                              <RefreshCw size={14} className="animate-spin" />
+                            ) : (
+                              <Check size={14} />
+                            )}
+                            <span>Complete / Served</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRejectModalOrder(order);
+                              setRejectReasonPreset("Customer refused order upon delivery");
+                              setCustomRejectReason("");
+                            }}
+                            disabled={isUpdating}
+                            title="Customer refused or reject order"
+                            className="px-3 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 transition text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 shrink-0 cursor-pointer"
+                          >
+                            <Ban size={14} />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {isCompleted && (
+                        <div className="text-center py-1 text-xs font-bold text-slate-500 flex items-center justify-center gap-1.5">
+                          <CheckCircle2 size={14} className="text-emerald-600" />
+                          <span>Order Fulfilled</span>
+                        </div>
+                      )}
+
+                      {isCancelled && (
+                        <div className="text-center py-1.5 text-xs font-bold text-rose-700 flex items-center justify-center gap-1.5 bg-rose-50 rounded-xl border border-rose-200">
+                          <Ban size={14} className="text-rose-600 shrink-0" />
+                          <span>Order Refused & Cancelled (Stock Restored)</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       ) : (
         /* ======================================================
             REGISTERED FRUIT PRODUCTS & SUB-STORE STOCK VIEW
         ====================================================== */
-        <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-5 pb-12 space-y-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-5">
           {/* SEARCH & STATUS FILTER ROW */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
             {/* FILTER BUTTONS */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
               {[
@@ -1077,14 +1046,14 @@ export default function FruitOrdersPage() {
                   onClick={() => setProductStockFilter(tab.id)}
                   className={`whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                     productStockFilter === tab.id
-                      ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-orange-500/20"
-                      : "bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                      ? "bg-amber-500 text-white shadow-xs"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
                   }`}
                 >
                   <span>{tab.label}</span>
                   <span
                     className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${
-                      productStockFilter === tab.id ? "bg-white/25 text-white" : "bg-slate-900 text-slate-400"
+                      productStockFilter === tab.id ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"
                     }`}
                   >
                     {tab.count}
@@ -1101,13 +1070,13 @@ export default function FruitOrdersPage() {
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
                 placeholder="Search fruit by name, category..."
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
               />
               {productSearch && (
                 <button
                   type="button"
                   onClick={() => setProductSearch("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   <X size={14} />
                 </button>
@@ -1115,7 +1084,7 @@ export default function FruitOrdersPage() {
 
               {/* Floating Dropdown for Fruit Products */}
               {productSearch.trim() && (
-                <div className="absolute left-0 top-full mt-1.5 w-full sm:w-80 max-h-60 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 shadow-2xl z-50 p-1 divide-y divide-slate-800">
+                <div className="absolute left-0 top-full mt-1.5 w-full sm:w-80 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl z-50 p-1 divide-y divide-slate-100">
                   {filteredFruitProducts.length === 0 ? (
                     <div className="p-3 text-xs text-slate-400 text-center">No matching fruit items</div>
                   ) : (
@@ -1126,17 +1095,17 @@ export default function FruitOrdersPage() {
                         onClick={() => {
                           setProductSearch(p.name);
                         }}
-                        className="w-full flex items-center justify-between p-2 text-left hover:bg-slate-800 rounded-lg transition group cursor-pointer"
+                        className="w-full flex items-center justify-between p-2 text-left hover:bg-slate-50 rounded-lg transition group cursor-pointer"
                       >
                         <div className="min-w-0 pr-2">
-                          <div className="text-xs font-bold text-white group-hover:text-orange-400 truncate transition">
+                          <div className="text-xs font-bold text-slate-800 group-hover:text-amber-600 truncate transition">
                             {p.name}
                           </div>
-                          <div className="text-[10px] text-slate-400">
+                          <div className="text-[10px] text-slate-500">
                             {p.category_name || "Fruit"} • {p.current_stock || 0} in stock
                           </div>
                         </div>
-                        <span className="shrink-0 text-xs font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
+                        <span className="shrink-0 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                           {Number(p.price || 0).toLocaleString()} ETB
                         </span>
                       </button>
@@ -1150,18 +1119,18 @@ export default function FruitOrdersPage() {
           {/* PRODUCTS GRID */}
           {loading ? (
             <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-              <RefreshCw size={32} className="animate-spin text-orange-500 mb-3" />
+              <RefreshCw size={32} className="animate-spin text-amber-500 mb-3" />
               <p className="text-sm font-medium">Loading fruit products and stock...</p>
             </div>
           ) : filteredFruitProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/30 py-20 px-4 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500 text-3xl mb-4 border border-amber-500/20">
-                <Apple size={32} />
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-16 px-4 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 text-2xl mb-3 border border-amber-200">
+                <Apple size={28} />
               </div>
-              <h3 className="text-lg font-bold text-white mb-1">
+              <h3 className="text-base font-bold text-slate-900 mb-1">
                 No Fruit Products Found
               </h3>
-              <p className="text-xs text-slate-400 max-w-sm mb-4">
+              <p className="text-xs text-slate-500 max-w-sm mb-4">
                 {productSearch || productStockFilter !== "all"
                   ? "No fruits match your active search or filter. Try clearing your search."
                   : "No products are currently registered under the Fruit category or tagged with fruit keywords."}
@@ -1173,7 +1142,7 @@ export default function FruitOrdersPage() {
                     setProductSearch("");
                     setProductStockFilter("all");
                   }}
-                  className="rounded-xl bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition cursor-pointer"
+                  className="rounded-xl bg-white border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer shadow-xs"
                 >
                   Clear Filters
                 </button>
@@ -1189,17 +1158,17 @@ export default function FruitOrdersPage() {
                 return (
                   <div
                     key={p.id}
-                    className={`rounded-3xl border transition flex flex-col justify-between overflow-hidden shadow-lg backdrop-blur-xs ${
+                    className={`rounded-2xl border transition flex flex-col justify-between overflow-hidden shadow-xs hover:shadow-md bg-white ${
                       isOut
-                        ? "border-rose-900/60 bg-rose-950/15 hover:border-rose-700/60"
+                        ? "border-rose-200 bg-rose-50/20"
                         : isLow
-                        ? "border-amber-900/60 bg-amber-950/15 hover:border-amber-700/60"
-                        : "border-slate-800 bg-slate-900/70 hover:border-slate-700"
+                        ? "border-amber-200 bg-amber-50/20"
+                        : "border-slate-200 hover:border-slate-300"
                     }`}
                   >
                     {/* TOP PART: IMAGE & BADGES */}
                     <div>
-                      <div className="relative h-44 w-full overflow-hidden bg-slate-950 flex items-center justify-center border-b border-slate-800/80">
+                      <div className="relative h-44 w-full overflow-hidden bg-slate-100 flex items-center justify-center border-b border-slate-100">
                         {p.imageUrl ? (
                           <img
                             src={p.imageUrl}
@@ -1214,20 +1183,20 @@ export default function FruitOrdersPage() {
                         ) : null}
                         <div
                           style={{ display: p.imageUrl ? "none" : "flex" }}
-                          className="h-full w-full flex-col items-center justify-center bg-gradient-to-br from-amber-950/30 to-orange-950/30 text-amber-500/70"
+                          className="h-full w-full flex-col items-center justify-center bg-slate-50 text-amber-500"
                         >
-                          <Apple size={44} />
-                          <span className="text-[10px] font-bold text-slate-500 mt-1">Fresh Fruit</span>
+                          <Apple size={40} className="text-amber-500/80" />
+                          <span className="text-[10px] font-bold text-slate-400 mt-1">Fresh Fruit</span>
                         </div>
 
                         {/* FLOATING CATEGORY BADGE */}
-                        <div className="absolute top-2.5 left-2.5 flex items-center gap-1 rounded-lg bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-2 py-0.5 text-[10px] font-bold text-amber-300 shadow-sm">
+                        <div className="absolute top-2.5 left-2.5 flex items-center gap-1 rounded-lg bg-white/95 backdrop-blur-md border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-amber-800 shadow-xs">
                           <span>🍉</span>
                           <span className="truncate max-w-[120px]">{p.category_name || "Fruit"}</span>
                         </div>
 
                         {/* FLOATING PRICE BADGE */}
-                        <div className="absolute top-2.5 right-2.5 rounded-lg bg-emerald-950/90 backdrop-blur-md border border-emerald-500/40 px-2.5 py-0.5 text-xs font-black text-emerald-300 shadow-sm">
+                        <div className="absolute top-2.5 right-2.5 rounded-lg bg-emerald-600 text-white px-2.5 py-0.5 text-xs font-bold shadow-xs">
                           ETB {priceFormatted}
                         </div>
                       </div>
@@ -1235,37 +1204,37 @@ export default function FruitOrdersPage() {
                       {/* DETAILS & TITLE */}
                       <div className="p-4 space-y-3">
                         <div>
-                          <h3 className="font-extrabold text-sm text-white line-clamp-1" title={p.name}>
+                          <h3 className="font-bold text-sm text-slate-900 line-clamp-1" title={p.name}>
                             {p.name}
                           </h3>
-                          <p className="text-[11px] font-medium text-slate-400 mt-0.5 line-clamp-1">
+                          <p className="text-[11px] font-medium text-slate-500 mt-0.5 line-clamp-1">
                             {p.tags || p.description || p.category_name || "Fruit Station Item"}
                           </p>
                         </div>
 
                         {/* SUB-STORE STOCK PILL */}
                         <div
-                          className={`rounded-2xl border p-2.5 flex items-center justify-between ${
+                          className={`rounded-xl border p-2.5 flex items-center justify-between ${
                             isOut
-                              ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
+                              ? "border-rose-200 bg-rose-50 text-rose-800"
                               : isLow
-                              ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                              ? "border-amber-200 bg-amber-50 text-amber-800"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-800"
                           }`}
                         >
                           <div className="flex items-center gap-2">
                             {isOut ? (
-                              <AlertTriangle size={16} className="text-rose-400 shrink-0" />
+                              <AlertTriangle size={15} className="text-rose-600 shrink-0" />
                             ) : isLow ? (
-                              <AlertCircle size={16} className="text-amber-400 shrink-0" />
+                              <AlertCircle size={15} className="text-amber-600 shrink-0" />
                             ) : (
-                              <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                              <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
                             )}
                             <div>
-                              <div className="text-[11px] font-extrabold leading-tight">
+                              <div className="text-[11px] font-bold leading-tight">
                                 {isOut ? "Out of Stock" : isLow ? "Low Stock Alert" : "In Stock"}
                               </div>
-                              <div className="text-[10px] opacity-80">
+                              <div className="text-[10px] opacity-90">
                                 {isOut
                                   ? "0 available in Fruit Store"
                                   : `${p.currentStock} ${p.unit} in Fruit Store`}
@@ -1273,7 +1242,7 @@ export default function FruitOrdersPage() {
                             </div>
                           </div>
                           {isLow && (
-                            <span className="text-[10px] font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-500/30">
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
                               Min: {p.minStock}
                             </span>
                           )}
@@ -1289,10 +1258,10 @@ export default function FruitOrdersPage() {
                           setRestockProduct(p);
                           setIsRestockModalOpen(true);
                         }}
-                        className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 px-3 py-2.5 text-xs font-black text-white shadow-md shadow-orange-600/20 transition active:scale-98 cursor-pointer"
+                        className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-xs transition active:scale-98 cursor-pointer"
                       >
                         <Truck size={14} />
-                        <span>Request Restock from Warehouse</span>
+                        <span>Request Restock</span>
                         <ArrowUpRight size={14} />
                       </button>
                     </div>
@@ -1301,13 +1270,13 @@ export default function FruitOrdersPage() {
               })}
             </div>
           )}
-        </main>
+        </div>
       )}
 
       {/* REJECT / CUSTOMER REFUSAL MODAL */}
       {rejectModalOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg rounded-3xl border border-rose-500/30 bg-slate-900 p-6 shadow-2xl shadow-rose-950/40 text-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl text-slate-800">
             {/* CLOSE BUTTON */}
             <button
               type="button"
@@ -1317,55 +1286,55 @@ export default function FruitOrdersPage() {
                   setCustomRejectReason("");
                 }
               }}
-              className="absolute right-4 top-4 rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+              className="absolute right-4 top-4 rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
 
             {/* HEADER */}
             <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-lg shadow-rose-500/10">
-                <Ban size={24} />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 border border-rose-200">
+                <Ban size={22} />
               </div>
               <div className="flex-1 pr-6">
-                <h2 className="text-lg font-black text-white">
+                <h2 className="text-lg font-bold text-slate-900">
                   Reject / Refused Order
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Customer refused order or fruit items cannot be served.
                 </p>
               </div>
             </div>
 
             {/* ORDER DETAILS SUMMARY */}
-            <div className="mt-5 rounded-2xl bg-slate-950/60 border border-slate-800 p-3.5 space-y-2">
+            <div className="mt-5 rounded-xl bg-slate-50 border border-slate-200 p-3.5 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Order:</span>
-                <span className="font-extrabold text-white">
+                <span className="text-slate-500">Order:</span>
+                <span className="font-bold text-slate-900">
                   #{rejectModalOrder.order_number || rejectModalOrder.id}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Location:</span>
-                <span className="font-bold text-amber-400">
+                <span className="text-slate-500">Location:</span>
+                <span className="font-bold text-amber-700">
                   {rejectModalOrder.table_number ? `Table ${rejectModalOrder.table_number}` : "Walk-in / Bar"}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Waiter:</span>
-                <span className="font-medium text-slate-300">
+                <span className="text-slate-500">Waiter:</span>
+                <span className="font-medium text-slate-700">
                   {rejectModalOrder.waiter_name || "Staff"}
                 </span>
               </div>
 
               {/* ITEMS PREVIEW */}
-              <div className="pt-2 border-t border-slate-800/80">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+              <div className="pt-2 border-t border-slate-200">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
                   Items to Cancel & Restore:
                 </span>
                 <div className="space-y-1 max-h-24 overflow-y-auto">
                   {parseOrderItems(rejectModalOrder).map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs text-slate-300">
+                    <div key={idx} className="flex items-center justify-between text-xs text-slate-700">
                       <span>• {item.quantity || 1}x {item.product_name || item.name}</span>
                     </div>
                   ))}
@@ -1375,7 +1344,7 @@ export default function FruitOrdersPage() {
 
             {/* SELECT REFUSAL REASON */}
             <div className="mt-4 space-y-2">
-              <label className="text-xs font-bold text-slate-300">
+              <label className="text-xs font-bold text-slate-700">
                 Select Refusal / Rejection Reason:
               </label>
               <div className="grid grid-cols-1 gap-2">
@@ -1390,8 +1359,8 @@ export default function FruitOrdersPage() {
                     key={reason}
                     className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer transition ${
                       rejectReasonPreset === reason
-                        ? "bg-rose-500/15 border-rose-500/40 text-rose-200 font-bold"
-                        : "bg-slate-950/40 border-slate-800 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                        ? "bg-rose-50 border-rose-300 text-rose-900 font-bold"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                     }`}
                   >
                     <input
@@ -1400,7 +1369,7 @@ export default function FruitOrdersPage() {
                       value={reason}
                       checked={rejectReasonPreset === reason}
                       onChange={() => setRejectReasonPreset(reason)}
-                      className="text-rose-500 focus:ring-rose-500 bg-slate-900 border-slate-700"
+                      className="text-rose-600 focus:ring-rose-500"
                     />
                     <span>{reason}</span>
                   </label>
@@ -1415,15 +1384,15 @@ export default function FruitOrdersPage() {
                     value={customRejectReason}
                     onChange={(e) => setCustomRejectReason(e.target.value)}
                     placeholder="Type custom refusal reason..."
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs text-white placeholder-slate-500 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
                   />
                 </div>
               )}
             </div>
 
             {/* NOTICE */}
-            <div className="mt-4 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 flex items-start gap-2 text-[11px] text-amber-300">
-              <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-400" />
+            <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-2.5 flex items-start gap-2 text-[11px] text-amber-800">
+              <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
               <span>
                 Rejecting removes this ticket from the active queue, restores inventory stock, and marks the order as refused in history.
               </span>
@@ -1438,7 +1407,7 @@ export default function FruitOrdersPage() {
                   setCustomRejectReason("");
                 }}
                 disabled={rejectLoading}
-                className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition disabled:opacity-50"
+                className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition disabled:opacity-50 cursor-pointer"
               >
                 Keep Order
               </button>
@@ -1446,7 +1415,7 @@ export default function FruitOrdersPage() {
                 type="button"
                 onClick={handleConfirmReject}
                 disabled={rejectLoading}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 px-5 py-2.5 text-xs font-black text-white shadow-lg shadow-rose-600/30 transition active:scale-98 disabled:opacity-60"
+                className="flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs transition active:scale-98 disabled:opacity-60 cursor-pointer"
               >
                 {rejectLoading ? (
                   <>

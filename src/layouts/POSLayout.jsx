@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
 import {
   ShoppingCart,
   CheckCircle2,
@@ -19,6 +19,7 @@ import { useRestaurant } from "../context/RestaurantContext";
 import { getNotificationRoute } from "../utils/notificationRouter";
 import { useState, useRef, useEffect } from "react";
 import UserProfileModal from "../components/UserProfileModal";
+import SwipeableNotificationItem from "../components/SwipeableNotificationItem";
 
 const menuItems = [
   {
@@ -54,6 +55,7 @@ function POSLayout() {
     notifications = [],
     markNotificationAsRead,
     clearNotifications,
+    removeNotification,
   } = useRestaurant();
   const location = useLocation();
   const navigate = useNavigate();
@@ -63,6 +65,19 @@ function POSLayout() {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Handle touch drag to close mobile notifications panel
+  const touchStartY = useRef(0);
+  const handlePanelTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+  const handlePanelTouchEnd = (e) => {
+    const touchEndY = e.changedTouches[0].clientY;
+    const diff = touchEndY - touchStartY.current;
+    if (Math.abs(diff) > 45) {
+      setShowNotifications(false);
+    }
+  };
 
   const handleNotificationClick = (notification) => {
     markNotificationAsRead(notification.id);
@@ -108,9 +123,14 @@ function POSLayout() {
   const userRoleId = Number(user?.roleId || user?.role_id || user?.role?.id || 0);
   const isWaiter = userRole === "waiter" || userRoleId === 6;
   const isBartender = userRole === "bartender" || userRoleId === 8;
+  const isCashier = userRole === "cashier" || userRoleId === 5;
 
   const accessibleMenuItems = menuItems.filter((item) => {
     if ((isWaiter || isBartender) && item.path === "/pos/staff-menu") {
+      return false;
+    }
+    // Remove Menu Page from Cashier
+    if (isCashier && item.path === "/pos") {
       return false;
     }
     return true;
@@ -119,6 +139,11 @@ function POSLayout() {
   const finalMenuItems = isBartender
     ? [{ name: "Bar Dashboard", path: "/bar", icon: Wine }, ...accessibleMenuItems]
     : accessibleMenuItems;
+
+  // If cashier tries to directly access the Menu Page (/pos or /cashier/pos), redirect to Daily Sales Audit
+  if (isCashier && (location.pathname === "/pos" || location.pathname === "/cashier/pos")) {
+    return <Navigate to="/pos/sales-audit" replace />;
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -298,76 +323,91 @@ function POSLayout() {
               </button>
 
               {showNotifications && (
-                <div className="fixed inset-x-2 top-14 sm:absolute sm:inset-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-80 max-w-sm mx-auto sm:mx-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl z-50">
+                <div
+                  onTouchStart={handlePanelTouchStart}
+                  onTouchEnd={handlePanelTouchEnd}
+                  className="fixed inset-x-2 top-14 sm:absolute sm:inset-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-80 max-w-sm mx-auto sm:mx-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150"
+                >
+                  {/* Mobile Drag / Swipe Handle */}
+                  <div className="flex sm:hidden flex-col items-center justify-center pt-2 pb-0.5 cursor-grab">
+                    <div className="h-1 w-10 rounded-full bg-slate-300" />
+                    <span className="text-[9px] text-slate-400 mt-0.5 font-medium tracking-tight">Swipe up or down to close</span>
+                  </div>
+
                   <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">
                         Notifications
                       </h3>
                       <p className="text-[10px] text-slate-400">
-                        {unreadCount} unread
+                        {unreadCount} unread • <span className="text-slate-400 font-medium">Swipe left to dismiss</span>
                       </p>
                     </div>
 
                     {notifications.length > 0 && (
                       <button
                         onClick={clearNotifications}
-                        className="text-[11px] font-bold text-blue-600 hover:text-blue-700"
+                        className="text-[11px] font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
                       >
                         Clear all
                       </button>
                     )}
                   </div>
 
-                  <div className="max-h-80 overflow-y-auto">
+                  <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
                     {notifications.length === 0 ? (
                       <div className="py-8 text-center text-xs text-slate-400">
                         No new notifications.
                       </div>
                     ) : (
                       notifications.map((notification) => (
-                        <button
+                        <SwipeableNotificationItem
                           key={notification.id}
+                          notification={notification}
                           onClick={() => handleNotificationClick(notification)}
-                          className={`flex w-full items-start gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50 ${
-                            notification.read ? "bg-white" : "bg-blue-50/50"
-                          }`}
+                          onDismiss={(id) => removeNotification(id)}
                         >
                           <div
-                            className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
-                              notification.type === "ready"
-                                ? "bg-emerald-100 text-emerald-600"
-                                : "bg-blue-100 text-blue-600"
+                            className={`flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50 cursor-pointer ${
+                              notification.read ? "bg-white" : "bg-blue-50/50"
                             }`}
                           >
-                            {notification.type === "ready" ? (
-                              <CheckCircle2 className="h-4 w-4" />
-                            ) : (
-                              <ClipboardList className="h-4 w-4" />
-                            )}
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-1">
-                              <p
-                                className={`text-xs ${
-                                  notification.read
-                                    ? "font-medium text-slate-700"
-                                    : "font-bold text-slate-900"
-                                }`}
-                              >
-                                {notification.title}
-                              </p>
-                              {!notification.read && (
-                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
+                            <div
+                              className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+                                notification.type === "ready"
+                                  ? "bg-emerald-100 text-emerald-600"
+                                  : "bg-blue-100 text-blue-600"
+                              }`}
+                            >
+                              {notification.type === "ready" ? (
+                                <CheckCircle2 className="h-4 w-4" />
+                              ) : (
+                                <ClipboardList className="h-4 w-4" />
                               )}
                             </div>
 
-                            <p className="mt-0.5 text-[11px] text-slate-500 leading-snug">
-                              {notification.message}
-                            </p>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <p
+                                  className={`text-xs ${
+                                    notification.read
+                                      ? "font-medium text-slate-700"
+                                      : "font-bold text-slate-900"
+                                  }`}
+                                >
+                                  {notification.title}
+                                </p>
+                                {!notification.read && (
+                                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
+                                )}
+                              </div>
+
+                              <p className="mt-0.5 text-[11px] text-slate-500 leading-snug">
+                                {notification.message}
+                              </p>
+                            </div>
                           </div>
-                        </button>
+                        </SwipeableNotificationItem>
                       ))
                     )}
                   </div>

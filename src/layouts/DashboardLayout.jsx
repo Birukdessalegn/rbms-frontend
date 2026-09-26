@@ -226,11 +226,6 @@ const navigationGroups = [
             icon: CreditCard,
           },
           {
-            name: "Cost Analysis",
-            path: "/finance/cost-analysis",
-            icon: Percent,
-          },
-          {
             name: "Purchases Audit",
             path: "/finance/purchases",
             icon: ShoppingBag,
@@ -726,6 +721,7 @@ function DashboardLayout() {
                 }
                 if (normalizedRole === "CASHIER") {
                   if (
+                    child.path === "/pos" ||
                     child.path?.startsWith("/finance") ||
                     child.path === "/pos/tables" ||
                     child.path === "/tables"

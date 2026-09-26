@@ -200,6 +200,7 @@ export const getNotificationRoute = (notification, userRole = "") => {
   // Fallback by role
   if (role === "chef") return "/kitchen";
   if (role === "bartender") return "/bar";
-  if (role === "waiter" || role === "cashier") return "/pos";
+  if (role === "waiter") return "/pos";
+  if (role === "cashier") return "/pos/sales-audit";
   return "/dashboard";
 };

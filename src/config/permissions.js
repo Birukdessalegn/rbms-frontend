@@ -20,6 +20,7 @@ export const ROLE_PERMISSIONS = {
   [ROLES.MANAGER]: [
     "dashboard.view",
     "pos.view",
+    "menu.view",
     "orders.view",
     "orders.create",
     "tables.view",
@@ -61,6 +62,7 @@ export const ROLE_PERMISSIONS = {
   [ROLES.WAITER]: [
     "dashboard.view",
     "pos.view",
+    "menu.view",
     "orders.view",
     "orders.create",
   ],
@@ -69,7 +71,6 @@ export const ROLE_PERMISSIONS = {
     "dashboard.view",
     "pos.view",
     "orders.view",
-    "orders.create",
     "payments.view",
     "payments.create",
     "attendance.view",
@@ -86,6 +87,7 @@ export const ROLE_PERMISSIONS = {
     "dashboard.view",
     "bar.view",
     "bar.update",
+    "menu.view",
     "orders.view",
     "orders.create",
     "payments.view",

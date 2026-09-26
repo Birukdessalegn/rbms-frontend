@@ -497,7 +497,7 @@ function AppRoutes() {
               />
               <Route
                 path="/finance/cost-analysis"
-                element={<CostAnalysisPage />}
+                element={<Navigate to="/finance" replace />}
               />
             </Route>
 
@@ -562,7 +562,7 @@ function AppRoutes() {
 
               <Route
                 path="/cashier/pos"
-                element={<POSPage />}
+                element={<Navigate to="/pos/sales-audit" replace />}
               />
 
               <Route

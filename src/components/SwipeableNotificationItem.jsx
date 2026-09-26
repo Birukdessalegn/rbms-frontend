@@ -4,7 +4,7 @@ import { Trash2 } from "lucide-react";
 /**
  * SwipeableNotificationItem
  * Supports smooth mobile horizontal swipe-to-dismiss (left swipe)
- * and click-to-navigate.
+ * and desktop mouse-drag-to-dismiss, alongside click-to-navigate.
  */
 export default function SwipeableNotificationItem({
   notification,
@@ -19,33 +19,49 @@ export default function SwipeableNotificationItem({
   const startXRef = useRef(0);
   const startYRef = useRef(0);
   const isHorizontalSwipeRef = useRef(null);
+  const isPointerDownRef = useRef(false);
+  const pointerIdRef = useRef(null);
+  const dragDistanceRef = useRef(0);
 
-  const handleTouchStart = (e) => {
-    startXRef.current = e.touches[0].clientX;
-    startYRef.current = e.touches[0].clientY;
+  const handlePointerDown = (e) => {
+    // Only primary pointer (left mouse button or touch)
+    if (e.button !== undefined && e.button !== 0) return;
+    startXRef.current = e.clientX;
+    startYRef.current = e.clientY;
+    dragDistanceRef.current = 0;
     isHorizontalSwipeRef.current = null;
-    setIsSwiping(true);
+    isPointerDownRef.current = true;
+    pointerIdRef.current = e.pointerId;
   };
 
-  const handleTouchMove = (e) => {
-    const currentX = e.touches[0].clientX;
-    const currentY = e.touches[0].clientY;
+  const handlePointerMove = (e) => {
+    if (!isPointerDownRef.current) return;
+    const currentX = e.clientX;
+    const currentY = e.clientY;
     const diffX = currentX - startXRef.current;
     const diffY = currentY - startYRef.current;
 
-    // Detect gesture intent on first significant movement
+    dragDistanceRef.current = Math.abs(diffX);
+
+    // Detect gesture intent on first significant movement (> 6px)
     if (isHorizontalSwipeRef.current === null) {
-      if (Math.abs(diffX) > 8 || Math.abs(diffY) > 8) {
+      if (Math.abs(diffX) > 6 || Math.abs(diffY) > 6) {
         isHorizontalSwipeRef.current = Math.abs(diffX) > Math.abs(diffY);
+        if (isHorizontalSwipeRef.current) {
+          setIsSwiping(true);
+          if (e.target && e.target.setPointerCapture && pointerIdRef.current !== null) {
+            try {
+              e.target.setPointerCapture(pointerIdRef.current);
+            } catch {}
+          }
+        }
       }
     }
 
-    // Only handle horizontal swiping
     if (isHorizontalSwipeRef.current) {
       // Only allow swiping left (negative diffX)
       if (diffX < 0) {
-        // Apply resistance as user drags further
-        const dampened = Math.max(diffX, -140);
+        const dampened = Math.max(diffX, -160);
         setOffsetX(dampened);
       } else {
         setOffsetX(0);
@@ -53,10 +69,20 @@ export default function SwipeableNotificationItem({
     }
   };
 
-  const handleTouchEnd = () => {
+  const handlePointerUp = (e) => {
+    if (!isPointerDownRef.current) return;
+    isPointerDownRef.current = false;
     setIsSwiping(false);
-    // If swiped past threshold (-70px), trigger dismiss animation
-    if (offsetX < -70) {
+
+    if (e.target && e.target.releasePointerCapture && pointerIdRef.current !== null) {
+      try {
+        e.target.releasePointerCapture(pointerIdRef.current);
+      } catch {}
+    }
+    pointerIdRef.current = null;
+
+    // If swiped past threshold (-65px), trigger dismiss animation
+    if (offsetX < -65) {
       setIsDismissed(true);
       setTimeout(() => {
         if (onDismiss) {
@@ -64,24 +90,30 @@ export default function SwipeableNotificationItem({
         }
       }, 250);
     } else {
-      // Snap back smoothly
       setOffsetX(0);
     }
     isHorizontalSwipeRef.current = null;
   };
 
+  const handlePointerCancel = () => {
+    isPointerDownRef.current = false;
+    setIsSwiping(false);
+    setOffsetX(0);
+    isHorizontalSwipeRef.current = null;
+    pointerIdRef.current = null;
+  };
+
   const handleItemClick = (e) => {
-    // Prevent accidental click if user was swiping
-    if (Math.abs(offsetX) > 10) {
+    // Prevent accidental click if user was dragging or swiping
+    if (dragDistanceRef.current > 8 || Math.abs(offsetX) > 8) {
       e.preventDefault();
       e.stopPropagation();
-      setOffsetX(0);
       return;
     }
     if (onClick) onClick();
   };
 
-  const swipeProgress = Math.min(1, Math.abs(offsetX) / 80);
+  const swipeProgress = Math.min(1, Math.abs(offsetX) / 70);
 
   return (
     <div
@@ -91,8 +123,15 @@ export default function SwipeableNotificationItem({
     >
       {/* Background Action: Red dismiss / Trash bar */}
       <div
-        className="absolute inset-0 bg-rose-600 flex items-center justify-end px-5 text-white select-none transition-opacity duration-150"
-        style={{ opacity: swipeProgress }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsDismissed(true);
+          setTimeout(() => {
+            if (onDismiss) onDismiss(notification.id);
+          }, 200);
+        }}
+        className="absolute inset-0 bg-rose-600 flex items-center justify-end px-5 text-white select-none transition-opacity duration-150 cursor-pointer"
+        style={{ opacity: Math.max(swipeProgress, 0.25) }}
       >
         <div className="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider">
           <span>Dismiss</span>
@@ -102,15 +141,17 @@ export default function SwipeableNotificationItem({
 
       {/* Foreground Swipeable Card */}
       <div
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         onClick={handleItemClick}
         style={{
           transform: `translateX(${offsetX}px)`,
           transition: isSwiping ? "none" : "transform 0.25s cubic-bezier(0.25, 1, 0.5, 1)",
+          touchAction: "pan-y",
         }}
-        className="relative z-10 w-full bg-white select-none touch-pan-y"
+        className="relative z-10 w-full bg-white select-none cursor-pointer"
       >
         {children}
       </div>

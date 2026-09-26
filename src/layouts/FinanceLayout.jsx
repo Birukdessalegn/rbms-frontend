@@ -26,11 +26,6 @@ const menuItems = [
     icon: CreditCard,
   },
   {
-    name: "Cost Analysis",
-    path: "/finance/cost-analysis",
-    icon: Percent,
-  },
-  {
     name: "Sales",
     path: "/finance/sales",
     icon: TrendingUp,

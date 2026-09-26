@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import api from "../../../services/api";
 import { printReportArea } from "../../../utils/printHelper";
+import PaymentProofModal from "../../pos/components/PaymentProofModal";
 
 function StatCard({ title, value, subtext, icon: Icon, color, bg }) {
   return (
@@ -91,6 +92,17 @@ const getPaymentLabel = (method, o) => {
   return "Cash";
 };
 
+const hasPaymentProof = (o) => {
+  if (!o) return false;
+  if (o.receipt_image || o.receiptImage || o.proof_image || o.proofImage || o.image_url || o.imageUrl) return true;
+  if (Array.isArray(o.payments)) {
+    return o.payments.some(
+      (p) => p && (p.receipt_image || p.receiptImage || p.proof_image || p.proofImage || p.image_url || p.imageUrl)
+    );
+  }
+  return false;
+};
+
 function FinanceSalesPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +117,7 @@ function FinanceSalesPage() {
 
   // Selected Order for Receipt Modal
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedProofOrder, setSelectedProofOrder] = useState(null);
 
   const fetchSalesData = async () => {
     try {
@@ -524,28 +537,45 @@ function FinanceSalesPage() {
                         {order.cashier_name || order.waiter_name || order.user_name || "Cashier"}
                       </td>
                       <td className="px-5 py-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${
-                            isCardPayment(method)
-                              ? "border-blue-200 bg-blue-50 text-blue-700"
-                              : isMobilePayment(method)
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                              : isCreditPayment(method, order)
-                              ? "border-amber-200 bg-amber-50 text-amber-700"
-                              : "border-green-200 bg-green-50 text-green-700"
-                          }`}
-                        >
-                          {isCardPayment(method) ? (
-                            <CreditCard className="h-3 w-3" />
-                          ) : isMobilePayment(method) ? (
-                            <Smartphone className="h-3 w-3" />
-                          ) : isCreditPayment(method, order) ? (
-                            <Users className="h-3 w-3" />
-                          ) : (
-                            <DollarSign className="h-3 w-3" />
+                        <div className="flex flex-col gap-1 items-start">
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${
+                              isCardPayment(method)
+                                ? "border-blue-200 bg-blue-50 text-blue-700"
+                                : isMobilePayment(method)
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                : isCreditPayment(method, order)
+                                ? "border-amber-200 bg-amber-50 text-amber-700"
+                                : "border-green-200 bg-green-50 text-green-700"
+                            }`}
+                          >
+                            {isCardPayment(method) ? (
+                              <CreditCard className="h-3 w-3" />
+                            ) : isMobilePayment(method) ? (
+                              <Smartphone className="h-3 w-3" />
+                            ) : isCreditPayment(method, order) ? (
+                              <Users className="h-3 w-3" />
+                            ) : (
+                              <DollarSign className="h-3 w-3" />
+                            )}
+                            {getPaymentLabel(method, order)}
+                          </span>
+
+                          {hasPaymentProof(order) && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedProofOrder(order);
+                              }}
+                              className="inline-flex items-center gap-1 text-[10px] font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md cursor-pointer transition shadow-2xs"
+                              title="View Mobile Payment Confirmation Photo"
+                            >
+                              <Eye className="h-3 w-3" />
+                              <span>View Proof</span>
+                            </button>
                           )}
-                          {getPaymentLabel(method, order)}
-                        </span>
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-right font-black text-slate-900">
                         {totalAmt.toLocaleString()} ETB
@@ -712,17 +742,35 @@ function FinanceSalesPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4 bg-slate-50">
+            <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4 bg-slate-50">
+              {hasPaymentProof(selectedOrder) ? (
+                <button
+                  type="button"
+                  onClick={() => setSelectedProofOrder(selectedOrder)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-50 border border-indigo-200 px-3.5 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs cursor-pointer"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>View Payment Proof</span>
+                </button>
+              ) : <div />}
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-white transition"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-white transition cursor-pointer"
               >
                 Close
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* PAYMENT PROOF MODAL */}
+      {selectedProofOrder && (
+        <PaymentProofModal
+          order={selectedProofOrder}
+          onClose={() => setSelectedProofOrder(null)}
+        />
       )}
     </div>
   );

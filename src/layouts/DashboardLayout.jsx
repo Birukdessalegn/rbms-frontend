@@ -93,7 +93,7 @@ const navigationGroups = [
             icon: UtensilsCrossed,
           },
           {
-            name: "My Served Orders",
+            name: "Served Orders",
             path: "/pos/served-orders",
             icon: CheckCircle2,
           },

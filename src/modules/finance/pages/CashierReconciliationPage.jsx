@@ -449,7 +449,6 @@ function CashierReconciliationPage() {
                   <th className="px-5 py-4">Requested By (Waiter)</th>
                   <th className="px-5 py-4">Reason / Notes</th>
                   <th className="px-5 py-4 text-right">Credit Amount</th>
-                  <th className="px-5 py-4 text-center">Approval Status</th>
                   <th className="px-5 py-4 text-center">Manager Action</th>
                 </tr>
               </thead>
@@ -458,7 +457,6 @@ function CashierReconciliationPage() {
                   const isPending =
                     creditOrder.payment_status === "credit_pending" ||
                     creditOrder.payment_status === "pending";
-                  const isApproved = creditOrder.payment_status === "credit_approved";
 
                   return (
                     <tr key={creditOrder.id} className="hover:bg-slate-50 transition">
@@ -486,34 +484,6 @@ function CashierReconciliationPage() {
                       </td>
                       <td className="px-5 py-4 text-right font-black text-slate-900 text-base">
                         {Number(creditOrder.total || 0).toLocaleString()} ETB
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${
-                            isApproved
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : isPending
-                              ? "bg-amber-50 text-amber-800 border-amber-300 animate-pulse"
-                              : "bg-rose-50 text-rose-700 border-rose-200"
-                          }`}
-                        >
-                          {isApproved ? (
-                            <>
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              Approved by {creditOrder.approved_by_name || "Manager"}
-                            </>
-                          ) : isPending ? (
-                            <>
-                              <Clock className="h-3.5 w-3.5" />
-                              Pending Manager Approval
-                            </>
-                          ) : (
-                            <>
-                              <X className="h-3.5 w-3.5" />
-                              Credit Rejected
-                            </>
-                          )}
-                        </span>
                       </td>
                       <td className="px-5 py-4 text-center">
                         {isPending ? (

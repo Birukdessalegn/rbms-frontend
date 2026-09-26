@@ -152,9 +152,9 @@ export default function FruitOrdersPage() {
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [restockProduct, setRestockProduct] = useState(null);
 
-  // Order Rejection / Customer Refusal Modal State
+  // Fruit Manager Order Rejection Modal State
   const [rejectModalOrder, setRejectModalOrder] = useState(null);
-  const [rejectReasonPreset, setRejectReasonPreset] = useState("Customer refused order at table");
+  const [rejectReasonPreset, setRejectReasonPreset] = useState("Fruit ingredients unavailable / Out of stock");
   const [customRejectReason, setCustomRejectReason] = useState("");
   const [rejectLoading, setRejectLoading] = useState(false);
 
@@ -256,7 +256,7 @@ export default function FruitOrdersPage() {
       const finalReason =
         rejectReasonPreset === "Other reason" && customRejectReason.trim()
           ? customRejectReason.trim()
-          : rejectReasonPreset || customRejectReason.trim() || "Customer refused order at table";
+          : rejectReasonPreset || customRejectReason.trim() || "Rejected by Fruit Manager";
 
       await api(`/kitchen/${rejectModalOrder.id}/status`, {
         method: "PUT",
@@ -268,7 +268,7 @@ export default function FruitOrdersPage() {
 
       setRejectModalOrder(null);
       setCustomRejectReason("");
-      setRejectReasonPreset("Customer refused order at table");
+      setRejectReasonPreset("Fruit ingredients unavailable / Out of stock");
       await fetchOrders(false);
     } catch (err) {
       console.error("Failed to reject order:", err);
@@ -299,8 +299,12 @@ export default function FruitOrdersPage() {
         if (st !== "preparing") return false;
       } else if (statusFilter === "ready") {
         if (st !== "ready") return false;
-      } else if (statusFilter === "completed") {
+      } else if (statusFilter === "history" || statusFilter === "completed") {
+        // Whole history of finished orders: both completed/served and rejected/cancelled
         if (st !== "completed" && st !== "served" && st !== "cancelled" && st !== "rejected") return false;
+      } else if (statusFilter === "rejected") {
+        // Specifically orders rejected by the Fruit Manager
+        if (st !== "cancelled" && st !== "rejected") return false;
       }
 
       // 3. Text search
@@ -694,7 +698,8 @@ export default function FruitOrdersPage() {
                 { id: "pending", label: "New Orders" },
                 { id: "preparing", label: "Preparing" },
                 { id: "ready", label: "Ready" },
-                { id: "completed", label: "History & Refused" },
+                { id: "history", label: "Order History" },
+                { id: "rejected", label: "Rejected Orders" },
                 { id: "all", label: "All" },
               ].map((tab) => (
                 <button
@@ -844,7 +849,7 @@ export default function FruitOrdersPage() {
                               : "bg-slate-100 text-slate-600"
                           }`}
                         >
-                          {isCancelled ? "REFUSED" : status}
+                          {isCancelled ? "REJECTED" : status}
                         </span>
                       </div>
 
@@ -930,11 +935,11 @@ export default function FruitOrdersPage() {
                             type="button"
                             onClick={() => {
                               setRejectModalOrder(order);
-                              setRejectReasonPreset("Customer refused order at table");
+                              setRejectReasonPreset("Fruit ingredients unavailable / Out of stock");
                               setCustomRejectReason("");
                             }}
                             disabled={isUpdating}
-                            title="Customer refused or reject order"
+                            title="Fruit Manager: Reject Order"
                             className="px-3 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 transition text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 shrink-0 cursor-pointer"
                           >
                             <Ban size={14} />
@@ -961,11 +966,11 @@ export default function FruitOrdersPage() {
                             type="button"
                             onClick={() => {
                               setRejectModalOrder(order);
-                              setRejectReasonPreset("Customer refused order at table");
+                              setRejectReasonPreset("Fruit ingredients unavailable / Out of stock");
                               setCustomRejectReason("");
                             }}
                             disabled={isUpdating}
-                            title="Customer refused or reject order"
+                            title="Fruit Manager: Reject Order"
                             className="px-3 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 transition text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 shrink-0 cursor-pointer"
                           >
                             <Ban size={14} />
@@ -992,11 +997,11 @@ export default function FruitOrdersPage() {
                             type="button"
                             onClick={() => {
                               setRejectModalOrder(order);
-                              setRejectReasonPreset("Customer refused order upon delivery");
+                              setRejectReasonPreset("Fruit ingredients unavailable / Out of stock");
                               setCustomRejectReason("");
                             }}
                             disabled={isUpdating}
-                            title="Customer refused or reject order"
+                            title="Fruit Manager: Reject Order"
                             className="px-3 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 transition text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 shrink-0 cursor-pointer"
                           >
                             <Ban size={14} />
@@ -1015,7 +1020,7 @@ export default function FruitOrdersPage() {
                       {isCancelled && (
                         <div className="text-center py-1.5 text-xs font-bold text-rose-700 flex items-center justify-center gap-1.5 bg-rose-50 rounded-xl border border-rose-200">
                           <Ban size={14} className="text-rose-600 shrink-0" />
-                          <span>Order Refused & Cancelled (Stock Restored)</span>
+                          <span>Order Rejected & Cancelled (Stock Restored)</span>
                         </div>
                       )}
                     </div>
@@ -1298,10 +1303,10 @@ export default function FruitOrdersPage() {
               </div>
               <div className="flex-1 pr-6">
                 <h2 className="text-lg font-bold text-slate-900">
-                  Reject / Refused Order
+                  Reject Fruit Order
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Customer refused order or fruit items cannot be served.
+                  Fruit Manager rejection — cancels ticket and restores inventory stock.
                 </p>
               </div>
             </div>
@@ -1342,17 +1347,17 @@ export default function FruitOrdersPage() {
               </div>
             </div>
 
-            {/* SELECT REFUSAL REASON */}
+            {/* SELECT REJECTION REASON */}
             <div className="mt-4 space-y-2">
               <label className="text-xs font-bold text-slate-700">
-                Select Refusal / Rejection Reason:
+                Select Fruit Rejection Reason:
               </label>
               <div className="grid grid-cols-1 gap-2">
                 {[
-                  "Customer refused order at table",
-                  "Customer changed mind / Left",
-                  "Customer waited too long",
-                  "Fruit ingredients unavailable / Damaged",
+                  "Fruit ingredients unavailable / Out of stock",
+                  "Fruit quality compromised / Damaged",
+                  "Customer cancelled or left table",
+                  "Customer requested modification / re-order",
                   "Other reason",
                 ].map((reason) => (
                   <label
@@ -1365,7 +1370,7 @@ export default function FruitOrdersPage() {
                   >
                     <input
                       type="radio"
-                      name="refusal_reason"
+                      name="rejection_reason"
                       value={reason}
                       checked={rejectReasonPreset === reason}
                       onChange={() => setRejectReasonPreset(reason)}
@@ -1383,7 +1388,7 @@ export default function FruitOrdersPage() {
                     rows={2}
                     value={customRejectReason}
                     onChange={(e) => setCustomRejectReason(e.target.value)}
-                    placeholder="Type custom refusal reason..."
+                    placeholder="Type custom rejection reason..."
                     className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
                   />
                 </div>
@@ -1394,7 +1399,7 @@ export default function FruitOrdersPage() {
             <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-2.5 flex items-start gap-2 text-[11px] text-amber-800">
               <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
               <span>
-                Rejecting removes this ticket from the active queue, restores inventory stock, and marks the order as refused in history.
+                Rejecting removes this ticket from the active queue, restores inventory stock, and logs the order under Rejected Orders.
               </span>
             </div>
 

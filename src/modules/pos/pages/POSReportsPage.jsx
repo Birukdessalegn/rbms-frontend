@@ -1194,7 +1194,7 @@ function POSReportsPage() {
               <span className="font-extrabold text-purple-800">{(paymentMethodSummary.telebirr.amount + paymentMethodSummary.bank.amount).toFixed(2)} ETB</span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-500 uppercase font-bold block">Unpaid / Credit</span>
+              <span className="text-[10px] text-slate-500 uppercase font-bold block">VIP</span>
               <span className="font-extrabold text-rose-700">{paymentMethodSummary.credit.amount.toFixed(2)} ETB</span>
             </div>
           </div>

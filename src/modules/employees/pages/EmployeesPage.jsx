@@ -38,7 +38,7 @@ const roles = [
   { id: 3, name: "hr", label: "HR", isOffline: false },
   { id: 4, name: "finance", label: "Finance Officer", isOffline: false },
   { id: 5, name: "cashier", label: "Cashier", isOffline: false },
-  { id: 6, name: "waiter", label: "Waiter / Service Staff", isOffline: false },
+  { id: 6, name: "waiter", label: "Service", isOffline: false },
   { id: 7, name: "chef", label: "Chef", isOffline: false },
   { id: 8, name: "bartender", label: "Bartender", isOffline: false },
   { id: 9, name: "fb_controller", label: "F&B Controller / Kitchen Auditor", isOffline: false },
@@ -60,7 +60,7 @@ const departments = [
   { id: 3775, name: "Security", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
   { id: 3776, name: "Parking", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
   { id: 3777, name: "Lift Man", defaultRoleId: 6, allowedRoleNames: ["waiter"], isOffline: true },
-  { id: 3778, name: "Host", defaultRoleId: 3207, allowedRoleNames: ["host"] },
+  { id: 3778, name: "Host", defaultRoleId: 6, allowedRoleNames: ["waiter"] },
 ];
 
 const statusStyles = {

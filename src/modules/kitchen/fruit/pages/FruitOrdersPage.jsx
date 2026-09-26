@@ -345,7 +345,8 @@ export default function FruitOrdersPage() {
       else if (st === "ready") readyCount++;
     });
 
-    return { pendingCount, preparingCount, readyCount, totalFruitOrders };
+    const activeCount = pendingCount + preparingCount + readyCount;
+    return { pendingCount, preparingCount, readyCount, activeCount, totalFruitOrders };
   }, [orders, onlyFruit]);
 
   // Compute registered fruit products with live fruit stock
@@ -483,19 +484,6 @@ export default function FruitOrdersPage() {
           >
             {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
             <span>{soundEnabled ? "Sound On" : "Muted"}</span>
-          </button>
-
-          {/* FRUIT ONLY FILTER TOGGLE */}
-          <button
-            onClick={() => setOnlyFruit((prev) => !prev)}
-            className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition border cursor-pointer ${
-              onlyFruit
-                ? "bg-amber-500 text-white border-amber-500 shadow-xs"
-                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            <Filter size={15} />
-            <span>{onlyFruit ? "Fruit Only" : "All Orders"}</span>
           </button>
 
           {/* REFRESH */}
@@ -657,7 +645,7 @@ export default function FruitOrdersPage() {
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
             mainSectionTab === "orders" ? "bg-white/25 text-white" : "bg-slate-200 text-slate-700"
           }`}>
-            {stats.totalFruitOrders}
+            {stats.activeCount}
           </span>
         </button>
 

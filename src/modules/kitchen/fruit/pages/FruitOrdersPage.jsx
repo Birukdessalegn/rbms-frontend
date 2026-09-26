@@ -641,7 +641,7 @@ export default function FruitOrdersPage() {
           }`}
         >
           <span>🍉</span>
-          <span>Active Fruit Orders</span>
+          <span>Fruit Orders</span>
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
             mainSectionTab === "orders" ? "bg-white/25 text-white" : "bg-slate-200 text-slate-700"
           }`}>
@@ -686,7 +686,6 @@ export default function FruitOrdersPage() {
                 { id: "pending", label: "New Orders" },
                 { id: "preparing", label: "Preparing" },
                 { id: "ready", label: "Ready" },
-                { id: "history", label: "Order History" },
                 { id: "rejected", label: "Rejected Orders" },
                 { id: "all", label: "All" },
               ].map((tab) => (

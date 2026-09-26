@@ -17,6 +17,8 @@ import {
   Wallet,
   X,
   ShieldCheck,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 
 
@@ -47,6 +49,15 @@ function POSPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [allProducts, setAllProducts] = useState([]);
   const [portionModalProduct, setPortionModalProduct] = useState(null);
+
+  // Modern Toast notification state
+  const [toast, setToast] = useState(null);
+  const showToast = (message, type = "success") => {
+    setToast({ message, type, id: Date.now() });
+    setTimeout(() => {
+      setToast((prev) => (prev?.message === message ? null : prev));
+    }, 3500);
+  };
 
   // Floating search dropdown products
   const matchingSearchProducts = useMemo(() => {
@@ -121,9 +132,9 @@ function POSPage() {
         setCurrentShift(shift);
       }
       setShowQuickStartModal(false);
-      alert("Cash drawer shift opened successfully! All today's sales will link to this shift.");
+      showToast("Cash drawer shift opened successfully! All today's sales will link to this shift.", "success");
     } catch (err) {
-      alert(err.message || "Failed to start shift");
+      showToast(err.message || "Failed to start shift", "error");
     } finally {
       setStartingQuickShift(false);
     }
@@ -210,15 +221,15 @@ function POSPage() {
 
   const handleSendToKitchen = async () => {
     if (!orderItems || orderItems.length === 0) {
-      alert("Your order ticket is empty. Please select menu items before sending.");
+      showToast("Your order ticket is empty. Please select menu items before sending.", "error");
       return;
     }
     if (!selectedTable) {
-      alert("Please select a table for Dine In orders.");
+      showToast("Please select a table for Dine In orders.", "error");
       return;
     }
     if (isWaiter && isBarSeatTable(selectedTable)) {
-      alert("Bar tables and counter seats are reserved exclusively for the Bartender. Please select a dining table.");
+      showToast("Bar tables and counter seats are reserved exclusively for the Bartender. Please select a dining table.", "error");
       return;
     }
 
@@ -293,15 +304,15 @@ function POSPage() {
         fetchKitchenOrders();
       }
 
-      const isBarOrder = isBartender || Boolean(selectedTable?.is_bar_seat);
-      alert(isBarOrder ? "Order sent to Bar successfully!" : "Order sent to kitchen successfully!");
+      showToast("Order sent successfully!", "success");
 
     } catch (error) {
       console.error("Failed to create order:", error);
 
-      alert(
+      showToast(
         error.message ||
-        "Failed to send order to kitchen"
+        "Failed to send order",
+        "error"
       );
     }
   };
@@ -635,6 +646,32 @@ function POSPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* MODERN IN-APP TOAST NOTIFICATION */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl px-5 py-3.5 shadow-2xl backdrop-blur-md transition-all duration-300 animate-in fade-in slide-in-from-bottom-5 ${
+            toast.type === "success"
+              ? "bg-slate-900/95 border border-emerald-500/40 text-emerald-200"
+              : "bg-slate-900/95 border border-rose-500/40 text-rose-200"
+          }`}
+        >
+          {toast.type === "success" ? (
+            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertCircle className="h-5 w-5 text-rose-400 shrink-0" />
+          )}
+
+          <span className="text-sm font-semibold">{toast.message}</span>
+
+          <button
+            onClick={() => setToast(null)}
+            className="ml-2 rounded-lg p-1 text-slate-400 hover:text-white transition cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 

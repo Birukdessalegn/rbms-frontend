@@ -17,6 +17,7 @@ import PayslipModal from "../components/PayslipModal";
 function PayrollPage() {
   const currentMonthStr = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr);
+  const isFutureMonth = selectedMonth > currentMonthStr;
   const [payrollData, setPayrollData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -110,6 +111,7 @@ function PayrollPage() {
             <Calendar className="h-4 w-4 text-slate-400" />
             <input
               type="month"
+              max={currentMonthStr}
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="text-xs font-bold text-slate-800 focus:outline-hidden bg-transparent"
@@ -118,7 +120,7 @@ function PayrollPage() {
 
           <button
             onClick={handleApprovePayroll}
-            disabled={submitting || isApproved || items.length === 0}
+            disabled={submitting || isApproved || items.length === 0 || isFutureMonth}
             className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-md hover:bg-emerald-500 disabled:opacity-50 transition"
           >
             {isApproved ? (
@@ -215,12 +217,14 @@ function PayrollPage() {
           <div className="flex items-center gap-2">
             <span
               className={`rounded-full px-3 py-1 text-xs font-bold border ${
-                isApproved
+                isFutureMonth
+                  ? "bg-slate-100 text-slate-600 border-slate-200"
+                  : isApproved
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                   : "bg-amber-50 text-amber-700 border-amber-200"
               }`}
             >
-              Status: {isApproved ? "Approved & Locked" : "Draft Preview"}
+              Status: {isFutureMonth ? "Upcoming Period (Locked)" : isApproved ? "Approved & Locked" : "Draft Preview"}
             </span>
           </div>
         </div>
@@ -230,9 +234,29 @@ function PayrollPage() {
           <div className="p-12 text-center text-sm font-semibold text-slate-400">
             Calculating payroll sheet...
           </div>
+        ) : isFutureMonth ? (
+          <div className="flex flex-col items-center justify-center p-12 text-center bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 m-4">
+            <div className="h-12 w-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 mb-3">
+              <Calendar className="h-6 w-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-800">
+              Upcoming Payroll Period ({selectedMonth})
+            </h3>
+            <p className="mt-1 max-w-md text-xs text-slate-500 font-medium">
+              Payroll calculations for future months are not available yet. Staff shifts, daily attendance, and work records must be completed before generating and locking payroll.
+            </p>
+          </div>
         ) : filteredItems.length === 0 ? (
-          <div className="p-12 text-center text-sm font-semibold text-slate-400">
-            No active staff found for this payroll period.
+          <div className="flex flex-col items-center justify-center p-12 text-center bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 m-4">
+            <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+              <Users className="h-6 w-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-800">
+              No Registered Staff Found
+            </h3>
+            <p className="mt-1 max-w-md text-xs text-slate-500 font-medium">
+              No active employees were registered or hired for {selectedMonth}. Only staff registered on or before this period are included.
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">

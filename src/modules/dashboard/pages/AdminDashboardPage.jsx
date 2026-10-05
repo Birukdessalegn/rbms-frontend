@@ -80,7 +80,6 @@ export default function AdminDashboardPage() {
         api("/pos/orders").catch(() => api("/orders").catch(() => ({}))),
         api("/kitchen").catch(() => api("/kitchen/orders").catch(() => [])),
         api("/bar/orders").catch(() => api("/bar").catch(() => [])),
-        api("/fruit").catch(() => api("/fruit/orders").catch(() => [])),
         api("/expenses").catch(() => []),
         api("/payments").catch(() => ([])),
       ];
@@ -100,7 +99,7 @@ export default function AdminDashboardPage() {
         Promise.all(refPromises),
       ]);
 
-      const [dashRes, tablesRes, ordersRes, kitchenRes, barRes, fruitRes, expRes, pmtsRes] = liveResults;
+      const [dashRes, tablesRes, ordersRes, kitchenRes, barRes, expRes, pmtsRes] = liveResults;
 
       if (dashRes && (dashRes.success || dashRes.stats || dashRes.data)) {
         setDashboardStats(dashRes.stats || dashRes.data || dashRes);
@@ -111,11 +110,10 @@ export default function AdminDashboardPage() {
       const rawPosOrders = ordersRes.orders || ordersRes.data || (Array.isArray(ordersRes) ? ordersRes : []);
       const rawKitchenOrders = Array.isArray(kitchenRes) ? kitchenRes : kitchenRes.orders || [];
       const rawBarOrders = Array.isArray(barRes) ? barRes : barRes.orders || [];
-      const rawFruitOrders = Array.isArray(fruitRes) ? fruitRes : fruitRes?.orders || [];
       
       // Combine POS, Bar, Kitchen, and Fruit orders with deduplication
       const combinedOrdersMap = new Map();
-      [...rawPosOrders, ...rawBarOrders, ...rawKitchenOrders, ...rawFruitOrders].forEach((ord) => {
+      [...rawPosOrders, ...rawBarOrders, ...rawKitchenOrders].forEach((ord) => {
         if (!ord) return;
         const key = String(ord.order_number || ord.orderNumber || ord.id || ord.order_id || "");
         if (key && !combinedOrdersMap.has(key)) {

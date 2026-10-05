@@ -193,6 +193,11 @@ const navigationGroups = [
             path: "/fruit",
             icon: Sparkles,
           },
+          {
+            name: "Fruit Reports",
+            path: "/fruit/reports",
+            icon: BarChart3,
+          },
         ],
       },
 

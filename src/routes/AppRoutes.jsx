@@ -52,6 +52,7 @@ import KitchenStockAuditPage from "../modules/kitchen/pages/KitchenStockAuditPag
 import FBAuditReportsPage from "../modules/kitchen/pages/FBAuditReportsPage";
 import KitchenReportsPage from "../modules/kitchen/pages/KitchenReportsPage";
 import FruitOrdersPage from "../modules/kitchen/pages/FruitOrdersPage";
+import FruitReportsPage from "../modules/kitchen/pages/FruitReportsPage";
 
 import POSPage from "../modules/pos/pages/POSPage";
 import StaffMenuPage from "../modules/pos/pages/StaffMenuPage";
@@ -295,6 +296,10 @@ function AppRoutes() {
               <Route
                 path="/fruit"
                 element={<FruitOrdersPage />}
+              />
+              <Route
+                path="/fruit/reports"
+                element={<FruitReportsPage />}
               />
             </Route>
 

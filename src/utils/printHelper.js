@@ -43,10 +43,11 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
       <head>
         <meta charset="utf-8" />
         <title>${title}</title>
+        
         <style>
           @page {
             size: A4 portrait;
-            margin: 8mm 8mm 10mm 8mm;
+            margin: 10mm 10mm 12mm 10mm;
           }
           * {
             box-sizing: border-box;
@@ -59,246 +60,116 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
             padding: 0;
             color: #0f172a;
             background: #ffffff;
-            font-size: 9.5px;
-            line-height: 1.35;
+            font-size: 10px;
+            line-height: 1.4;
           }
-          /* Executive Financial Summary Grid */
-          .grid {
-            display: grid !important;
-          }
-          .grid-cols-2 {
-            display: grid !important;
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 8px !important;
-          }
-          .grid-cols-4, .sm\\:grid-cols-4, .md\\:grid-cols-4 {
-            display: grid !important;
-            grid-template-columns: repeat(4, 1fr) !important;
-            gap: 8px !important;
-            margin: 8px 0 !important;
-          }
-          .bg-slate-50, .bg-slate-50\\/50 {
-            background-color: #f8fafc !important;
-          }
-          .rounded-xl, .rounded-lg, .rounded-2xl {
-            border-radius: 4px !important;
-          }
-          .border {
-            border: 1px solid #94a3b8 !important;
-          }
-          .border-2 {
-            border: 1.5px solid #0f172a !important;
-          }
-          .border-slate-200, .border-slate-200\\/60, .border-slate-300 {
-            border-color: #94a3b8 !important;
-          }
-          .border-b {
-            border-bottom: 1px solid #94a3b8 !important;
-          }
-          .border-t {
-            border-top: 1px solid #94a3b8 !important;
-          }
-          .border-t-2 {
-            border-top: 2px solid #0f172a !important;
-          }
+
+          /* Clean Document Header */
           .border-b-2 {
             border-bottom: 2px solid #0f172a !important;
+            padding-bottom: 12px !important;
+            margin-bottom: 16px !important;
           }
-          .p-2 { padding: 4px 6px !important; }
-          .p-2\\.5 { padding: 6px 8px !important; }
-          .p-3 { padding: 6px 8px !important; }
-          .p-4 { padding: 8px 10px !important; }
-          .p-5, .p-6 { padding: 10px !important; }
-          .pb-2 { padding-bottom: 4px !important; }
-          .pb-3 { padding-bottom: 6px !important; }
-          .pb-4 { padding-bottom: 8px !important; }
-          .pb-5 { padding-bottom: 10px !important; }
-          .pt-1 { padding-top: 2px !important; }
-          .pt-2 { padding-top: 4px !important; }
-          .pt-3 { padding-top: 6px !important; }
-          .pt-4 { padding-top: 8px !important; }
-          .mt-1 { margin-top: 2px !important; }
-          .mt-2 { margin-top: 4px !important; }
-          .mt-3 { margin-top: 6px !important; }
-          .mt-4 { margin-top: 8px !important; }
-          .mt-6 { margin-top: 12px !important; }
-          .mt-8 { margin-top: 16px !important; }
-          .mt-10 { margin-top: 18px !important; }
-          .mb-2 { margin-bottom: 4px !important; }
-          .mb-3 { margin-bottom: 6px !important; }
-          .mb-4 { margin-bottom: 8px !important; }
-          .mb-6 { margin-bottom: 12px !important; }
-          .flex {
-            display: flex !important;
+
+          /* 4-Card Clean Metric Grid (Exact Match to User Reference) */
+          .grid, .grid-cols-4, .sm\:grid-cols-4, .md\:grid-cols-4, .grid-cols-2 {
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 12px !important;
+            margin: 12px 0 16px 0 !important;
           }
-          .flex-wrap {
-            flex-wrap: wrap !important;
+          @media (max-width: 650px) {
+            .grid, .grid-cols-4, .sm\:grid-cols-4, .md\:grid-cols-4 {
+              grid-template-columns: repeat(2, 1fr) !important;
+            }
           }
-          .flex-col {
-            flex-direction: column !important;
+
+          /* Metric Card Container */
+          .metric-card, .card, .rounded-2xl.border, .rounded-xl.border {
+            background-color: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            padding: 14px 16px !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+            page-break-inside: avoid !important;
           }
-          .flex-row {
-            flex-direction: row !important;
+
+          /* Metric Card Typography */
+          .card-title, p[class*="tracking-wider"] {
+            font-size: 9.5px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
+            color: #64748b !important;
+            margin: 0 0 6px 0 !important;
           }
+          .card-value, span[class*="text-2xl"], p[class*="text-2xl"] {
+            font-size: 20px !important;
+            font-weight: 900 !important;
+            color: #0f172a !important;
+            line-height: 1.15 !important;
+          }
+
+          /* Side Metrics Bar fallback styled as modern 4-card grid */
           .side-metrics-bar {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: wrap !important;
-            align-items: center !important;
-            justify-content: space-between !important;
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 12px !important;
             width: 100% !important;
-            padding: 6px 0 !important;
-            margin: 6px 0 10px 0 !important;
-            border-top: 1.5px solid #0f172a !important;
-            border-bottom: 1.5px solid #0f172a !important;
-            border-left: none !important;
-            border-right: none !important;
+            padding: 0 !important;
+            margin: 12px 0 16px 0 !important;
+            border: none !important;
             background: transparent !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
           }
           .side-metrics-bar > div, .side-metrics-bar .flex {
             display: flex !important;
-            flex-direction: row !important;
-            align-items: center !important;
-          }
-          .border-y {
-            border-top: 1px solid #94a3b8 !important;
-            border-bottom: 1px solid #94a3b8 !important;
-          }
-          .gap-1 { gap: 4px !important; }
-          .gap-1\\.5 { gap: 6px !important; }
-          .gap-2 { gap: 8px !important; }
-          .gap-3 { gap: 12px !important; }
-          .gap-4 { gap: 16px !important; }
-          .gap-x-2 { column-gap: 8px !important; }
-          .gap-x-3 { column-gap: 12px !important; }
-          .gap-x-4 { column-gap: 16px !important; }
-          .gap-y-1 { row-gap: 4px !important; }
-          .gap-y-1\\.5 { row-gap: 6px !important; }
-          .gap-y-2 { row-gap: 8px !important; }
-          .w-full { width: 100% !important; }
-          .items-start {
+            flex-direction: column !important;
             align-items: flex-start !important;
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            padding: 12px 14px !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
           }
-          .items-center {
-            align-items: center !important;
+          .side-metrics-bar span:not([class*="text-"]):not([class*="font-"]) {
+            display: none !important;
           }
-          .justify-between {
-            justify-content: space-between !important;
-          }
-          .text-right {
-            text-align: right !important;
-          }
-          .text-center {
-            text-align: center !important;
-          }
-          .whitespace-nowrap {
-            white-space: nowrap !important;
-          }
-          .uppercase {
-            text-transform: uppercase !important;
-          }
-          .tracking-tight {
-            letter-spacing: -0.025em !important;
-          }
-          .tracking-wider {
+          .side-metrics-bar span[class*="uppercase"] {
+            font-size: 9px !important;
+            font-weight: 700 !important;
+            color: #64748b !important;
+            margin-bottom: 4px !important;
             letter-spacing: 0.04em !important;
           }
-          .font-mono {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-          }
-          .font-black {
-            font-weight: 900 !important;
-          }
-          .font-bold, .font-extrabold {
-            font-weight: 800 !important;
-          }
-          .font-semibold {
-            font-weight: 600 !important;
-          }
-          .text-2xl {
+          .side-metrics-bar strong {
             font-size: 16px !important;
-          }
-          .text-xl {
-            font-size: 14px !important;
-          }
-          .text-lg {
-            font-size: 13px !important;
-          }
-          .text-base {
-            font-size: 11px !important;
-          }
-          .text-sm {
-            font-size: 10px !important;
-          }
-          .text-xs {
-            font-size: 9px !important;
-          }
-          .text-\\[11px\\] {
-            font-size: 9px !important;
-          }
-          .text-\\[10px\\] {
-            font-size: 8.5px !important;
-          }
-          .text-\\[9\\.5px\\] {
-            font-size: 8px !important;
-          }
-          .text-slate-900, .text-slate-950 {
+            font-weight: 900 !important;
             color: #0f172a !important;
+            line-height: 1.2 !important;
           }
-          .text-slate-700, .text-slate-800 {
-            color: #1e293b !important;
+
+          /* Clean Well-Spaced Data Table (Exact Match to User Reference) */
+          .overflow-hidden.rounded-2xl.border, .table-container {
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            overflow: hidden !important;
+            background: #ffffff !important;
+            margin-top: 14px !important;
+            margin-bottom: 16px !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
           }
-          .text-slate-600, .text-slate-500, .text-slate-400 {
-            color: #475569 !important;
-          }
-          .text-emerald-700, .text-emerald-800, .text-emerald-900 {
-            color: #065f46 !important;
-          }
-          .text-blue-700, .text-blue-800 {
-            color: #1d4ed8 !important;
-          }
-          .text-purple-700, .text-purple-800 {
-            color: #6b21a8 !important;
-          }
-          .text-rose-700, .text-red-700 {
-            color: #9f1239 !important;
-          }
-          .text-amber-700, .text-amber-800 {
-            color: #92400e !important;
-          }
-          .bg-emerald-50, .bg-emerald-100 {
-            background-color: #ecfdf5 !important;
-          }
-          .bg-blue-50, .bg-indigo-50 {
-            background-color: #eff6ff !important;
-          }
-          .bg-purple-50 {
-            background-color: #faf5ff !important;
-          }
-          .bg-amber-50 {
-            background-color: #fffbeb !important;
-          }
-          .bg-slate-100 {
-            background-color: #f1f5f9 !important;
-          }
-          .bg-white {
-            background-color: #ffffff !important;
-          }
-          /* Strict A4 Tables without right-edge overflow */
+
           table {
             width: 100% !important;
             max-width: 100% !important;
             border-collapse: collapse !important;
-            margin-top: 6px !important;
-            font-size: 8.5px !important;
+            font-size: 10px !important;
             table-layout: auto !important;
+            background: #ffffff !important;
             page-break-inside: auto !important;
           }
           tr {
             page-break-inside: avoid !important;
-            page-break-after: auto !important;
           }
           thead {
             display: table-header-group !important;
@@ -306,48 +177,108 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
           tfoot {
             display: table-footer-group !important;
           }
-          th, td {
-            border: 1px solid #64748b !important;
-            padding: 3.5px 5px !important;
-            vertical-align: top !important;
-          }
+
+          /* Table Header - Clean light background, generous padding, subtle bottom divider */
           th {
-            background-color: #f1f5f9 !important;
-            font-weight: 800 !important;
-            text-transform: uppercase !important;
-            font-size: 8px !important;
-            color: #0f172a !important;
-          }
-          tbody tr:nth-child(even) {
             background-color: #f8fafc !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            font-size: 9px !important;
+            letter-spacing: 0.04em !important;
+            color: #475569 !important;
+            padding: 10px 14px !important;
+            border: none !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            text-align: left !important;
+            vertical-align: middle !important;
           }
+
+          /* Data Rows - NO vertical grid lines, generous vertical padding, clean horizontal lines */
+          td {
+            border: none !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            padding: 10px 14px !important;
+            vertical-align: middle !important;
+            color: #1e293b !important;
+            font-size: 10px !important;
+            line-height: 1.4 !important;
+          }
+          tbody tr:nth-child(even) td {
+            background-color: #fafbfc !important;
+          }
+          tbody tr:last-child td {
+            border-bottom: none !important;
+          }
+
+          /* Table Footer Totals */
           tfoot tr {
-            background-color: #f1f5f9 !important;
-            font-weight: 900 !important;
-            border-top: 2px solid #0f172a !important;
+            background-color: #f8fafc !important;
+            font-weight: 800 !important;
+            border-top: 2px solid #e2e8f0 !important;
           }
           tfoot td {
-            font-size: 9.5px !important;
+            font-size: 10.5px !important;
             font-weight: 900 !important;
             color: #0f172a !important;
+            padding: 10px 14px !important;
+            border: none !important;
+            border-top: 2px solid #e2e8f0 !important;
           }
-          /* Badges */
-          .badge, span[class*="rounded-full"], span[class*="rounded-md"], span[class*="rounded-lg"] {
-            display: inline-block !important;
-            padding: 1px 4px !important;
-            border-radius: 3px !important;
+
+          /* Rounded Status Pills with circular dot (Matching Right Image) */
+          .badge, span[class*="rounded-full"] {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 5px !important;
+            padding: 3px 10px !important;
+            border-radius: 9999px !important;
             font-weight: 700 !important;
-            font-size: 8px !important;
+            font-size: 9.5px !important;
+            line-height: 1 !important;
           }
-          /* Prevent summary & footer from cutting mid-page */
-          .print-summary-box, .print-footer-box, .print-avoid-break {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
+
+          /* Subtle Pill Badge Colors */
+          .bg-emerald-50, .bg-emerald-100 {
+            background-color: #ecfdf5 !important;
+            color: #059669 !important;
           }
-          /* Hide interactive UI */
+          .bg-blue-50, .bg-indigo-50, .bg-sky-50 {
+            background-color: #eff6ff !important;
+            color: #2563eb !important;
+          }
+          .bg-rose-50, .bg-red-50, .bg-red-100 {
+            background-color: #fff1f2 !important;
+            color: #e11d48 !important;
+          }
+          .bg-amber-50, .bg-yellow-50 {
+            background-color: #fffbeb !important;
+            color: #d97706 !important;
+          }
+          .bg-purple-50 {
+            background-color: #faf5ff !important;
+            color: #9333ea !important;
+          }
+          .bg-slate-50, .bg-slate-100 {
+            background-color: #f1f5f9 !important;
+            color: #475569 !important;
+          }
+
+          /* Hide interactive buttons on print */
           button, input, select, .print-hidden, .print-hide {
             display: none !important;
           }
+
+          /* Utility spacing */
+          .flex { display: flex !important; }
+          .flex-wrap { flex-wrap: wrap !important; }
+          .flex-col { flex-direction: column !important; }
+          .items-center { align-items: center !important; }
+          .justify-between { justify-content: space-between !important; }
+          .text-right { text-align: right !important; }
+          .text-center { text-align: center !important; }
+          .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important; }
+          .font-bold { font-weight: 700 !important; }
+          .font-black, .font-extrabold { font-weight: 800 !important; }
         </style>
       </head>
       <body>

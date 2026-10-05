@@ -412,7 +412,6 @@ function InventoryReportsPage() {
               <option value="Stock Out">Out of Stock</option>
             </select>
           </div>
-        </div>
       </div>
 
       {/* PRINTABLE REPORT DOCUMENT CONTAINER */}
@@ -438,30 +437,52 @@ function InventoryReportsPage() {
           </div>
         </div>
 
-        {/* CARDLESS HORIZONTAL METRICS BAR (SIDE-BY-SIDE WITHOUT CARDS) */}
-        <div className="side-metrics-bar border-y border-slate-300 py-2.5 my-2">
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 text-xs text-slate-700 w-full">
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Monitored Items:</span>
-              <strong className="text-slate-900 font-black">{totalItemsCount} SKUs</strong>
-              <span className="text-[10px] font-semibold text-emerald-700">({inStockCount} In Stock)</span>
+        {/* 4 CLEAN METRIC CARDS (Exact Match to Design Specification) */}
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4 my-3.5">
+          <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Tracked SKUs</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="card-value text-xl font-black text-slate-900">{filteredInventory.length}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                Items
+              </span>
             </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Low Stock Alert:</span>
-              <strong className="text-amber-700 font-black">{lowStockCount} Items</strong>
-            </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Out of Stock:</span>
-              <strong className="text-red-700 font-black">{outOfStockCount} Items</strong>
-            </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Total Asset Value:</span>
-              <strong className="text-emerald-700 font-black">{totalValuation.toLocaleString()} ETB</strong>
-            </div>
+            <p className="mt-1 text-[11px] text-slate-400 font-medium">Active stock items</p>
           </div>
+
+          <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Stock Asset Valuation</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="card-value text-xl font-black text-emerald-700">{totalStockValue.toLocaleString()}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                ETB
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400 font-medium">Estimated holding value</p>
+          </div>
+
+          <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Low Stock Alerts</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="card-value text-xl font-black text-amber-700">{lowStockCount}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>Reorder
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400 font-medium">Below minimum threshold</p>
+          </div>
+
+          <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Out of Stock</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="card-value text-xl font-black text-rose-700">{outOfStockCount}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>Depleted
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400 font-medium">Zero stock on hand</p>
+          </div>
+        </div>
         </div>
 
         {/* ITEMIZED INVENTORY AUDIT TABLE */}

@@ -474,7 +474,6 @@ export default function PurchasingReportsPage() {
               ))}
             </select>
           </div>
-        </div>
       </div>
 
       {/* PRINTABLE REPORT DOCUMENT CONTAINER */}
@@ -503,35 +502,52 @@ export default function PurchasingReportsPage() {
           </div>
         </div>
 
-        {/* CARDLESS HORIZONTAL METRICS BAR (SIDE-BY-SIDE WITHOUT CARDS) */}
-        <div className="side-metrics-bar border-y border-slate-300 py-2.5 my-2">
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 text-xs text-slate-700 w-full">
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Purchase Orders:</span>
-              <strong className="text-slate-900 font-black">{kpis.totalOrders}</strong>
-              <span className="text-[10px] font-semibold text-emerald-700">({kpis.receivedCount} Received)</span>
+        {/* 4 CLEAN METRIC CARDS (Exact Match to Design Specification) */}
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4 my-3.5">
+          <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Purchase Orders</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="card-value text-xl font-black text-slate-900">{totalOrdersCount}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                Orders
+              </span>
             </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Total Spend:</span>
-              <strong className="text-slate-900 font-black">{formatMoney(kpis.totalSpend)}</strong>
-            </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Settled Cash:</span>
-              <strong className="text-emerald-700 font-black">{formatMoney(kpis.settledPaid)}</strong>
-            </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Unpaid Credit:</span>
-              <strong className="text-rose-700 font-black">{formatMoney(kpis.creditBalance)}</strong>
-            </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Avg PO:</span>
-              <strong className="text-indigo-700 font-black">{formatMoney(kpis.avgPO)}</strong>
-            </div>
+            <p className="mt-1 text-[11px] text-slate-400 font-medium">Procurement purchase tickets</p>
           </div>
+
+          <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Expenditure</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="card-value text-xl font-black text-rose-700">{totalPurchasesAmount.toLocaleString()}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                ETB
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400 font-medium">Supplier purchasing outflow</p>
+          </div>
+
+          <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Delivered Orders</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="card-value text-xl font-black text-emerald-700">{receivedOrdersCount}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Received
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400 font-medium">Stock verified into warehouse</p>
+          </div>
+
+          <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Pending Delivery</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="card-value text-xl font-black text-amber-700">{pendingOrdersCount}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>In Transit
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400 font-medium">Awaiting supplier delivery</p>
+          </div>
+        </div>
         </div>
 
         {/* TOP SUPPLIERS EXPENDITURE RANKING */}

@@ -918,8 +918,8 @@ function TodaySalesAuditPage() {
           </div>
         </div>
 
-        {/* Financial Summary Cards - Hidden on A4 print, shown on screen */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 grid-4 print-hide">
+        {/* 4 Clean Metric Cards - Printed and Displayed */}
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4 grid-4 my-3.5">
           {/* Total Revenue */}
           <div className="card rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
             <div className="flex items-center justify-between">

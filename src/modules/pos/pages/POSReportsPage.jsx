@@ -729,7 +729,6 @@ function POSReportsPage() {
               ))}
             </select>
           </div>
-        </div>
       </div>
 
       {/* PRINTABLE REPORT AREA */}
@@ -756,50 +755,54 @@ function POSReportsPage() {
           </div>
         </div>
 
-        {/* CARDLESS HORIZONTAL METRICS BAR (SIDE-BY-SIDE WITHOUT CARDS) */}
-        <div className="side-metrics-bar border-y border-slate-300 py-2.5 my-3">
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 text-xs text-slate-700 w-full">
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Orders:</span>
-              <strong className="text-slate-900 font-black">{totalOrders}</strong>
-              <span className="text-[10px] font-semibold text-emerald-700">({completedOrders} Settled)</span>
+        {/* 4 CLEAN METRIC CARDS (Exact Match to Design Specification) */}
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4 my-3.5">
+          <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Orders Processed</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="card-value text-xl font-black text-slate-900">{totalOrders}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>{completedOrders} Settled
+              </span>
             </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Items Sold:</span>
-              <strong className="text-purple-700 font-black">{totalItemsSoldQuantity} Units</strong>
-              {totalShotsServedAcrossOrders > 0 && (
-                <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1 ml-0.5">
-                  ({totalShotsServedAcrossOrders} Shots{totalFullBottlesAcrossOrders > 0 ? ` • ${totalFullBottlesAcrossOrders} Bottles` : ""})
-                </span>
-              )}
-            </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Gross Sales:</span>
-              <strong className="text-blue-700 font-black">{totalSales.toLocaleString()} ETB</strong>
-            </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Avg Ticket:</span>
-              <strong className="text-indigo-700 font-black">{avgOrderValue.toFixed(2)} ETB</strong>
-            </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Cash:</span>
-              <strong className="text-emerald-700 font-black">{paymentMethodSummary.cash.amount.toLocaleString()} ETB</strong>
-            </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Digital:</span>
-              <strong className="text-sky-700 font-black">{(paymentMethodSummary.telebirr.amount + paymentMethodSummary.bank.amount).toLocaleString()} ETB</strong>
-            </div>
-            <span className="text-slate-300 select-none hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Credit:</span>
-              <strong className="text-amber-700 font-black">{paymentMethodSummary.credit.amount.toLocaleString()} ETB</strong>
-            </div>
+            <p className="mt-1 text-[11px] text-slate-400 font-medium">Total customer tickets served</p>
           </div>
+
+          <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Gross Sales Revenue</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="card-value text-xl font-black text-blue-700">{totalSales.toLocaleString()}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                ETB
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400 font-medium">Avg Ticket: {avgOrderValue.toFixed(2)} ETB</p>
+          </div>
+
+          <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Items Dispensed</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="card-value text-xl font-black text-purple-700">{totalItemsSoldQuantity}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                Units
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400 font-medium">
+              {totalShotsServedAcrossOrders > 0 ? `${totalShotsServedAcrossOrders} Shots Dispensed` : "Food and Beverage Items"}
+            </p>
+          </div>
+
+          <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Cash / Digital Breakdown</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="card-value text-xl font-black text-slate-900">{paymentMethodSummary.cash.amount.toLocaleString()}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-sky-500"></span>Digital: {(paymentMethodSummary.telebirr.amount + paymentMethodSummary.bank.amount).toLocaleString()}
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400 font-medium">Credit Tabs: {paymentMethodSummary.credit.amount.toLocaleString()} ETB</p>
+          </div>
+        </div>
         </div>
 
         {/* PRODUCT & ITEM-WISE SALES BREAKDOWN TABLE */}

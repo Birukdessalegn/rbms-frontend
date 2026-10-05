@@ -548,6 +548,7 @@ function BarReportsPage() {
             </select>
           </div>
       </div>
+      </div>
 
       {/* PRINTABLE REPORT DOCUMENT CONTAINER */}
       <div id="bar-reports-printable-area" className="space-y-6">
@@ -576,7 +577,7 @@ function BarReportsPage() {
         </div>
 
         {/* 4 CLEAN METRIC CARDS (Exact Match to Design Specification) */}
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4 my-3.5">
+        <div className="kpi-grid-2x2 grid grid-cols-2 gap-3 my-3">
           <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
             <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Drink Orders</p>
             <div className="mt-1 flex items-baseline gap-2">
@@ -620,7 +621,6 @@ function BarReportsPage() {
             </div>
             <p className="mt-1 text-[11px] text-slate-400 font-medium">Ranked by volume served</p>
           </div>
-        </div>
         </div>
 
         {/* TOP DRINKS DISPENSED BREAKDOWN */}

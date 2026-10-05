@@ -438,7 +438,7 @@ function InventoryReportsPage() {
         </div>
 
         {/* 4 CLEAN METRIC CARDS (Exact Match to Design Specification) */}
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4 my-3.5">
+        <div className="kpi-grid-2x2 grid grid-cols-2 gap-3 my-3">
           <div className="metric-card rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
             <p className="card-title text-[10px] font-bold uppercase tracking-wider text-slate-500">Tracked SKUs</p>
             <div className="mt-1 flex items-baseline gap-2">

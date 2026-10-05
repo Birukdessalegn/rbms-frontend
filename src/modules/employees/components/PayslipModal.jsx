@@ -78,7 +78,7 @@ function PayslipModal({ isOpen, onClose, item, periodMonth }) {
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between border-b-2 border-slate-900 pb-5 gap-4">
               <div>
                 <h1 className="text-xl font-black text-slate-900 uppercase tracking-wide leading-tight">
-                  THE OAK CLUB
+                  BOOST ADDIS
                 </h1>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mt-0.5">
                   Club &amp; Lounge • Human Resources &amp; Payroll

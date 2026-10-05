@@ -160,13 +160,13 @@ function POSLayout() {
 
           <img
             src="/oak-club-logo.png"
-            alt="The Oak Club"
+            alt="Boost Addis"
             className="h-10 w-auto shrink-0 object-contain drop-shadow-md"
           />
 
           <div>
             <h1 className="text-lg font-black tracking-wide">
-              THE OAK CLUB
+              BOOST ADDIS
             </h1>
 
             <p className="text-xs text-slate-400">

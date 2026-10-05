@@ -69,7 +69,7 @@ function BarLayout() {
 
           <div>
             <h1 className="text-lg font-black tracking-wide">
-              THE OAK CLUB
+              BOOST ADDIS
             </h1>
 
             <p className="text-xs text-slate-400">

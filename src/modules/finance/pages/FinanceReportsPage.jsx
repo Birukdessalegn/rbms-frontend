@@ -286,7 +286,7 @@ function FinanceReportsPage() {
       return;
     }
 
-    let csv = "THE OAK CLUB & LOUNGE - CONSOLIDATED FINANCIAL AUDIT STATEMENT\n";
+    let csv = "BOOST ADDIS - CONSOLIDATED FINANCIAL AUDIT STATEMENT\n";
     csv += `Generated: "${new Date().toLocaleString()}"\n`;
     csv += `Audit Period: "${startDate && endDate ? `${startDate} to ${endDate}` : "All Time"}"\n\n`;
 
@@ -485,7 +485,7 @@ function FinanceReportsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">
-                THE OAK CLUB & LOUNGE
+                BOOST ADDIS
               </h1>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mt-0.5">
                 CONSOLIDATED FINANCIAL STATEMENT, REVENUE & EXPENSE AUDIT REPORT
@@ -699,7 +699,7 @@ function FinanceReportsPage() {
           </div>
 
           <div className="mt-6 flex justify-between items-center text-[10px] text-slate-400">
-            <span>THE OAK CLUB & LOUNGE • CONFIDENTIAL FINANCIAL STATEMENT & FISCAL AUDIT</span>
+            <span>BOOST ADDIS • CONFIDENTIAL FINANCIAL STATEMENT & FISCAL AUDIT</span>
             <span>SYSTEM TIMESTAMP: {new Date().toISOString()}</span>
           </div>
         </div>

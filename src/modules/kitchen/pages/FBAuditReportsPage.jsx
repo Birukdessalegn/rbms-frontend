@@ -475,7 +475,7 @@ export default function FBAuditReportsPage() {
       return;
     }
 
-    let csv = "THE OAK CLUB & LOUNGE - F&B AUDIT & INVENTORY CONTROL REPORT\n";
+    let csv = "BOOST ADDIS - F&B AUDIT & INVENTORY CONTROL REPORT\n";
     csv += `Generated: "${new Date().toLocaleString()}"\n`;
     csv += `Audit Scope: "${departmentFilter.toUpperCase()}"\n`;
     csv += `Audit Period: "${fromDate && toDate ? `${fromDate} to ${toDate}` : "All Time"}"\n\n`;
@@ -732,7 +732,7 @@ export default function FBAuditReportsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">
-                THE OAK CLUB & LOUNGE
+                BOOST ADDIS
               </h1>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mt-0.5">
                 FOOD & BEVERAGE INVENTORY CONTROL & PHYSICAL AUDIT STATEMENT
@@ -1317,7 +1317,7 @@ export default function FBAuditReportsPage() {
           </div>
         </div>
         <div className="mt-6 pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400">
-          <span>THE OAK CLUB & LOUNGE • Food & Beverage Inventory Control & Audit</span>
+          <span>BOOST ADDIS • Food & Beverage Inventory Control & Audit</span>
           <span>Generated: {new Date().toLocaleString()} • Confidential Internal Document</span>
         </div>
       </div>

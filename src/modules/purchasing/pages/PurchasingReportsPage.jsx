@@ -228,7 +228,7 @@ export default function PurchasingReportsPage() {
       return;
     }
 
-    let csv = "THE OAK CLUB & LOUNGE - PURCHASING & PROCUREMENT AUDIT REPORT\n";
+    let csv = "BOOST ADDIS - PURCHASING & PROCUREMENT AUDIT REPORT\n";
     csv += `Generated: "${new Date().toLocaleString()}"\n`;
     csv += `Audit Period: "${fromDate && toDate ? `${fromDate} to ${toDate}` : "All Time"}"\n\n`;
 
@@ -484,7 +484,7 @@ export default function PurchasingReportsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">
-                THE OAK CLUB & LOUNGE
+                BOOST ADDIS
               </h1>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mt-0.5">
                 PURCHASING, PROCUREMENT & VENDOR SPEND AUDIT REPORT
@@ -722,7 +722,7 @@ export default function PurchasingReportsPage() {
           </div>
 
           <div className="mt-6 flex justify-between items-center text-[10px] text-slate-400">
-            <span>THE OAK CLUB & LOUNGE • CONFIDENTIAL PROCUREMENT & SUPPLIER AUDIT</span>
+            <span>BOOST ADDIS • CONFIDENTIAL PROCUREMENT & SUPPLIER AUDIT</span>
             <span>SYSTEM TIMESTAMP: {new Date().toISOString()}</span>
           </div>
         </div>

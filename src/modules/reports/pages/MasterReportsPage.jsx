@@ -870,7 +870,7 @@ export default function MasterReportsPage() {
         <div className="mb-6 border-b-2 border-slate-900 pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">THE OAK CLUB & LOUNGE</h1>
+              <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">BOOST ADDIS</h1>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mt-0.5">
                 {activeDept === "bar"
                   ? "BAR OUTLET SALES, SHOTS & BEVERAGE AUDIT REPORT"
@@ -1224,7 +1224,7 @@ export default function MasterReportsPage() {
           </div>
         </div>
         <div className="mt-6 pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400">
-          <span>THE OAK CLUB & LOUNGE • Enterprise Operations & Departmental Audit</span>
+          <span>BOOST ADDIS • Enterprise Operations & Departmental Audit</span>
           <span>Generated: {new Date().toLocaleString()} • Confidential Internal Document</span>
         </div>
       </div>

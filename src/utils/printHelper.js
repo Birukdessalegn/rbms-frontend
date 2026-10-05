@@ -29,10 +29,12 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
   iframe.style.position = "fixed";
   iframe.style.right = "0";
   iframe.style.bottom = "0";
-  iframe.style.width = "0";
-  iframe.style.height = "0";
+  iframe.style.width = "1024px";
+  iframe.style.height = "768px";
   iframe.style.border = "0";
-  iframe.style.visibility = "hidden";
+  iframe.style.opacity = "0.01";
+  iframe.style.pointerEvents = "none";
+  iframe.style.zIndex = "-9999";
   document.body.appendChild(iframe);
 
   const doc = iframe.contentWindow.document;
@@ -53,117 +55,105 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
             box-sizing: border-box;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            color-adjust: exact !important;
           }
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 0;
             color: #0f172a;
-            background: #ffffff;
+            background: #ffffff !important;
             font-size: 10px;
             line-height: 1.4;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
-          /* Clean Document Header */
+          /* Clean Executive Document Header */
           .border-b-2 {
             border-bottom: 2px solid #0f172a !important;
-            padding-bottom: 12px !important;
-            margin-bottom: 16px !important;
+            padding-bottom: 10px !important;
+            margin-bottom: 12px !important;
           }
 
-          /* 4-Card Clean Metric Grid (Exact Match to User Reference) */
-          .grid, .grid-cols-4, .sm\:grid-cols-4, .md\:grid-cols-4, .grid-cols-2 {
+          /* Requirement 2: 2x2 Compact Metric KPI Grid layout to save vertical space */
+          .kpi-grid-2x2,
+          .report-metric-grid,
+          .grid.gap-4,
+          div[class*="grid-cols-4"],
+          div[class*="lg:grid-cols-4"],
+          div[class*="grid-cols-2"],
+          div[class*="gap-3.5"] {
             display: grid !important;
-            grid-template-columns: repeat(4, 1fr) !important;
-            gap: 12px !important;
-            margin: 12px 0 16px 0 !important;
-          }
-          @media (max-width: 650px) {
-            .grid, .grid-cols-4, .sm\:grid-cols-4, .md\:grid-cols-4 {
-              grid-template-columns: repeat(2, 1fr) !important;
-            }
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px 12px !important;
+            width: 100% !important;
+            margin: 8px 0 12px 0 !important;
           }
 
-          /* Metric Card Container */
-          .metric-card, .card, .rounded-2xl.border, .rounded-xl.border {
+          /* Metric Card Container: Compact, clean, exact print colors */
+          .metric-card,
+          .card,
+          .kpi-grid-2x2 > div,
+          .grid.gap-4 > div,
+          div[class*="grid-cols-4"] > div,
+          div[class*="gap-3.5"] > div,
+          div[class*="rounded-2xl"][class*="border"] {
             background-color: #ffffff !important;
             border: 1px solid #e2e8f0 !important;
-            border-radius: 12px !important;
-            padding: 14px 16px !important;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+            border-radius: 8px !important;
+            padding: 8px 12px !important;
+            box-shadow: none !important;
             page-break-inside: avoid !important;
+            box-sizing: border-box !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
-          /* Metric Card Typography */
-          .card-title, p[class*="tracking-wider"] {
-            font-size: 9.5px !important;
+          /* Card Headings & Values */
+          .card-title,
+          span[class*="uppercase tracking-wider"],
+          p[class*="uppercase tracking-wider"] {
+            font-size: 8.5px !important;
             font-weight: 700 !important;
             text-transform: uppercase !important;
             letter-spacing: 0.05em !important;
             color: #64748b !important;
-            margin: 0 0 6px 0 !important;
+            margin: 0 0 2px 0 !important;
           }
-          .card-value, span[class*="text-2xl"], p[class*="text-2xl"] {
-            font-size: 20px !important;
-            font-weight: 900 !important;
-            color: #0f172a !important;
-            line-height: 1.15 !important;
-          }
-
-          /* Side Metrics Bar fallback styled as modern 4-card grid */
-          .side-metrics-bar {
-            display: grid !important;
-            grid-template-columns: repeat(4, 1fr) !important;
-            gap: 12px !important;
-            width: 100% !important;
-            padding: 0 !important;
-            margin: 12px 0 16px 0 !important;
-            border: none !important;
-            background: transparent !important;
-          }
-          .side-metrics-bar > div, .side-metrics-bar .flex {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            background: #ffffff !important;
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 12px !important;
-            padding: 12px 14px !important;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
-          }
-          .side-metrics-bar span:not([class*="text-"]):not([class*="font-"]) {
-            display: none !important;
-          }
-          .side-metrics-bar span[class*="uppercase"] {
-            font-size: 9px !important;
-            font-weight: 700 !important;
-            color: #64748b !important;
-            margin-bottom: 4px !important;
-            letter-spacing: 0.04em !important;
-          }
-          .side-metrics-bar strong {
+          .card-value,
+          p[class*="text-2xl"],
+          span[class*="text-2xl"],
+          p[class*="text-xl"],
+          span[class*="text-xl"] {
             font-size: 16px !important;
             font-weight: 900 !important;
             color: #0f172a !important;
-            line-height: 1.2 !important;
+            line-height: 1.15 !important;
+            margin: 2px 0 !important;
           }
 
-          /* Clean Well-Spaced Data Table (Exact Match to User Reference) */
-          .overflow-hidden.rounded-2xl.border, .table-container {
+          /* Requirement 1: Fix Table Sourcing & Squishing: width 100% !important, proper padding, no crushing */
+          .overflow-hidden.rounded-2xl.border,
+          .table-container,
+          div[class*="overflow-x-auto"],
+          div[class*="rounded-2xl border"] {
             border: 1px solid #e2e8f0 !important;
-            border-radius: 12px !important;
-            overflow: hidden !important;
+            border-radius: 8px !important;
+            overflow: visible !important;
             background: #ffffff !important;
-            margin-top: 14px !important;
-            margin-bottom: 16px !important;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+            margin-top: 10px !important;
+            margin-bottom: 12px !important;
+            width: 100% !important;
+            page-break-inside: auto !important;
+            box-shadow: none !important;
           }
 
           table {
             width: 100% !important;
             max-width: 100% !important;
             border-collapse: collapse !important;
-            font-size: 10px !important;
+            font-size: 9.5px !important;
             table-layout: auto !important;
             background: #ffffff !important;
             page-break-inside: auto !important;
@@ -178,33 +168,38 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
             display: table-footer-group !important;
           }
 
-          /* Table Header - Clean light background, generous padding, subtle bottom divider */
+          /* Table Header: Clean soft background, generous padding, border-bottom */
           th {
             background-color: #f8fafc !important;
             font-weight: 700 !important;
             text-transform: uppercase !important;
-            font-size: 9px !important;
+            font-size: 8.5px !important;
             letter-spacing: 0.04em !important;
             color: #475569 !important;
-            padding: 10px 14px !important;
+            padding: 8px 12px !important;
             border: none !important;
-            border-bottom: 1px solid #e2e8f0 !important;
+            border-bottom: 1px solid #cbd5e1 !important;
             text-align: left !important;
             vertical-align: middle !important;
+            white-space: nowrap !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
-          /* Data Rows - NO vertical grid lines, generous vertical padding, clean horizontal lines */
+          /* Data Rows: Generous padding, clean horizontal borders, NO harsh vertical lines */
           td {
             border: none !important;
             border-bottom: 1px solid #f1f5f9 !important;
-            padding: 10px 14px !important;
+            padding: 8px 12px !important;
             vertical-align: middle !important;
             color: #1e293b !important;
-            font-size: 10px !important;
-            line-height: 1.4 !important;
+            font-size: 9.5px !important;
+            line-height: 1.35 !important;
           }
           tbody tr:nth-child(even) td {
             background-color: #fafbfc !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           tbody tr:last-child td {
             border-bottom: none !important;
@@ -214,30 +209,33 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
           tfoot tr {
             background-color: #f8fafc !important;
             font-weight: 800 !important;
-            border-top: 2px solid #e2e8f0 !important;
+            border-top: 2px solid #94a3b8 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           tfoot td {
-            font-size: 10.5px !important;
+            font-size: 10px !important;
             font-weight: 900 !important;
             color: #0f172a !important;
-            padding: 10px 14px !important;
+            padding: 9px 12px !important;
             border: none !important;
-            border-top: 2px solid #e2e8f0 !important;
+            border-top: 2px solid #94a3b8 !important;
           }
 
-          /* Rounded Status Pills with circular dot (Matching Right Image) */
-          .badge, span[class*="rounded-full"] {
+          /* Requirement 3: Rounded Status Pills with exact print colors */
+          .badge, span[class*="rounded-full"], span[class*="badge"] {
             display: inline-flex !important;
             align-items: center !important;
-            gap: 5px !important;
-            padding: 3px 10px !important;
+            gap: 4px !important;
+            padding: 2px 7px !important;
             border-radius: 9999px !important;
             font-weight: 700 !important;
-            font-size: 9.5px !important;
+            font-size: 8.5px !important;
             line-height: 1 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
-          /* Subtle Pill Badge Colors */
           .bg-emerald-50, .bg-emerald-100 {
             background-color: #ecfdf5 !important;
             color: #059669 !important;
@@ -263,7 +261,42 @@ export const printReportArea = (elementId, title = "Official Sales & Shift Repor
             color: #475569 !important;
           }
 
-          /* Hide interactive buttons on print */
+          /* Requirement 4: Financial Summary & Clean Spacing for Signatures (No Overlapping) */
+          .print-summary-box,
+          div[class*="print-summary-box"] {
+            border: 1.5px solid #0f172a !important;
+            border-radius: 8px !important;
+            padding: 10px 14px !important;
+            margin-top: 14px !important;
+            background-color: #f8fafc !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .sign-off-section,
+          div[class*="grid-cols-3"],
+          .grid-cols-3 {
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            gap: 20px !important;
+            width: 100% !important;
+            margin-top: 20px !important;
+            padding-top: 12px !important;
+            border-top: 2px solid #0f172a !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .sign-off-section > div,
+          div[class*="grid-cols-3"] > div,
+          .grid-cols-3 > div {
+            flex: 1 1 0px !important;
+            width: 33.333% !important;
+          }
+
+          /* Hide UI interactive buttons & pagination on print */
           button, input, select, .print-hidden, .print-hide {
             display: none !important;
           }

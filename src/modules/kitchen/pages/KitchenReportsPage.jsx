@@ -298,7 +298,7 @@ function KitchenReportsPage() {
       return;
     }
 
-    let csv = "BOOST ADDIS - KITCHEN PRODUCTION & PERFORMANCE AUDIT REPORT\n";
+    let csv = "THE OAK - KITCHEN PRODUCTION & PERFORMANCE AUDIT REPORT\n";
     csv += `Generated: "${new Date().toLocaleString()}"\n`;
     csv += `Audit Period: "${fromDate && toDate ? `${fromDate} to ${toDate}` : "All Time"}"\n\n`;
 
@@ -541,7 +541,7 @@ function KitchenReportsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">
-                BOOST ADDIS
+                THE OAK
               </h1>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mt-0.5">
                 KITCHEN PRODUCTION, FOOD PORTIONS & PERFORMANCE AUDIT REPORT
@@ -796,7 +796,7 @@ function KitchenReportsPage() {
           </div>
 
           <div className="mt-6 flex justify-between items-center text-[10px] text-slate-400">
-            <span>BOOST ADDIS • CONFIDENTIAL OPERATIONAL KITCHEN PRODUCTION AUDIT</span>
+            <span>THE OAK • CONFIDENTIAL OPERATIONAL KITCHEN PRODUCTION AUDIT</span>
             <span>SYSTEM TIMESTAMP: {new Date().toISOString()}</span>
           </div>
         </div>

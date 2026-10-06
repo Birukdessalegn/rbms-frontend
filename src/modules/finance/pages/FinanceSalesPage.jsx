@@ -602,7 +602,7 @@ function FinanceSalesPage() {
       {/* PRINTABLE AREA (HIDDEN EXCEPT WHEN PRINTING) */}
       <div id="finance-sales-printable-area" className="hidden print:block p-8 bg-white text-slate-900">
         <div className="border-b-2 border-slate-900 pb-4 text-center">
-          <h1 className="text-2xl font-black uppercase tracking-tight">BOOST ADDIS</h1>
+          <h1 className="text-2xl font-black uppercase tracking-tight">THE OAK</h1>
           <p className="text-xs text-slate-600 font-medium">Sales & Revenue Audit Ledger</p>
           <p className="mt-1 text-[11px] text-slate-500">
             Period: {startDate || "All Time"} to {endDate || "All Time"} • Generated: {new Date().toLocaleString()}
@@ -676,7 +676,7 @@ function FinanceSalesPage() {
             {/* Receipt Body */}
             <div className="p-6 space-y-4 text-xs">
               <div className="text-center pb-3 border-b border-dashed border-slate-200">
-                <h4 className="font-black text-sm uppercase tracking-wide text-slate-900">BOOST ADDIS</h4>
+                <h4 className="font-black text-sm uppercase tracking-wide text-slate-900">THE OAK</h4>
                 <p className="text-[11px] text-slate-400 mt-0.5">Customer Bill & Sales Receipt</p>
                 <p className="text-[10px] text-slate-400">
                   {selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString() : ""}

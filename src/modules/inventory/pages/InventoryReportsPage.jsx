@@ -215,7 +215,7 @@ function InventoryReportsPage() {
       return;
     }
 
-    let csv = "BOOST ADDIS - INVENTORY & STOCK VALUATION AUDIT REPORT\n";
+    let csv = "THE OAK - INVENTORY & STOCK VALUATION AUDIT REPORT\n";
     csv += `Generated: "${new Date().toLocaleString()}"\n\n`;
 
     // Metrics summary
@@ -421,7 +421,7 @@ function InventoryReportsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">
-                BOOST ADDIS
+                THE OAK
               </h1>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mt-0.5">
                 CENTRAL INVENTORY ASSET, STOCK VALUATION & REORDER AUDIT REPORT
@@ -616,7 +616,7 @@ function InventoryReportsPage() {
           </div>
 
           <div className="mt-6 flex justify-between items-center text-[10px] text-slate-400">
-            <span>BOOST ADDIS • CONFIDENTIAL ASSET & INVENTORY AUDIT</span>
+            <span>THE OAK • CONFIDENTIAL ASSET & INVENTORY AUDIT</span>
             <span>SYSTEM TIMESTAMP: {new Date().toISOString()}</span>
           </div>
         </div>

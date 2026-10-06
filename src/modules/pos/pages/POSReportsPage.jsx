@@ -737,7 +737,7 @@ function POSReportsPage() {
         <div className="border-b-2 border-slate-900 pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">BOOST ADDIS</h1>
+              <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">THE OAK</h1>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mt-0.5">
                 CASHIER SHIFT, ITEM SALES & WAITER AUDIT REPORT
               </p>
@@ -1232,7 +1232,7 @@ function POSReportsPage() {
           </div>
         </div>
         <div className="mt-6 pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400">
-          <span>BOOST ADDIS • Cashier Sales & Shift Audit</span>
+          <span>THE OAK • Cashier Sales & Shift Audit</span>
           <span>Generated: {new Date().toLocaleString()} • Confidential Internal Document</span>
         </div>
       </div>

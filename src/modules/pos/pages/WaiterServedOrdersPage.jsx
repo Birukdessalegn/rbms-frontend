@@ -426,7 +426,7 @@ function WaiterServedOrdersPage() {
     if (!order) return;
     printOrderReceipt(order, {
       waiterName: userFullName || user?.username,
-      restaurantName: "BOOST ADDIS",
+      restaurantName: "THE OAK",
     });
   };
 

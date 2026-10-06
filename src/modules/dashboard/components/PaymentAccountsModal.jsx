@@ -38,7 +38,7 @@ function PaymentAccountsModal({ isOpen, onClose }) {
   const [provider, setProvider] = useState("Telebirr");
   const [accountType, setAccountType] = useState("telebirr");
   const [accountNumber, setAccountNumber] = useState("");
-  const [accountHolder, setAccountHolder] = useState("Boost Addis");
+  const [accountHolder, setAccountHolder] = useState("The Oak Club");
   const [notes, setNotes] = useState("");
 
   const fetchAccounts = async () => {
@@ -308,7 +308,7 @@ function PaymentAccountsModal({ isOpen, onClose }) {
                     type="text"
                     value={accountHolder}
                     onChange={(e) => setAccountHolder(e.target.value)}
-                    placeholder="e.g. Boost Addis"
+                    placeholder="e.g. The Oak Club"
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   />
                 </div>

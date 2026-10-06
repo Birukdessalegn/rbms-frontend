@@ -41,7 +41,7 @@ function KitchenLayout() {
 
           <div>
             <h1 className="font-black tracking-wide">
-              BOOST ADDIS
+              THE OAK
             </h1>
 
             <p className="text-xs text-slate-400">

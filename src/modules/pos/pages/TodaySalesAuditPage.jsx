@@ -895,7 +895,7 @@ function TodaySalesAuditPage() {
           <div className="flex justify-between items-start">
             <div>
               <h1 className="header-title text-xl font-black uppercase text-slate-900 tracking-tight">
-                BOOST ADDIS
+                THE OAK
               </h1>
               <p className="header-subtitle text-xs font-bold uppercase text-slate-600">
                 DAILY SALES & SHIFT REVENUE AUDIT REPORT
@@ -1782,7 +1782,7 @@ function TodaySalesAuditPage() {
         <div className="print-footer-box mt-8 pt-4 border-t-2 border-slate-900">
           <div className="flex justify-between items-center text-xs font-bold text-slate-900">
             <div>
-              <p className="font-extrabold uppercase">BOOST ADDIS — DAILY SALES AUDIT REPORT</p>
+              <p className="font-extrabold uppercase">THE OAK — DAILY SALES AUDIT REPORT</p>
               <p className="text-[10px] text-slate-500 font-normal">Confidential • For Internal Financial Audit Use Only</p>
             </div>
             <div className="text-right space-y-2">

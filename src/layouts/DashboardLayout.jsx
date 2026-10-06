@@ -848,7 +848,7 @@ function DashboardLayout() {
 
             <img
               src="/oak-club-logo.png"
-              alt="Boost Addis"
+              alt="The Oak Club"
               className="h-10 w-auto shrink-0 object-contain drop-shadow-md"
             />
 
@@ -857,7 +857,7 @@ function DashboardLayout() {
 
                 <div className="flex items-center gap-1.5">
                   <span className="font-black text-lg text-white tracking-wide">
-                    BOOST ADDIS
+                    THE OAK
                   </span>
                 </div>
 

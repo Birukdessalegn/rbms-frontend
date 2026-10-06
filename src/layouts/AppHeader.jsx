@@ -10,7 +10,7 @@ import UserProfileModal from "../components/UserProfileModal";
 
 function AppHeader({
   title = "Dashboard",
-  description = "BOOST ADDIS Management System",
+  description = "THE OAK CLUB Management System",
 }) {
   const { user, logout } = useAuth();
 

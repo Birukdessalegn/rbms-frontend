@@ -483,7 +483,7 @@ export const printOrderReceipt = (order, options = {}) => {
   iframe.style.visibility = "hidden";
   document.body.appendChild(iframe);
 
-  const restaurantName = options.restaurantName || "BOOST ADDIS";
+  const restaurantName = options.restaurantName || "THE OAK";
   const restaurantSub = options.restaurantSub || "RESTAURANT & BAR";
   const orderNum = order.order_number || `#${order.id || "POS"}`;
   const tableNum = String(order.table_number || order.table_id || "1").replace(/^T/i, "T");

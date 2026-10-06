@@ -381,7 +381,7 @@ export default function DashboardPage() {
           </div>
 
           <p className="mt-1 text-sm text-gray-500">
-            Welcome back. Real-time metrics automatically synced with BOOST ADDIS.
+            Welcome back. Real-time metrics automatically synced with THE OAK.
           </p>
         </div>
 

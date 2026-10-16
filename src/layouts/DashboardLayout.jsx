@@ -9,6 +9,8 @@ import audioService from "../services/audioService";
 import { getNotificationRoute } from "../utils/notificationRouter";
 import SwipeableNotificationItem from "../components/SwipeableNotificationItem";
 import UserProfileModal from "../components/UserProfileModal";
+import SubscriptionBadge from "../components/subscription/SubscriptionBadge";
+import SubscriptionBanner from "../components/subscription/SubscriptionBanner";
 
 import {
   LayoutDashboard,
@@ -1214,6 +1216,9 @@ function DashboardLayout() {
           <div className="flex items-center gap-2.5 md:gap-4">
 
 
+            {/* Subscription Badge */}
+            <SubscriptionBadge />
+
             {/* =================================================
                 SOUND CHIME TOGGLE
             ================================================= */}
@@ -1558,6 +1563,9 @@ function DashboardLayout() {
           </div>
 
         </header>
+
+        {/* Subscription Warning / Grace Period Banner */}
+        <SubscriptionBanner />
 
         {/* ===================================================
             BODY

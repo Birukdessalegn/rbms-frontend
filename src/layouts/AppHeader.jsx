@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import NotificationBell from "../components/NotificationBell";
+import SubscriptionBadge from "../components/subscription/SubscriptionBadge";
 import UserProfileModal from "../components/UserProfileModal";
 
 function AppHeader({
@@ -59,6 +60,9 @@ function AppHeader({
       {/* ================= RIGHT ================= */}
 
       <div className="flex items-center gap-4">
+
+        {/* Subscription Badge */}
+        <SubscriptionBadge />
 
         {/* Online Status */}
         <div className="hidden items-center gap-2 sm:flex">

@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { ShieldAlert, Phone, Mail, Lock, RefreshCw, KeyRound, Building2 } from "lucide-react";
+import { ShieldAlert, Phone, Mail, RefreshCw, Building2 } from "lucide-react";
 import { useSubscription } from "../../context/SubscriptionContext";
-import VendorRenewalModal from "./VendorRenewalModal";
 
 export default function SubscriptionLockScreen() {
   const { subscription, refresh } = useSubscription();
-  const [modalOpen, setModalOpen] = useState(false);
   const [checking, setChecking] = useState(false);
 
   const handleRefresh = async () => {
@@ -73,27 +71,17 @@ export default function SubscriptionLockScreen() {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-center gap-3 pt-2">
+        {/* Action Button - Refresh status */}
+        <div className="flex items-center justify-center pt-2">
           <button
             type="button"
             onClick={handleRefresh}
-            className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-xs font-bold text-white hover:bg-white/20 transition cursor-pointer"
+            className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-5 py-2.5 text-xs font-bold text-white hover:bg-white/20 transition cursor-pointer shadow-sm active:scale-95"
           >
             <RefreshCw size={14} className={checking ? "animate-spin" : ""} /> Check Status
           </button>
-
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-bold text-slate-950 hover:bg-amber-400 transition cursor-pointer shadow-lg shadow-amber-500/20"
-          >
-            <KeyRound size={14} /> Vendor Unlock
-          </button>
         </div>
       </div>
-
-      <VendorRenewalModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
     </div>
   );
 }

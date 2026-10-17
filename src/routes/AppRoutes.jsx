@@ -208,6 +208,10 @@ function AppRoutes() {
                   element={<KitchenStockAuditPage />}
                 />
                 <Route
+                  path="/kitchen/stock-audit"
+                  element={<KitchenStockAuditPage />}
+                />
+                <Route
                   path="/fb/reports"
                   element={<FBAuditReportsPage />}
                 />
@@ -549,6 +553,8 @@ function AppRoutes() {
               />
 
               <Route path="/chef/kitchen/reports" element={<KitchenReportsPage />} />
+              <Route path="/chef/kitchen/audit" element={<KitchenStockAuditPage />} />
+              <Route path="/chef/kitchen/stock-audit" element={<KitchenStockAuditPage />} />
 
             </Route>
           </Route>
@@ -669,6 +675,9 @@ function AppRoutes() {
           </Route>
 
         </Route>
+
+        {/* Fallback Catch-All */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
 
       </Routes>
 

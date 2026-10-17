@@ -67,14 +67,19 @@ const resolvePaymentMethod = (o) => {
 };
 
 const isMobilePayment = (method) => {
+  if (!method) return false;
+  const m = String(method).toLowerCase();
   return (
-    method === "mobile_money" ||
-    method === "telebirr" ||
-    method === "mobile" ||
-    method === "bank_transfer" ||
-    method === "transfer" ||
-    method === "cbe" ||
-    method === "cbebirr"
+    m === "mobile_money" ||
+    m === "telebirr" ||
+    m === "mobile" ||
+    m === "bank_transfer" ||
+    m === "transfer" ||
+    m === "cbe" ||
+    m === "cbebirr" ||
+    m.includes("transfer") ||
+    m.includes("telebirr") ||
+    m.includes("cbe")
   );
 };
 
@@ -87,7 +92,12 @@ const isCreditPayment = (method, o) => {
 };
 
 const getPaymentLabel = (method, o) => {
-  if (isMobilePayment(method)) return "Mobile Banking";
+  if (isMobilePayment(method)) {
+    const m = String(method || "").toLowerCase();
+    if (m.includes("telebirr")) return "Transfer (Telebirr)";
+    if (m.includes("cbe") || m.includes("bank")) return "Transfer (CBE Bank)";
+    return "Transfer";
+  }
   if (isCardPayment(method)) return "Card POS";
   if (isCreditPayment(method, o)) return "VIP Credit";
   return "Cash";
@@ -196,9 +206,18 @@ function FinanceSalesPage() {
       // Payment Method Filter
       const method = resolvePaymentMethod(o);
       if (paymentFilter !== "all") {
-        if (paymentFilter === "cash" && (isCardPayment(method) || isMobilePayment(method) || isCreditPayment(method, o))) return false;
-        if (paymentFilter === "digital" && !isCardPayment(method) && !isMobilePayment(method)) return false;
-        if (paymentFilter === "credit" && !isCreditPayment(method, o)) return false;
+        if (paymentFilter === "cash") {
+          const isCash = !isCardPayment(method) && !isMobilePayment(method) && !isCreditPayment(method, o);
+          if (!isCash) return false;
+        } else if (paymentFilter === "transfer" || paymentFilter === "mobile") {
+          if (!isMobilePayment(method)) return false;
+        } else if (paymentFilter === "digital") {
+          if (!isCardPayment(method) && !isMobilePayment(method)) return false;
+        } else if (paymentFilter === "card") {
+          if (!isCardPayment(method)) return false;
+        } else if (paymentFilter === "credit") {
+          if (!isCreditPayment(method, o)) return false;
+        }
       }
 
       // Search Query
@@ -466,17 +485,44 @@ function FinanceSalesPage() {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Payment:</span>
+            
+            {/* Quick Pill Buttons */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+              {[
+                { id: "all", label: "All" },
+                { id: "cash", label: "💵 Cash" },
+                { id: "transfer", label: "📲 Transfer" },
+                { id: "card", label: "💳 Card" },
+                { id: "credit", label: "👥 Credit" },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setPaymentFilter(p.id)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+                    paymentFilter === p.id
+                      ? "bg-white text-emerald-800 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dropdown Selector */}
             <select
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-500"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-500"
             >
               <option value="all">All Payment Channels</option>
-              <option value="cash">Cash Only</option>
-              <option value="digital">Digital (Card & Mobile Banking)</option>
-              <option value="credit">VIP Credit Tabs</option>
+              <option value="cash">💵 Cash Only</option>
+              <option value="transfer">📲 Transfer (Telebirr & CBE Bank)</option>
+              <option value="card">💳 Card POS Only</option>
+              <option value="credit">👥 VIP Credit Tabs Only</option>
             </select>
           </div>
         </div>

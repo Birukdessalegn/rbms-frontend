@@ -182,7 +182,7 @@ function FinanceReportsPage() {
       });
     });
 
-    // 3. Purchase Order Expenses
+    // 3. Purchase Order Expenses (Distinguishing Paid vs Credit/Unpaid)
     purchases.forEach((p) => {
       const rawDate = p.created_at || p.createdAt || p.date;
       const dateStr = rawDate ? String(rawDate).split(/[T ]/)[0] : "";
@@ -190,18 +190,21 @@ function FinanceReportsPage() {
       const amt = Number(p.total || p.amount || p.total_amount || 0);
       const rawTimestamp = rawDate ? new Date(rawDate).getTime() : 0;
 
+      const isPurchasePaid = p.payment_status === "paid";
+
       stream.push({
         id: `PUR-${p.id}`,
         type: "Purchase",
-        title: `Supplier PO #${p.po_number || p.id} (${p.supplier_name || "Supplier"})`,
+        title: `Supplier PO #${p.po_number || p.purchase_number || p.id} (${p.supplier_name || p.supplier || "Supplier"})`,
         category: "Stock Purchase",
-        paymentMethod: p.payment_status || "credit",
+        paymentMethod: isPurchasePaid ? (p.payment_method || "Paid") : "Credit (Unpaid)",
         amount: amt,
         isIncome: false,
+        isPaid: isPurchasePaid,
         date: dateStr,
         time: timeStr,
         timestamp: isNaN(rawTimestamp) ? 0 : rawTimestamp,
-        status: p.status === "received" ? "Verified" : "Pending Supply",
+        status: isPurchasePaid ? "Paid" : "Credit (Unpaid)",
         raw: p,
       });
     });
@@ -224,10 +227,12 @@ function FinanceReportsPage() {
         (!startDate || (tx.date && tx.date >= startDate)) &&
         (!endDate || (tx.date && tx.date <= endDate));
 
-      const matchesType =
-        typeFilter === "All" ||
-        (typeFilter === "Revenue" && tx.isIncome) ||
-        (typeFilter === "Expense" && !tx.isIncome);
+      let matchesType = true;
+      if (typeFilter === "Revenue") matchesType = tx.isIncome;
+      else if (typeFilter === "Expense") matchesType = tx.type === "Expense";
+      else if (typeFilter === "Purchase_Paid") matchesType = tx.type === "Purchase" && tx.isPaid;
+      else if (typeFilter === "Purchase_Unpaid") matchesType = tx.type === "Purchase" && !tx.isPaid;
+      else if (typeFilter === "All_Outflows") matchesType = !tx.isIncome;
 
       return matchesSearch && matchesDate && matchesType;
     });
@@ -240,12 +245,34 @@ function FinanceReportsPage() {
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [filteredLedger]);
 
-  const totalExpenses = useMemo(() => {
+  const operatingExpenses = useMemo(() => {
     return filteredLedger
-      .filter((tx) => !tx.isIncome)
+      .filter((tx) => tx.type === "Expense")
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [filteredLedger]);
 
+  const paidPurchases = useMemo(() => {
+    return filteredLedger
+      .filter((tx) => tx.type === "Purchase" && tx.isPaid)
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }, [filteredLedger]);
+
+  const unpaidPurchases = useMemo(() => {
+    return filteredLedger
+      .filter((tx) => tx.type === "Purchase" && !tx.isPaid)
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }, [filteredLedger]);
+
+  const unpaidPurchasesCount = useMemo(() => {
+    return filteredLedger.filter((tx) => tx.type === "Purchase" && !tx.isPaid).length;
+  }, [filteredLedger]);
+
+  // Total Realized Cash Outflow (Operating Expenses + Paid Stock Purchases)
+  const totalExpenses = useMemo(() => {
+    return operatingExpenses + paidPurchases;
+  }, [operatingExpenses, paidPurchases]);
+
+  // Net Cash Margin = Total Revenue - Actual Paid Expenses & Stock
   const netProfit = useMemo(() => {
     return totalRevenue - totalExpenses;
   }, [totalRevenue, totalExpenses]);
@@ -359,25 +386,25 @@ function FinanceReportsPage() {
       </div>
 
       {/* KPI STAT CARDS (Hidden on Print) */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 print-hide">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 print-hide">
         <ReportStatCard
           title="Verified Revenue"
           value={loading ? "..." : `${totalRevenue.toLocaleString()} ETB`}
-          description="Total settled POS sales inflow"
+          description="Settled POS sales revenue"
           icon={TrendingUp}
           colorClass="text-emerald-600"
           bgClass="bg-emerald-50"
         />
         <ReportStatCard
-          title="Operating & Stock Expenses"
+          title="Paid Cash Outflows"
           value={loading ? "..." : `${totalExpenses.toLocaleString()} ETB`}
-          description="Costs, purchases, and vouchers"
+          description={`OpEx: ${operatingExpenses.toLocaleString()} • Stock: ${paidPurchases.toLocaleString()}`}
           icon={TrendingDown}
           colorClass="text-red-600"
           bgClass="bg-red-50"
         />
         <ReportStatCard
-          title="Net Cash Margin"
+          title="Net Cash Profit"
           value={loading ? "..." : `${netProfit.toLocaleString()} ETB`}
           description={netProfit >= 0 ? "Operating profit surplus" : "Operating deficit"}
           icon={Wallet}
@@ -385,10 +412,18 @@ function FinanceReportsPage() {
           bgClass={netProfit >= 0 ? "bg-emerald-50" : "bg-red-50"}
         />
         <ReportStatCard
+          title="Unpaid Purchases (Debt)"
+          value={loading ? "..." : `${unpaidPurchases.toLocaleString()} ETB`}
+          description={`${unpaidPurchasesCount} credit purchase${unpaidPurchasesCount === 1 ? "" : "s"} due`}
+          icon={CreditCard}
+          colorClass="text-amber-600"
+          bgClass="bg-amber-50"
+        />
+        <ReportStatCard
           title="Digital vs Cash Ratio"
           value={loading ? "..." : `${digitalInflow.toLocaleString()} ETB`}
           description={`Cash: ${cashInflow.toLocaleString()} ETB`}
-          icon={CreditCard}
+          icon={DollarSign}
           colorClass="text-blue-600"
           bgClass="bg-blue-50"
         />
@@ -471,8 +506,11 @@ function FinanceReportsPage() {
               className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
             >
               <option value="All">All Transactions</option>
-              <option value="Revenue">Revenue Inflow Only</option>
-              <option value="Expense">Expense & Purchases Outflow</option>
+              <option value="Revenue">Revenue Inflows Only</option>
+              <option value="Expense">Operating Expenses Only</option>
+              <option value="Purchase_Paid">Paid Stock Purchases</option>
+              <option value="Purchase_Unpaid">Unpaid Credit Purchases</option>
+              <option value="All_Outflows">All Expenses & Purchases</option>
             </select>
           </div>
       </div>
@@ -639,13 +677,23 @@ function FinanceReportsPage() {
                     </td>
                   </tr>
                   <tr className="bg-slate-100 font-black text-slate-900">
-                    <td colSpan="6" className="px-5 py-2.5 text-right text-xs uppercase tracking-wider">
-                      Total Expenses & Purchases:
+                    <td colSpan="6" className="px-5 py-2 text-right text-xs uppercase tracking-wider">
+                      Paid Operating & Stock Outflows:
                     </td>
-                    <td className="px-5 py-2.5 text-right text-sm font-black text-red-700">
+                    <td className="px-5 py-2 text-right text-sm font-black text-red-700">
                       -{totalExpenses.toLocaleString()} ETB
                     </td>
                   </tr>
+                  {unpaidPurchases > 0 && (
+                    <tr className="bg-amber-50/60 font-black text-amber-900">
+                      <td colSpan="6" className="px-5 py-2 text-right text-xs uppercase tracking-wider">
+                        Unpaid Supplier Debt (Accounts Payable):
+                      </td>
+                      <td className="px-5 py-2 text-right text-sm font-black text-amber-700">
+                        {unpaidPurchases.toLocaleString()} ETB
+                      </td>
+                    </tr>
+                  )}
                   <tr className="bg-slate-200/90 font-black text-slate-950 border-t border-slate-300">
                     <td colSpan="6" className="px-5 py-3 text-right text-xs uppercase tracking-wider">
                       NET CASH MARGIN:

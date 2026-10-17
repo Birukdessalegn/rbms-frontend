@@ -14,8 +14,11 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import api from "../../../services/api";
+import DailyZReportModal from "../components/DailyZReportModal";
+import { Receipt } from "lucide-react";
 
 function CashierReconciliationPage() {
+  const [showZReport, setShowZReport] = useState(false);
   const [shifts, setShifts] = useState([]);
   const [creditOrders, setCreditOrders] = useState([]);
   const [activeTab, setActiveTab] = useState("shifts"); // "shifts" | "credit_approvals"
@@ -414,6 +417,14 @@ function CashierReconciliationPage() {
             </select>
           </div>
 
+          <button
+            type="button"
+            onClick={() => setShowZReport(true)}
+            className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 transition shadow-sm cursor-pointer"
+          >
+            <Receipt className="h-4 w-4 text-amber-400" />
+            Daily Z-Report
+          </button>
           <button
             type="button"
             onClick={fetchShifts}

@@ -21,6 +21,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import api from "../../../services/api";
+import DailyZReportModal from "../components/DailyZReportModal";
 
 function ReportStatCard({ title, value, description, icon: Icon, colorClass, bgClass }) {
   return (
@@ -48,6 +49,7 @@ function ReportStatCard({ title, value, description, icon: Icon, colorClass, bgC
 }
 
 function FinanceReportsPage() {
+  const [showZReport, setShowZReport] = useState(false);
   const [orders, setOrders] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [purchases, setPurchases] = useState([]);
@@ -373,6 +375,14 @@ function FinanceReportsPage() {
           >
             <Download className="h-4 w-4 text-emerald-600" />
             Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowZReport(true)}
+            className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 transition shadow-sm cursor-pointer"
+          >
+            <Receipt className="h-4 w-4 text-amber-400" />
+            Daily Z-Report
           </button>
           <button
             type="button"
@@ -772,6 +782,8 @@ function FinanceReportsPage() {
           </div>
         </div>
       </div>
+
+      <DailyZReportModal isOpen={showZReport} onClose={() => setShowZReport(false)} />
     </div>
   );
 }

@@ -20,6 +20,7 @@ import {
 import api from "../../../services/api";
 import { printReportArea } from "../../../utils/printHelper";
 import PaymentProofModal from "../../pos/components/PaymentProofModal";
+import DailyZReportModal from "../components/DailyZReportModal";
 
 function StatCard({ title, value, subtext, icon: Icon, color, bg }) {
   return (
@@ -104,6 +105,7 @@ const hasPaymentProof = (o) => {
 };
 
 function FinanceSalesPage() {
+  const [showZReport, setShowZReport] = useState(false);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -286,6 +288,14 @@ function FinanceSalesPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowZReport(true)}
+            className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 transition shadow-sm cursor-pointer"
+          >
+            <Receipt className="h-4 w-4 text-amber-400" />
+            Daily Z-Report
+          </button>
           <button
             type="button"
             onClick={fetchSalesData}
@@ -766,6 +776,8 @@ function FinanceSalesPage() {
       )}
 
       {/* PAYMENT PROOF MODAL */}
+      <DailyZReportModal isOpen={showZReport} onClose={() => setShowZReport(false)} />
+
       {selectedProofOrder && (
         <PaymentProofModal
           order={selectedProofOrder}

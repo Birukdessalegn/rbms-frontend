@@ -130,11 +130,8 @@ function CashierReconciliationPage() {
   const handleApproveCredit = async (orderId) => {
     try {
       setVerifying(true);
-      await api(`/pos/orders/${orderId}/approve-credit`, { method: "POST" });
-      alert("Credit payment successfully approved!");
-    } catch (e) {
-      console.log("Credit approval notice:", e);
-    } finally {
+      const res = await api(`/pos/orders/${orderId}/approve-credit`, { method: "POST" });
+      alert(res?.message || "Credit payment successfully approved!");
       setCreditOrders((prev) =>
         prev.map((o) =>
           o.id === orderId
@@ -143,6 +140,10 @@ function CashierReconciliationPage() {
         )
       );
       setSelectedCreditOrder(null);
+    } catch (e) {
+      console.error("Credit approval error:", e);
+      alert(e.message || "Failed to approve credit payment.");
+    } finally {
       setVerifying(false);
     }
   };
@@ -150,10 +151,8 @@ function CashierReconciliationPage() {
   const handleRejectCredit = async (orderId) => {
     try {
       setVerifying(true);
-      await api(`/pos/orders/${orderId}/reject-credit`, { method: "POST" });
-    } catch (e) {
-      console.log("Credit rejection notice:", e);
-    } finally {
+      const res = await api(`/pos/orders/${orderId}/reject-credit`, { method: "POST" });
+      alert(res?.message || "Credit payment rejected.");
       setCreditOrders((prev) =>
         prev.map((o) =>
           o.id === orderId
@@ -162,6 +161,10 @@ function CashierReconciliationPage() {
         )
       );
       setSelectedCreditOrder(null);
+    } catch (e) {
+      console.error("Credit rejection error:", e);
+      alert(e.message || "Failed to reject credit payment.");
+    } finally {
       setVerifying(false);
     }
   };

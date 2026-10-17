@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import {
   ShoppingCart,
+  CreditCard,
   BarChart3,
   ClipboardList,
   Clock3,
@@ -740,6 +741,26 @@ function PurchasingPage() {
     0
   );
 
+  const unpaidOrdersList = orders.filter((order) => {
+    const isPaid = order.payment_status === "paid";
+    const status = normalizeStatus(order.status);
+    return !isPaid && status !== "cancelled";
+  });
+
+  const unpaidOrdersCount = unpaidOrdersList.length;
+
+  const unpaidPurchaseCost = unpaidOrdersList.reduce(
+    (sum, order) =>
+      sum +
+      Number(
+        order.total ||
+          order.amount ||
+          order.total_amount ||
+          0
+      ),
+    0
+  );
+
   /* =====================================================
      RENDER
   ===================================================== */
@@ -891,7 +912,7 @@ function PurchasingPage() {
 
       {/* STAT CARDS */}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
 
         <PurchaseCard
           title="Pending Orders"
@@ -912,6 +933,14 @@ function PurchasingPage() {
           value={receivedOrders}
           description="Successfully received"
           icon={PackageCheck}
+        />
+
+        <PurchaseCard
+          title="Unpaid Purchases"
+          value={`${unpaidPurchaseCost.toLocaleString()} ETB`}
+          description={`${unpaidOrdersCount} credit order${unpaidOrdersCount === 1 ? "" : "s"} due`}
+          icon={CreditCard}
+          color="amber"
         />
 
         <PurchaseCard
@@ -2492,7 +2521,15 @@ function PurchaseCard({
   value,
   description,
   icon: Icon,
+  color = "indigo",
 }) {
+  const colorMap = {
+    indigo: "bg-indigo-50 text-indigo-600",
+    amber: "bg-amber-50 text-amber-600",
+    rose: "bg-rose-50 text-rose-600",
+    emerald: "bg-emerald-50 text-emerald-600",
+  };
+  const badgeClass = colorMap[color] || colorMap.indigo;
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
@@ -2514,7 +2551,8 @@ function PurchaseCard({
 
         </div>
 
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${badgeClass}`}>
+
 
           <Icon className="h-5 w-5" />
 

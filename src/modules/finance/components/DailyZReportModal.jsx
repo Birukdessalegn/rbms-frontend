@@ -89,14 +89,27 @@ export default function DailyZReportModal({ isOpen, onClose }) {
       const total = Number(o.total || o.total_amount || o.amount || 0);
       grossSales += total;
 
-      // Method breakdown
-      const method = String(o.payment_method || o.paymentMethod || "").toLowerCase();
-      if (method.includes("cash") || !method) cashSales += total;
-      else if (method.includes("telebirr")) telebirrSales += total;
-      else if (method.includes("bank") || method.includes("cbe") || method.includes("transfer")) bankSales += total;
-      else if (method.includes("card") || method.includes("pos")) cardSales += total;
-      else if (method.includes("credit") || o.payment_status === "credit_approved" || o.payment_status === "credit_pending") creditSales += total;
-      else cashSales += total;
+      // Method breakdown (supports multi-tender and split payments)
+      if (Array.isArray(o.payments) && o.payments.length > 0) {
+        o.payments.forEach((p) => {
+          const pAmt = Number(p.amount || 0);
+          const pMethod = String(p.payment_method || "").toLowerCase();
+          if (pMethod.includes("cash") || !pMethod) cashSales += pAmt;
+          else if (pMethod.includes("telebirr")) telebirrSales += pAmt;
+          else if (pMethod.includes("bank") || pMethod.includes("cbe") || pMethod.includes("transfer")) bankSales += pAmt;
+          else if (pMethod.includes("card") || pMethod.includes("pos")) cardSales += pAmt;
+          else if (pMethod.includes("credit")) creditSales += pAmt;
+          else cashSales += pAmt;
+        });
+      } else {
+        const method = String(o.payment_method || o.paymentMethod || "").toLowerCase();
+        if (method.includes("cash") || !method) cashSales += total;
+        else if (method.includes("telebirr")) telebirrSales += total;
+        else if (method.includes("bank") || method.includes("cbe") || method.includes("transfer")) bankSales += total;
+        else if (method.includes("card") || method.includes("pos")) cardSales += total;
+        else if (method.includes("credit") || o.payment_status === "credit_approved" || o.payment_status === "credit_pending") creditSales += total;
+        else cashSales += total;
+      }
 
       // Department breakdown from items
       const items = Array.isArray(o.items) ? o.items : [];

@@ -45,8 +45,54 @@ function StatCard({ title, value, subtext, icon: Icon, color, bg }) {
   );
 }
 
+const isSplitPayment = (o) => {
+  if (!o) return false;
+  if (o.is_split_payment || o.payment_method === "split") return true;
+  if (Array.isArray(o.payments) && o.payments.length > 1) {
+    const distinct = [...new Set(o.payments.map((p) => String(p.payment_method || "").toLowerCase()))];
+    return distinct.length > 1;
+  }
+  return false;
+};
+
+const getOrderPaymentBreakdown = (o) => {
+  const breakdown = { cash: 0, mobile: 0, card: 0, credit: 0, total: 0 };
+  if (!o) return breakdown;
+
+  if (Array.isArray(o.payments) && o.payments.length > 0) {
+    o.payments.forEach((p) => {
+      const pAmt = Number(p.amount || 0);
+      const m = String(p.payment_method || "cash").toLowerCase();
+      breakdown.total += pAmt;
+      if (m === "card" || m === "pos" || m === "card_pos") breakdown.card += pAmt;
+      else if (
+        m === "mobile_money" || m === "telebirr" || m === "mobile" ||
+        m === "bank_transfer" || m === "transfer" || m === "cbe" ||
+        m === "cbebirr" || m.includes("transfer") || m.includes("telebirr") || m.includes("cbe")
+      ) breakdown.mobile += pAmt;
+      else if (m === "credit" || m === "vip" || m === "vip_credit") breakdown.credit += pAmt;
+      else breakdown.cash += pAmt;
+    });
+  } else {
+    const amt = Number(o.total || o.total_amount || 0);
+    breakdown.total = amt;
+    const method = String(o.payment_method || o.paymentMethod || "cash").toLowerCase();
+    if (method === "card" || method === "pos") breakdown.card = amt;
+    else if (
+      method === "mobile_money" || method === "telebirr" || method === "mobile" ||
+      method === "bank_transfer" || method === "transfer" || method === "cbe" ||
+      method.includes("transfer") || method.includes("telebirr")
+    ) breakdown.mobile = amt;
+    else if (method === "credit" || o.payment_status === "credit_approved") breakdown.credit = amt;
+    else breakdown.cash = amt;
+  }
+
+  return breakdown;
+};
+
 const resolvePaymentMethod = (o) => {
   if (!o) return "cash";
+  if (isSplitPayment(o)) return "split";
   const explicit = o.payment_method || o.paymentMethod;
   if (explicit && String(explicit).trim() !== "") return String(explicit).toLowerCase();
 
@@ -92,6 +138,7 @@ const isCreditPayment = (method, o) => {
 };
 
 const getPaymentLabel = (method, o) => {
+  if (method === "split" || isSplitPayment(o)) return "Split Tender";
   if (isMobilePayment(method)) {
     const m = String(method || "").toLowerCase();
     if (m.includes("telebirr")) return "Transfer (Telebirr)";
@@ -203,20 +250,19 @@ function FinanceSalesPage() {
       if (startDate && orderDate && orderDate < startDate) return false;
       if (endDate && orderDate && orderDate > endDate) return false;
 
-      // Payment Method Filter
-      const method = resolvePaymentMethod(o);
+      // Payment Method Filter (supports split & pure tenders)
+      const b = getOrderPaymentBreakdown(o);
       if (paymentFilter !== "all") {
         if (paymentFilter === "cash") {
-          const isCash = !isCardPayment(method) && !isMobilePayment(method) && !isCreditPayment(method, o);
-          if (!isCash) return false;
+          if (b.cash <= 0) return false;
         } else if (paymentFilter === "transfer" || paymentFilter === "mobile") {
-          if (!isMobilePayment(method)) return false;
+          if (b.mobile <= 0) return false;
         } else if (paymentFilter === "digital") {
-          if (!isCardPayment(method) && !isMobilePayment(method)) return false;
+          if (b.mobile <= 0 && b.card <= 0) return false;
         } else if (paymentFilter === "card") {
-          if (!isCardPayment(method)) return false;
+          if (b.card <= 0) return false;
         } else if (paymentFilter === "credit") {
-          if (!isCreditPayment(method, o)) return false;
+          if (b.credit <= 0) return false;
         }
       }
 
@@ -249,14 +295,29 @@ function FinanceSalesPage() {
     let creditSales = 0;
 
     filteredOrders.forEach((o) => {
-      const amt = Number(o.total || o.total_amount || 0);
-      totalRevenue += amt;
+      const b = getOrderPaymentBreakdown(o);
+      const orderTotal = Number(o.total || o.total_amount || b.total || 0);
 
-      const method = resolvePaymentMethod(o);
-      if (isCardPayment(method)) cardSales += amt;
-      else if (isMobilePayment(method)) mobileSales += amt;
-      else if (isCreditPayment(method, o)) creditSales += amt;
-      else cashSales += amt;
+      if (paymentFilter === "cash") {
+        totalRevenue += b.cash;
+        cashSales += b.cash;
+      } else if (paymentFilter === "transfer" || paymentFilter === "mobile") {
+        totalRevenue += b.mobile;
+        mobileSales += b.mobile;
+      } else if (paymentFilter === "card") {
+        totalRevenue += b.card;
+        cardSales += b.card;
+      } else if (paymentFilter === "credit") {
+        totalRevenue += b.credit;
+        creditSales += b.credit;
+      } else {
+        // "all" or "digital"
+        totalRevenue += orderTotal;
+        cashSales += b.cash;
+        mobileSales += b.mobile;
+        cardSales += b.card;
+        creditSales += b.credit;
+      }
     });
 
     const totalOrdersCount = filteredOrders.length;
@@ -594,28 +655,46 @@ function FinanceSalesPage() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex flex-col gap-1 items-start">
-                          <span
-                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${
-                              isCardPayment(method)
-                                ? "border-blue-200 bg-blue-50 text-blue-700"
-                                : isMobilePayment(method)
-                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                : isCreditPayment(method, order)
-                                ? "border-amber-200 bg-amber-50 text-amber-700"
-                                : "border-green-200 bg-green-50 text-green-700"
-                            }`}
-                          >
-                            {isCardPayment(method) ? (
-                              <CreditCard className="h-3 w-3" />
-                            ) : isMobilePayment(method) ? (
-                              <Smartphone className="h-3 w-3" />
-                            ) : isCreditPayment(method, order) ? (
-                              <Users className="h-3 w-3" />
-                            ) : (
-                              <DollarSign className="h-3 w-3" />
-                            )}
-                            {getPaymentLabel(method, order)}
-                          </span>
+                          {isSplitPayment(order) ? (
+                            <div className="flex flex-col gap-1 items-start">
+                              <span className="inline-flex items-center gap-1 rounded-full border border-purple-300 bg-purple-50 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-purple-800 shadow-2xs">
+                                <span>⚡ Split Settle</span>
+                              </span>
+                              {(() => {
+                                const ob = getOrderPaymentBreakdown(order);
+                                return (
+                                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200/90 px-2 py-0.5 rounded-md">
+                                    <span className="text-emerald-700">💵 {ob.cash.toLocaleString()}</span>
+                                    <span className="text-slate-300">+</span>
+                                    <span className="text-indigo-700">📲 {ob.mobile.toLocaleString()} ETB</span>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          ) : (
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${
+                                isCardPayment(method)
+                                  ? "border-blue-200 bg-blue-50 text-blue-700"
+                                  : isMobilePayment(method)
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  : isCreditPayment(method, order)
+                                  ? "border-amber-200 bg-amber-50 text-amber-700"
+                                  : "border-green-200 bg-green-50 text-green-700"
+                              }`}
+                            >
+                              {isCardPayment(method) ? (
+                                <CreditCard className="h-3 w-3" />
+                              ) : isMobilePayment(method) ? (
+                                <Smartphone className="h-3 w-3" />
+                              ) : isCreditPayment(method, order) ? (
+                                <Users className="h-3 w-3" />
+                              ) : (
+                                <DollarSign className="h-3 w-3" />
+                              )}
+                              {getPaymentLabel(method, order)}
+                            </span>
+                          )}
 
                           {hasPaymentProof(order) && (
                             <button
@@ -755,7 +834,9 @@ function FinanceSalesPage() {
                 <div>
                   <span className="text-slate-400 block">Payment Method:</span>
                   <span className="font-bold text-slate-800 uppercase">
-                    {getPaymentLabel(resolvePaymentMethod(selectedOrder), selectedOrder)}
+                    {isSplitPayment(selectedOrder)
+                      ? "⚡ Split (Cash + Transfer)"
+                      : getPaymentLabel(resolvePaymentMethod(selectedOrder), selectedOrder)}
                   </span>
                 </div>
                 <div>
@@ -787,6 +868,36 @@ function FinanceSalesPage() {
                   ))
                 )}
               </div>
+
+              {/* SPLIT TENDERS BREAKDOWN */}
+              {isSplitPayment(selectedOrder) && Array.isArray(selectedOrder.payments) && selectedOrder.payments.length > 0 && (
+                <div className="rounded-xl border border-purple-200 bg-purple-50/60 p-3 space-y-1.5">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-purple-900 border-b border-purple-200/80 pb-1">
+                    Split Tender Itemization
+                  </div>
+                  <div className="space-y-1">
+                    {selectedOrder.payments.map((p, idx) => {
+                      const pMeth = String(p.payment_method || "cash").toLowerCase();
+                      const isC = pMeth === "cash";
+                      return (
+                        <div key={idx} className="flex justify-between items-center text-xs">
+                          <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                            {isC ? "💵 Cash Tender:" : `📲 ${p.payment_method?.toUpperCase() || "Transfer"}:`}
+                            {p.reference && (
+                              <span className="text-[10px] text-slate-400 font-normal">
+                                ({p.reference})
+                              </span>
+                            )}
+                          </span>
+                          <span className="font-black text-slate-900">
+                            {Number(p.amount || 0).toLocaleString()} ETB
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Total Summary */}
               <div className="space-y-1.5 pt-1 text-slate-600">

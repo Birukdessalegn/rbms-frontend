@@ -594,6 +594,47 @@ function PaymentModal({
         ? remainingAmount
         : (total > 0 ? total : Number(order?.calculatedTotal || 0)));
 
+  // === SPLIT TENDER AUTO-BALANCING HELPERS ===
+  const handleSplitCashChange = (val) => {
+    setSplitCashAmount(val);
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0 && num <= payableAmount) {
+      setSplitTransferAmount((payableAmount - num).toFixed(2));
+    } else if (val === "") {
+      setSplitTransferAmount("");
+    }
+  };
+
+  const handleSplitTransferChange = (val) => {
+    setSplitTransferAmount(val);
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0 && num <= payableAmount) {
+      setSplitCashAmount((payableAmount - num).toFixed(2));
+    } else if (val === "") {
+      setSplitCashAmount("");
+    }
+  };
+
+  const handleQuickSplitHalf = () => {
+    const half = (payableAmount / 2).toFixed(2);
+    setSplitCashAmount(half);
+    setSplitTransferAmount((payableAmount - Number(half)).toFixed(2));
+  };
+
+  const handleQuickCashPreset = (cashAmt) => {
+    const capped = Math.min(cashAmt, payableAmount);
+    setSplitCashAmount(capped.toFixed(2));
+    setSplitTransferAmount(Math.max(0, payableAmount - capped).toFixed(2));
+  };
+
+  useEffect(() => {
+    if (paymentMethod === "split_tender" && payableAmount > 0 && !splitCashAmount && !splitTransferAmount) {
+      const half = (payableAmount / 2).toFixed(2);
+      setSplitCashAmount(half);
+      setSplitTransferAmount((payableAmount - Number(half)).toFixed(2));
+    }
+  }, [paymentMethod, payableAmount]);
+
   /* 
    * PAYMENT 
    */
